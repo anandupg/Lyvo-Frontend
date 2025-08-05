@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
-import { Menu, X, Utensils, Home, BarChart3, BookOpen, Plus, User, Scan, LogOut, Settings } from "lucide-react";
+import { Menu, X, Utensils, Home, BarChart3, BookOpen, Plus, User, Scan, LogOut, Settings, Info, Phone } from "lucide-react";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -105,6 +105,8 @@ const Navbar = () => {
 
   const navigation = [
     { name: "Home", href: "/", icon: Home },
+    { name: "About", href: "/about", icon: Info },
+    { name: "Contact", href: "/contact", icon: Phone },
     ...(isLoggedIn ? [
       { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
       { name: "Profile", href: "/profile", icon: User },

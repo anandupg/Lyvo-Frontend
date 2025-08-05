@@ -185,7 +185,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+        {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
@@ -309,13 +309,13 @@ const Dashboard = () => {
                     <div>
                       <p className="font-medium text-gray-900 text-sm">{payment.accommodation}</p>
                       <p className="text-xs text-gray-500">{payment.dueDate}</p>
-                    </div>
+                </div>
                     <p className="font-semibold text-red-600">{payment.amount}</p>
-                  </div>
+                </div>
                 ))}
               </div>
-            </div>
-
+              </div>
+              
             {/* Recent Activities */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>

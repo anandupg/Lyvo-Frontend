@@ -64,6 +64,14 @@ const Login = () => {
     loadGoogleScript();
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const user = localStorage.getItem('user');
+    if (token && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
   const handleGoogleSignIn = async (response) => {
     try {
       setGoogleLoading(true);
@@ -85,8 +93,12 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Navigate to dashboard
-      navigate('/dashboard');
+      // Role-based redirect
+      if (result.data.user && result.data.user.role === 2) {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
       
     } catch (err) {
       setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
@@ -116,7 +128,12 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      navigate('/dashboard');
+      // Role-based redirect
+      if (response.data.user && response.data.user.role === 2) {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');
     } finally {
