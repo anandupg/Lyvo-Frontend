@@ -135,7 +135,7 @@ const Home = () => {
                 transition={{ duration: 3, repeat: Infinity }}
                 className="mr-4"
               >
-                <Sparkles className="w-10 h-10 text-red-500" />
+                
               </motion.div>
               <span className="text-lg font-semibold text-gray-600 font-medium">Welcome to Modern Co-Living</span>
             </div>

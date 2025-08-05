@@ -223,10 +223,16 @@ const Navbar = () => {
                  <Link to="/login" className="px-4 py-2 text-gray-700 hover:text-red-600 transition-colors duration-200 font-medium">
                    Sign In
                  </Link>
-                 <Link to="/signup" className="relative px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-                   <span className="relative z-10">Get Started</span>
-                   <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
-                 </Link>
+                 <div className="flex items-center space-x-2">
+                   <Link to="/signup" className="relative px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                     <span className="relative z-10">Get Started</span>
+                     <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                   </Link>
+                   <Link to="/room-owner-signup" className="relative px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                     <span className="relative z-10">List Property</span>
+                     <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                   </Link>
+                 </div>
                </>
              ) : (
                <div className="relative user-dropdown">
@@ -389,6 +395,15 @@ const Navbar = () => {
                         className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg"
                       >
                         <span className="text-base">Get Started</span>
+                      </Link>
+                    </motion.div>
+                    <motion.div variants={menuItemVariants}>
+                      <Link 
+                        to="/room-owner-signup" 
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg"
+                      >
+                        <span className="text-base">List Property</span>
                       </Link>
                     </motion.div>
                   </div>
