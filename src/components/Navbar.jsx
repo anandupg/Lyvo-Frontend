@@ -333,7 +333,12 @@ const Navbar = () => {
             animate="open"
             exit="closed"
             className="lg:hidden fixed inset-0 bg-black/20 z-40"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setIsOpen(false);
+              setTimeout(() => {
+                document.body.style.overflow = 'unset';
+              }, 300);
+            }}
           />
         )}
       </AnimatePresence>
@@ -358,18 +363,24 @@ const Navbar = () => {
                     variants={menuItemVariants}
                     custom={index}
                   >
-                                         <Link 
-                       to={item.href} 
-                       onClick={() => setIsOpen(false)}
-                       className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                         isActive 
-                           ? 'bg-red-50 text-red-600 border-l-4 border-red-600' 
-                           : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
-                       }`}
-                     >
-                       <Icon className={`h-5 w-5 ${isActive ? 'text-red-600' : ''}`} />
-                       <span className="text-base">{item.name}</span>
-                     </Link>
+                    <Link 
+                      to={item.href} 
+                      onClick={() => {
+                        setIsOpen(false);
+                        // Force close menu and ensure navigation works
+                        setTimeout(() => {
+                          document.body.style.overflow = 'unset';
+                        }, 300);
+                      }}
+                      className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                        isActive 
+                          ? 'bg-red-50 text-red-600 border-l-4 border-red-600' 
+                          : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${isActive ? 'text-red-600' : ''}`} />
+                      <span className="text-base">{item.name}</span>
+                    </Link>
                   </motion.div>
                 );
               })}
@@ -383,7 +394,12 @@ const Navbar = () => {
                     <motion.div variants={menuItemVariants}>
                       <Link 
                         to="/login" 
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => {
+                          setIsOpen(false);
+                          setTimeout(() => {
+                            document.body.style.overflow = 'unset';
+                          }, 300);
+                        }}
                         className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 font-medium"
                       >
                         <User className="h-5 w-5" />
@@ -393,7 +409,12 @@ const Navbar = () => {
                     <motion.div variants={menuItemVariants}>
                       <Link 
                         to="/signup" 
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => {
+                          setIsOpen(false);
+                          setTimeout(() => {
+                            document.body.style.overflow = 'unset';
+                          }, 300);
+                        }}
                         className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg"
                       >
                         <span className="text-base">Get Started</span>
@@ -402,7 +423,12 @@ const Navbar = () => {
                     <motion.div variants={menuItemVariants}>
                       <Link 
                         to="/room-owner-signup" 
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => {
+                          setIsOpen(false);
+                          setTimeout(() => {
+                            document.body.style.overflow = 'unset';
+                          }, 300);
+                        }}
                         className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg"
                       >
                         <span className="text-base">List Property</span>
@@ -431,7 +457,12 @@ const Navbar = () => {
                     <motion.div variants={menuItemVariants}>
                       <Link
                         to="/profile"
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => {
+                          setIsOpen(false);
+                          setTimeout(() => {
+                            document.body.style.overflow = 'unset';
+                          }, 300);
+                        }}
                         className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 font-medium"
                       >
                         <User className="w-5 h-5" />
@@ -440,7 +471,13 @@ const Navbar = () => {
                     </motion.div>
                     <motion.div variants={menuItemVariants}>
                       <button
-                        onClick={() => { setIsOpen(false); handleLogout(); }}
+                        onClick={() => { 
+                          setIsOpen(false); 
+                          setTimeout(() => {
+                            document.body.style.overflow = 'unset';
+                            handleLogout();
+                          }, 300);
+                        }}
                         className="flex items-center space-x-3 px-4 py-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-200 font-medium w-full text-left"
                       >
                         <LogOut className="w-5 h-5" />

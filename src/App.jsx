@@ -19,7 +19,7 @@ import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import DebugLogout from "./pages/DebugLogout";
 import Loader from "./components/Loader";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function AppRoutesWithLoader() {
   const location = useLocation();
