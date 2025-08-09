@@ -17,46 +17,39 @@ const VerifyEmail = () => {
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get('token');
-      
       if (!token) {
         setStatus('error');
         setMessage('Invalid verification link. Please check your email and try again.');
         return;
       }
-
       if (isVerifying) return;
       setIsVerifying(true);
 
       try {
         const response = await axios.get(`${API_URL}/verify-email/${token}`);
-        
-        if (response.data.success !== false) {
+        if (response.status === 200 && response.data.user && response.data.token) {
           setStatus('success');
           setMessage(response.data.message || 'Email verified successfully!');
           setUser(response.data.user);
-          
-          // Store user data and token for automatic login
-          if (response.data.token) {
-            localStorage.setItem('authToken', response.data.token);
-          }
-          if (response.data.user) {
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-          }
-          
-          // Dispatch login event to update navbar
+          localStorage.setItem('authToken', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
           window.dispatchEvent(new Event('lyvo-login'));
-          
-          // Redirect to dashboard after 3 seconds
           setTimeout(() => {
-            navigate('/dashboard');
+            // Redirect based on role
+            if (response.data.user.role === 2) {
+              navigate('/admin-dashboard');
+            } else if (response.data.user.role === 3) {
+              navigate('/room-owner-dashboard');
+            } else {
+              navigate('/dashboard');
+            }
           }, 3000);
+          return; // Prevents any further code from running
         } else {
           setStatus('error');
           setMessage(response.data.message || 'Verification failed. Please try again.');
         }
-        
       } catch (error) {
-        console.error('Verification error:', error);
         setStatus('error');
         if (error.response?.status === 400) {
           setMessage(error.response.data.message || 'Invalid or expired verification token.');
@@ -71,7 +64,9 @@ const VerifyEmail = () => {
     };
 
     verifyEmail();
-  }, [searchParams, navigate, isVerifying]);
+    // Only run once on mount
+    // eslint-disable-next-line
+  }, []);
 
   const getStatusContent = () => {
     switch (status) {

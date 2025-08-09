@@ -200,7 +200,7 @@ const Chatbot = () => {
     <>
              {/* Chatbot Toggle Button */}
       <motion.div
-         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50"
+         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30"
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ 
@@ -212,7 +212,7 @@ const Chatbot = () => {
       >
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
-           className="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-white border-2 border-white/20"
+           className="relative w-16 h-16 sm:w-16 sm:h-16 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-white border-2 border-white/20"
            whileHover={{ scale: 1.1, rotate: 5 }}
            whileTap={{ scale: 0.9, rotate: -5 }}
         >
@@ -225,7 +225,7 @@ const Chatbot = () => {
                 exit={{ rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                                 <X className="w-6 h-6 sm:w-7 sm:h-7" />
+                                 <X className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.div>
             ) : (
               <motion.div
@@ -235,7 +235,7 @@ const Chatbot = () => {
                 exit={{ rotate: -90, opacity: 0 }}
                  transition={{ duration: 0.3 }}
               >
-                 <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+                 <MessageCircle className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -264,30 +264,30 @@ const Chatbot = () => {
              animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
              exit={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                           className="fixed bottom-20 right-4 left-4 sm:bottom-28 sm:right-6 sm:left-auto z-40 w-auto sm:w-[380px] h-[480px] sm:h-[500px] bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden backdrop-blur-sm"
+                           className="fixed bottom-24 right-4 z-20 w-[320px] h-[500px] sm:bottom-32 sm:right-20 bg-gradient-to-br from-white to-gray-50 rounded-[2rem] shadow-2xl border border-gray-200/50 backdrop-blur-sm flex flex-col"
              style={{
                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
              }}
            >
                          {/* Header */}
-             <div className="relative bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white p-4 sm:p-6">
+             <div className="relative bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white p-3 rounded-t-[2rem]">
                {/* Background pattern */}
                <div className="absolute inset-0 opacity-10">
-                 <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
-                 <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-white rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
+                 <div className="absolute top-0 right-0 w-20 h-20 bg-white rounded-full -mr-10 -mt-10"></div>
+                 <div className="absolute bottom-0 left-0 w-12 h-12 bg-white rounded-full -ml-6 -mb-6"></div>
                </div>
                
-               <div className="relative flex items-center space-x-3 sm:space-x-4">
+               <div className="relative flex items-center space-x-2">
                  <div className="relative">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30">
-                     <Home className="w-5 h-5 sm:w-6 sm:h-6" />
+                   <div className="w-9 h-9 sm:w-8 sm:h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/30">
+                     <Home className="w-5 h-5 sm:w-4 sm:h-4" />
                    </div>
-                   <div className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-2.5 sm:h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                  </div>
                  <div className="flex-1">
-                   <h3 className="font-bold text-base sm:text-lg">Lyvo+ Assistant</h3>
-                   <p className="text-xs sm:text-sm text-red-100 flex items-center space-x-2">
-                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"></div>
+                   <h3 className="font-bold text-base sm:text-sm">Lyvo+ Assistant</h3>
+                   <p className="text-sm sm:text-xs text-red-100 flex items-center space-x-1">
+                     <div className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-green-400 rounded-full animate-pulse"></div>
                      <span>Online • Ready to help</span>
                    </p>
                  </div>
@@ -296,9 +296,9 @@ const Chatbot = () => {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setShowMenu(!showMenu)}
-                      className="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors duration-200 backdrop-blur-sm"
+                      className="w-7 h-7 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors duration-200 backdrop-blur-sm"
                     >
-                      <MoreVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <MoreVertical className="w-4 h-4 sm:w-3 sm:h-3" />
                     </motion.button>
                     
                     {/* Menu Dropdown */}
@@ -308,7 +308,7 @@ const Chatbot = () => {
                           initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                          className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50"
+                          className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-30"
                         >
                           <div className="p-1">
                             <motion.button
@@ -329,15 +329,15 @@ const Chatbot = () => {
                     whileHover={{ scale: 1.1, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setIsOpen(false)}
-                    className="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors duration-200 backdrop-blur-sm"
+                    className="w-7 h-7 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors duration-200 backdrop-blur-sm"
                   >
-                    <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <X className="w-4 h-4 sm:w-3 sm:h-3" />
                   </motion.button>
               </div>
             </div>
 
                          {/* Messages */}
-             <div className="h-[280px] sm:h-[320px] overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4 bg-gradient-to-b from-gray-50/50 to-white/50">
+             <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gradient-to-b from-gray-50/50 to-white/50">
               {messages.map((message) => (
                 <motion.div
                   key={message.id}
@@ -347,7 +347,7 @@ const Chatbot = () => {
                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                     className={`max-w-[90%] sm:max-w-[85%] p-3 sm:p-4 rounded-2xl shadow-sm ${
+                     className={`max-w-[88%] p-3 sm:p-2.5 rounded-xl shadow-sm ${
                        message.type === 'user'
                          ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg'
                          : 'bg-white text-gray-800 border border-gray-100 shadow-md'
@@ -358,8 +358,8 @@ const Chatbot = () => {
                          : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                      }}
                    >
-                     <p className="text-xs sm:text-sm leading-relaxed">{message.content}</p>
-                     <p className={`text-xs mt-2 flex items-center space-x-1 ${
+                     <p className="text-sm sm:text-xs leading-relaxed">{message.content}</p>
+                     <p className={`text-xs mt-1.5 flex items-center space-x-1 ${
                        message.type === 'user' ? 'text-red-100' : 'text-gray-400'
                      }`}>
                        <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -381,29 +381,29 @@ const Chatbot = () => {
                    animate={{ opacity: 1, scale: 1 }}
                   className="flex justify-start"
                 >
-                   <div className="bg-white border border-gray-100 p-3 sm:p-4 rounded-2xl shadow-md">
+                   <div className="bg-white border border-gray-100 p-3 sm:p-2.5 rounded-xl shadow-md">
                      <div className="flex items-center space-x-2">
-                       <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-100 rounded-full flex items-center justify-center">
-                         <Home className="w-3 h-3 sm:w-4 sm:h-4 text-red-500" />
+                       <div className="w-6 h-6 sm:w-5 sm:h-5 bg-red-100 rounded-full flex items-center justify-center">
+                         <Home className="w-3 h-3 sm:w-2.5 sm:h-2.5 text-red-500" />
                        </div>
                     <div className="flex space-x-1">
                       <motion.div
-                           className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 rounded-full"
+                           className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-red-400 rounded-full"
                            animate={{ scale: [1, 1.3, 1] }}
                         transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
                       />
                       <motion.div
-                           className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 rounded-full"
+                           className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-red-400 rounded-full"
                            animate={{ scale: [1, 1.3, 1] }}
                         transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
                       />
                       <motion.div
-                           className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 rounded-full"
+                           className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-red-400 rounded-full"
                            animate={{ scale: [1, 1.3, 1] }}
                         transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
                       />
                        </div>
-                       <span className="text-xs text-gray-500 ml-2">Lyvo+ is typing...</span>
+                       <span className="text-sm sm:text-xs text-gray-500 ml-1">Lyvo+ is typing...</span>
                     </div>
                   </div>
                 </motion.div>
@@ -414,16 +414,16 @@ const Chatbot = () => {
 
                          {/* Quick Replies */}
              {messages.length === 1 && (
-               <div className="px-4 sm:px-6 pb-2 sm:pb-3">
-                 <p className="text-xs text-gray-500 mb-2 sm:mb-3 font-medium">Quick questions:</p>
-                 <div className="flex flex-wrap gap-1.5 sm:gap-2">
+               <div className="px-3 pb-2">
+                 <p className="text-xs text-gray-500 mb-2 font-medium">Quick questions:</p>
+                 <div className="flex flex-wrap gap-1.5">
                    {quickReplies.slice(0, 4).map((reply, index) => (
                      <motion.button
                        key={index}
                        onClick={() => handleQuickReply(reply.text)}
                        whileHover={{ scale: 1.05 }}
                        whileTap={{ scale: 0.95 }}
-                       className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 text-xs rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                       className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-white border border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 text-sm sm:text-xs rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                      >
                        {reply.text}
                      </motion.button>
@@ -433,8 +433,8 @@ const Chatbot = () => {
              )}
 
                          {/* Input */}
-             <div className="p-3 sm:p-4 border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
-               <div className="flex space-x-2 sm:space-x-3">
+             <div className="flex-shrink-0 px-3 pt-4 pb-5 border-t border-gray-200 bg-white shadow-sm rounded-b-[2rem]">
+               <div className="flex space-x-2 mb-2">
                  <div className="flex-1 relative">
                 <input
                   type="text"
@@ -442,10 +442,10 @@ const Chatbot = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
                      placeholder="Ask about rooms, pricing, amenities..."
-                     className="w-full px-3 py-2 sm:px-4 sm:py-2.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-xs sm:text-sm bg-white shadow-sm hover:shadow-md transition-all duration-200"
+                     className="w-full px-4 py-2.5 sm:px-3 sm:py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm sm:text-xs bg-white shadow-sm hover:shadow-md transition-all duration-200"
                    />
-                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                     <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                   <div className="absolute right-3 sm:right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400">
+                     <MessageCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                    </div>
                  </div>
                 <motion.button
@@ -453,12 +453,12 @@ const Chatbot = () => {
                   disabled={!inputValue.trim()}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                   className="px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center"
+                   className="px-4 py-2.5 sm:px-3 sm:py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center"
                 >
-                   <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                   <Send className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </motion.button>
               </div>
-               <p className="text-xs text-gray-400 mt-1.5 text-center">
+               <p className="text-xs text-gray-400 text-center">
                  Press Enter to send • Available 24/7
                </p>
             </div>
@@ -473,7 +473,7 @@ const Chatbot = () => {
              initial={{ opacity: 0 }}
              animate={{ opacity: 1 }}
              exit={{ opacity: 0 }}
-             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-60 flex items-center justify-center p-4"
              onClick={handleCloseMenu}
            >
              <motion.div

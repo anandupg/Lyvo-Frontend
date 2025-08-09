@@ -20,6 +20,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import DebugLogout from "./pages/DebugLogout";
 import Loader from "./components/Loader";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
 
 function AppRoutesWithLoader() {
   const location = useLocation();
@@ -47,6 +48,7 @@ function AppRoutesWithLoader() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/debug-logout" element={<DebugLogout />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/room-owner-dashboard" element={<RoomOwnerDashboard />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />

@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#8B5CF6"/>
+  
+  <!-- House outline -->
+  <path d="M8 20V12L16 6L24 12V20H20V16H12V20H8Z" stroke="white" stroke-width="2" fill="none"/>
+  
+  <!-- Door -->
+  <rect x="14" y="16" width="4" height="4" fill="white"/>
+  
+  <!-- Location pin -->
+  <circle cx="16" cy="10" r="1" fill="white"/>
+</svg> 

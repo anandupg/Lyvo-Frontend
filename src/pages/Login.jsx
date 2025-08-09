@@ -96,6 +96,8 @@ const Login = () => {
       // Role-based redirect
       if (result.data.user && result.data.user.role === 2) {
         navigate('/admin-dashboard');
+      } else if (result.data.user && result.data.user.role === 3) {
+        navigate('/room-owner-dashboard');
       } else {
         navigate('/dashboard');
       }
@@ -131,6 +133,8 @@ const Login = () => {
       // Role-based redirect
       if (response.data.user && response.data.user.role === 2) {
         navigate('/admin-dashboard');
+      } else if (response.data.user && response.data.user.role === 3) {
+        navigate('/room-owner-dashboard');
       } else {
         navigate('/dashboard');
       }

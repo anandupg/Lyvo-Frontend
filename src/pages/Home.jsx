@@ -129,52 +129,196 @@ const Home = () => {
       <section className="relative bg-gradient-to-br from-gray-50 to-white py-20 px-4 sm:px-6 lg:px-8 pt-24 lg:pt-28">
         <div className="max-w-4xl mx-auto text-center">
           <ScrollReveal direction="up" delay={0.2}>
-            <div className="flex items-center justify-center mb-8">
+            <div className="flex flex-col items-center justify-center mb-8">
+
+
+              {/* Clean Brand Logo */}
               <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="mr-4"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+                className="text-center mb-8"
               >
-                
-              </motion.div>
-              <span className="text-lg font-semibold text-gray-600 font-medium">Welcome to Modern Co-Living</span>
-            </div>
-            
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Find Your Perfect{' '}
-              <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-                Co-Living Space
-              </span>
-            </h1>
-            
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Connect with like-minded roommates and discover verified PG accommodations near you. 
-              Smart matching, transparent pricing, hassle-free living.
-            </p>
-            
-            {/* Search Bar */}
-            <div className="max-w-2xl mx-auto">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <input
-                    type="text"
-                    placeholder="Enter your preferred location..."
-                    value={searchLocation}
-                    onChange={(e) => setSearchLocation(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 placeholder-gray-500"
-                  />
-                </div>
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-red-500 to-red-600 text-white px-8 py-4 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
+                {/* Main Logo */}
+                <h1 className="text-6xl md:text-8xl font-black mb-4 relative">
+                  {/* Background highlight effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-100 via-yellow-100 to-red-100 rounded-2xl transform -skew-x-12 scale-110 opacity-60 -z-10"></div>
+                  
+                  {/* Lyvo+ as single word with unique styling */}
+                  <span className="relative">
+                    <span className="text-red-500 drop-shadow-lg">Lyvo</span>
+                    <span className="text-gray-900 drop-shadow-lg relative">
+                      +
+                      {/* Accent dot above + */}
+                      <div className="absolute -top-2 -right-1 w-3 h-3 bg-yellow-400 rounded-full shadow-sm"></div>
+                    </span>
+                  </span>
+                  
+                  {/* Unique accent elements */}
+                  <div className="absolute -top-4 -right-4 w-4 h-4 bg-gradient-to-br from-red-400 to-orange-400 rounded-full shadow-lg"></div>
+                  <div className="absolute -bottom-4 -left-4 w-3 h-3 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full shadow-lg"></div>
+                </h1>
+
+                {/* Subtitle */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.0, duration: 0.8 }}
+                  className="mt-4"
                 >
-                  <Search className="h-5 w-5" />
-                  <span>Find Rooms</span>
-                </motion.button>
-              </div>
+                  <p className="text-lg text-gray-600 font-medium tracking-wide">
+                    <span className="text-red-500">[</span>
+                    <span className="mx-2">NEXT-GEN LIVING PLATFORM</span>
+                    <span className="text-red-500">]</span>
+                  </p>
+                </motion.div>
+              </motion.div>
+
+              {/* Welcome Text with Different Animation */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.7, duration: 0.8 }}
+                className="relative"
+              >
+                {/* Floating particles animation */}
+                <div className="absolute inset-0 -z-10">
+                  {[...Array(6)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 bg-gradient-to-r from-red-400 to-orange-400 rounded-full opacity-60"
+                      animate={{
+                        x: [0, 30, -20, 40, 0],
+                        y: [0, -40, 20, -30, 0],
+                        scale: [1, 1.5, 0.8, 1.2, 1],
+                        opacity: [0.6, 1, 0.4, 0.8, 0.6]
+                      }}
+                      transition={{
+                        duration: 4 + i * 0.5,
+                        repeat: Infinity,
+                        delay: i * 0.3,
+                        ease: "easeInOut"
+                      }}
+                      style={{
+                        left: `${20 + i * 15}%`,
+                        top: `${10 + (i % 3) * 20}%`
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Typewriter effect text */}
+              <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: "auto" }}
+                  transition={{ delay: 0.8, duration: 1.5, ease: "easeOut" }}
+                  className="overflow-hidden whitespace-nowrap mx-auto text-center"
+                >
+                  <motion.span
+                    className="text-xl font-semibold bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent"
+                    animate={{
+                      backgroundPosition: ["0%", "100%", "0%"]
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "linear"
+                    }}
+                    style={{
+                      backgroundSize: "200% 100%"
+                    }}
+                  >
+                    Discover Your Perfect Living Experience
+                  </motion.span>
+                </motion.div>
+
+                {/* Pulsing dots */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 2.3, duration: 0.5 }}
+                  className="flex justify-center space-x-1 mt-2"
+                >
+                  {[...Array(3)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1.5 h-1.5 bg-red-500 rounded-full"
+                      animate={{
+                        scale: [1, 1.5, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        delay: i * 0.2
+                      }}
+                    />
+                  ))}
+                </motion.div>
+                
+                {/* Search Input Box and Button - Same line */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 2.5, duration: 0.8 }}
+                  className="max-w-4xl mx-auto mt-8"
+                >
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Input Box */}
+                    <div className="flex-1 relative">
+                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <input
+                        type="text"
+                        placeholder="Enter your preferred location..."
+                        value={searchLocation}
+                        onChange={(e) => setSearchLocation(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      />
+                    </div>
+                    
+                    {/* Button */}
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="bg-gradient-to-r from-red-500 to-red-600 text-white px-8 py-4 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
+                    >
+                      <Search className="h-5 w-5" />
+                      <span>Find Rooms</span>
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
             </div>
+            
+            <motion.h2
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 0.8 }}
+              className="text-3xl md:text-5xl font-bold text-gray-900 mb-6"
+            >
+              Find Your Perfect{' '}
+              <motion.span
+                animate={{
+                  backgroundPosition: ["0%", "100%", "0%"]
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="bg-gradient-to-r from-red-500 via-red-600 to-orange-500 bg-clip-text text-transparent bg-[length:200%_100%]"
+              >
+                Co-Living Space
+              </motion.span>
+            </motion.h2>
+            
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1, duration: 0.8 }}
+              className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed"
+            >
+              Connect with like-minded roommates and discover verified PG accommodations near you. 
+              <span className="text-red-600 font-medium"> Smart matching</span>, 
+              <span className="text-orange-600 font-medium"> transparent pricing</span>, 
+              <span className="text-yellow-600 font-medium"> hassle-free living</span>.
+            </motion.p>
           </ScrollReveal>
         </div>
       </section>
