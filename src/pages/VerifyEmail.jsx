@@ -13,6 +13,7 @@ const VerifyEmail = () => {
   const [message, setMessage] = useState('');
   const [user, setUser] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -24,39 +25,119 @@ const VerifyEmail = () => {
       }
       if (isVerifying) return;
       setIsVerifying(true);
+      setHasAttemptedVerification(true);
 
       try {
-        const response = await axios.get(`${API_URL}/verify-email/${token}`);
-        if (response.status === 200 && response.data.user && response.data.token) {
-          setStatus('success');
-          setMessage(response.data.message || 'Email verified successfully!');
-          setUser(response.data.user);
-          localStorage.setItem('authToken', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          window.dispatchEvent(new Event('lyvo-login'));
-          setTimeout(() => {
-            // Redirect based on role
-            if (response.data.user.role === 2) {
-              navigate('/admin-dashboard');
-            } else if (response.data.user.role === 3) {
-              navigate('/room-owner-dashboard');
-            } else {
-              navigate('/dashboard');
-            }
-          }, 3000);
-          return; // Prevents any further code from running
+        console.log('Verifying email with token:', token);
+        const response = await axios.get(`${API_URL}/verify-email/${token}`, {
+          timeout: 10000 // 10 second timeout
+        });
+        console.log('Verification response:', response);
+        
+        // Check if the response is successful (status 200-299)
+        if (response.status >= 200 && response.status < 300) {
+          // Check if we have the required data
+          if (response.data && response.data.user && response.data.token) {
+            console.log('Verification successful, setting success state');
+            setStatus('success');
+            setMessage(response.data.message || 'Email verified successfully!');
+            setUser(response.data.user);
+            
+            // Store authentication data
+            localStorage.setItem('authToken', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+            
+            // Dispatch login event
+            window.dispatchEvent(new Event('lyvo-login'));
+            
+            // Redirect after a delay
+            setTimeout(() => {
+              if (response.data.user.role === 2) {
+                navigate('/admin-dashboard');
+              } else if (response.data.user.role === 3) {
+                navigate('/owner-dashboard');
+              } else {
+                navigate('/dashboard');
+              }
+            }, 3000);
+          } else {
+            // Response is successful but missing required data
+            console.error('Verification response missing required data:', response.data);
+            setStatus('error');
+            setMessage('Verification completed but there was an issue with the response. Please try logging in.');
+          }
         } else {
+          // Non-successful status code
+          console.error('Non-successful status code:', response.status);
           setStatus('error');
-          setMessage(response.data.message || 'Verification failed. Please try again.');
+          setMessage(response.data?.message || 'Verification failed. Please try again.');
         }
       } catch (error) {
-        setStatus('error');
-        if (error.response?.status === 400) {
-          setMessage(error.response.data.message || 'Invalid or expired verification token.');
-        } else if (error.response?.status === 500) {
-          setMessage('Server error. Please try again later.');
-        } else {
-          setMessage('Verification failed. Please check your internet connection and try again.');
+        console.error('Verification error:', error);
+        
+        // Don't set error status immediately for network issues
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+          console.log('Request timeout, retrying...');
+          // Retry once after a short delay
+          setTimeout(async () => {
+            try {
+              const retryResponse = await axios.get(`${API_URL}/verify-email/${token}`, {
+                timeout: 15000
+              });
+              console.log('Retry response:', retryResponse);
+              
+              if (retryResponse.status >= 200 && retryResponse.status < 300 && 
+                  retryResponse.data && retryResponse.data.user && retryResponse.data.token) {
+                setStatus('success');
+                setMessage(retryResponse.data.message || 'Email verified successfully!');
+                setUser(retryResponse.data.user);
+                
+                localStorage.setItem('authToken', retryResponse.data.token);
+                localStorage.setItem('user', JSON.stringify(retryResponse.data.user));
+                window.dispatchEvent(new Event('lyvo-login'));
+                
+                setTimeout(() => {
+                  if (retryResponse.data.user.role === 2) {
+                    navigate('/admin-dashboard');
+                  } else if (retryResponse.data.user.role === 3) {
+                    navigate('/owner-dashboard');
+                  } else {
+                    navigate('/dashboard');
+                  }
+                }, 3000);
+              } else {
+                setStatus('error');
+                setMessage('Verification failed after retry. Please try again.');
+              }
+            } catch (retryError) {
+              console.error('Retry failed:', retryError);
+              setStatus('error');
+              setMessage('Verification failed. Please try again.');
+            }
+          }, 2000);
+          return;
+        }
+        
+        // Only set error status if we haven't already succeeded
+        if (status !== 'success') {
+          setStatus('error');
+          
+          if (error.response) {
+            // Server responded with error status
+            if (error.response.status === 400) {
+              setMessage(error.response.data?.message || 'Invalid or expired verification token.');
+            } else if (error.response.status === 500) {
+              setMessage('Server error. Please try again later.');
+            } else {
+              setMessage(error.response.data?.message || 'Verification failed. Please try again.');
+            }
+          } else if (error.request) {
+            // Network error
+            setMessage('Network error. Please check your internet connection and try again.');
+          } else {
+            // Other error
+            setMessage('Verification failed. Please try again.');
+          }
         }
       } finally {
         setIsVerifying(false);
@@ -163,12 +244,18 @@ const VerifyEmail = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6"
               >
+                <div className="flex items-center space-x-3 mb-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-sm font-semibold text-green-700">
+                    Email Verified Successfully!
+                  </p>
+                </div>
                 <p className="text-sm text-green-700">
                   Welcome, <span className="font-semibold">{user.name}</span>! 
                   You're now part of the Lyvo+ community.
                 </p>
                 <p className="text-xs text-green-600 mt-2">
-                  Redirecting to your dashboard...
+                  You have been automatically logged in and will be redirected to your dashboard shortly...
                 </p>
               </motion.div>
             )}
@@ -179,6 +266,18 @@ const VerifyEmail = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <XCircle className="w-5 h-5 text-red-600" />
+                    <p className="text-sm font-semibold text-red-700">
+                      Verification Issue
+                    </p>
+                  </div>
+                  <p className="text-sm text-red-700">
+                    {message}
+                  </p>
+                </div>
+                
                 <button
                   onClick={() => window.location.reload()}
                   className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"

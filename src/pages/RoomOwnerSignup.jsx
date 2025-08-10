@@ -198,8 +198,12 @@ const RoomOwnerSignup = () => {
             <div className="flex justify-center mb-6">
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-xl">L</span>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+                    <img 
+                      src="/Lyvo_no_bg.png" 
+                      alt="Lyvo Logo" 
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                 </div>

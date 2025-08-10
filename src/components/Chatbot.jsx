@@ -279,8 +279,12 @@ const Chatbot = () => {
                
                <div className="relative flex items-center space-x-2">
                  <div className="relative">
-                   <div className="w-9 h-9 sm:w-8 sm:h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/30">
-                     <Home className="w-5 h-5 sm:w-4 sm:h-4" />
+                   <div className="w-9 h-9 sm:w-8 sm:h-8 bg-white rounded-xl flex items-center justify-center shadow-sm border border-white/30 overflow-hidden">
+                     <img 
+                       src="/Lyvo_no_bg.png" 
+                       alt="Lyvo Logo" 
+                       className="w-5 h-5 sm:w-4 sm:h-4 object-contain"
+                     />
                    </div>
                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-2.5 sm:h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                  </div>

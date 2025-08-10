@@ -131,10 +131,14 @@ const Navbar = () => {
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="relative">
-                <div className={`w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 ${
+                <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 overflow-hidden ${
                   location.pathname === '/' ? 'shadow-[0_0_20px_rgba(239,68,68,0.4)]' : ''
                 }`}>
-                  <span className="text-white font-bold text-lg lg:text-xl">L</span>
+                  <img 
+                    src="/Lyvo_no_bg.png" 
+                    alt="Lyvo Logo" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
               </div>
@@ -293,7 +297,19 @@ const Navbar = () => {
       >
         {/* Mobile Menu Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-md">
+              <img 
+                src="/Lyvo_no_bg.png" 
+                alt="Lyvo Logo" 
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg font-bold text-gray-900">Lyvo+</span>
+              <span className="text-xs text-gray-500 font-medium">Co-Living Platform</span>
+            </div>
+          </div>
           <button
             onClick={closeMobileMenu}
             className="p-2 text-gray-500 hover:text-red-600 transition-colors duration-200 rounded-lg hover:bg-red-50"

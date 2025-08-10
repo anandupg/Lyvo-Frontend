@@ -39,10 +39,17 @@ const Footer = () => {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">L</span>
+                             <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg overflow-hidden">
+                 <img 
+                   src="/Lyvo_no_bg.png" 
+                   alt="Lyvo Logo" 
+                   className="w-full h-full object-contain"
+                 />
+               </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold">Lyvo+</span>
+                <span className="text-xs text-gray-400 font-medium">Co-Living Platform</span>
               </div>
-              <span className="text-xl font-bold">Lyvo+</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
               Empowering communities through innovative co-living solutions. 

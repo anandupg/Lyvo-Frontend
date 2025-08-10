@@ -97,7 +97,7 @@ const Login = () => {
       if (result.data.user && result.data.user.role === 2) {
         navigate('/admin-dashboard');
       } else if (result.data.user && result.data.user.role === 3) {
-        navigate('/room-owner-dashboard');
+        navigate('/owner-dashboard');
       } else {
         navigate('/dashboard');
       }
@@ -134,7 +134,7 @@ const Login = () => {
       if (response.data.user && response.data.user.role === 2) {
         navigate('/admin-dashboard');
       } else if (response.data.user && response.data.user.role === 3) {
-        navigate('/room-owner-dashboard');
+        navigate('/owner-dashboard');
       } else {
         navigate('/dashboard');
       }
@@ -159,8 +159,12 @@ const Login = () => {
             <div className="flex justify-center mb-6">
               <div className="flex items-center space-x-3 group">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300">
-                    <span className="text-white font-bold text-xl">L</span>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 overflow-hidden">
+                    <img 
+                      src="/Lyvo_no_bg.png" 
+                      alt="Lyvo Logo" 
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                 </div>
