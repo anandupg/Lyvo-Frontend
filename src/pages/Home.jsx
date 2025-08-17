@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { 
@@ -23,6 +23,71 @@ import ScrollReveal from "../components/ScrollReveal";
 
 const Home = () => {
   const [searchLocation, setSearchLocation] = useState('');
+
+  // Handle search functionality
+  const handleSearch = () => {
+    if (searchLocation.trim()) {
+      console.log('Searching for:', searchLocation);
+      // Add your search logic here
+      // For example: navigate to search results page, filter data, etc.
+    }
+  };
+
+  // Handle current location functionality
+  const handleCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          console.log('Current location:', { latitude, longitude });
+          
+          // You can use these coordinates to get the address
+          // For now, we'll set a placeholder text
+          setSearchLocation(`Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+          
+          // You can add reverse geocoding here to get the actual address
+          // Example: fetch(`https://api.example.com/reverse-geocode?lat=${latitude}&lng=${longitude}`)
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          alert('Unable to get your current location. Please check your location permissions.');
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by this browser.');
+    }
+  };
+
+  // Check authentication and redirect if user is logged in
+  useEffect(() => {
+    const checkAuthAndRedirect = () => {
+      const token = localStorage.getItem('authToken');
+      const user = localStorage.getItem('user');
+
+      if (token && user) {
+        try {
+          const userData = JSON.parse(user);
+          console.log('Home: User logged in with role:', userData.role);
+          
+          // Redirect based on user role
+          if (userData.role === 2) {
+            console.log('Home: Redirecting admin to admin dashboard');
+            window.location.href = '/admin-dashboard';
+          } else if (userData.role === 3) {
+            console.log('Home: Redirecting owner to owner dashboard');
+            window.location.href = '/owner-dashboard';
+          } else if (userData.role === 1) {
+            console.log('Home: Redirecting regular user to user dashboard');
+            window.location.href = '/dashboard';
+          }
+        } catch (error) {
+          console.error('Home: Error parsing user data:', error);
+        }
+      }
+    };
+
+    checkAuthAndRedirect();
+  }, []);
 
   const featuredAccommodations = [
     {
@@ -126,7 +191,7 @@ const Home = () => {
       className="pt-16"
     >
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-gray-50 to-white py-20 px-4 sm:px-6 lg:px-8 pt-24 lg:pt-28">
+      <section className="relative bg-gradient-to-br from-gray-50 to-white pt-20 pb-0 px-4 sm:px-6 lg:px-8 pt-24 lg:pt-28">
         <div className="max-w-4xl mx-auto text-center">
           <ScrollReveal direction="up" delay={0.2}>
             <div className="flex flex-col items-center justify-center mb-8">
@@ -232,68 +297,60 @@ const Home = () => {
                   </motion.span>
                 </motion.div>
 
-                {/* Pulsing dots */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 2.3, duration: 0.5 }}
-                  className="flex justify-center space-x-1 mt-2"
-                >
-                  {[...Array(3)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="w-1.5 h-1.5 bg-red-500 rounded-full"
-                      animate={{
-                        scale: [1, 1.5, 1],
-                        opacity: [0.5, 1, 0.5]
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        delay: i * 0.2
-                      }}
-                    />
-                  ))}
-                </motion.div>
+
                 
-                {/* Search Input Box and Button - Same line */}
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 2.5, duration: 0.8 }}
-                  className="max-w-4xl mx-auto mt-8"
-                >
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Input Box */}
-                    <div className="flex-1 relative">
-                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                      <input
-                        type="text"
-                        placeholder="Enter your preferred location..."
-                        value={searchLocation}
-                        onChange={(e) => setSearchLocation(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 placeholder-gray-500"
-                      />
-                    </div>
-                    
-                    {/* Button */}
-                    <motion.button 
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="bg-gradient-to-r from-red-500 to-red-600 text-white px-8 py-4 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
-                    >
-                      <Search className="h-5 w-5" />
-                      <span>Find Rooms</span>
-                    </motion.button>
-                  </div>
-                </motion.div>
               </motion.div>
             </div>
-            
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Search Section */}
+      <section className="pt-8 pb-12 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 2.5, duration: 0.8 }}
+            className="-mt-6"
+          >
+            {/* Input Field Container */}
+            <div className="bg-white border-2 border-red-600 rounded-lg overflow-hidden shadow-lg">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Enter city name, area etc..."
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="w-full pl-8 pr-32 py-5 border-0 focus:ring-0 focus:outline-none text-gray-900 placeholder-gray-400 text-base font-medium"
+                />
+                {/* Current Location Button */}
+                <button 
+                  onClick={handleCurrentLocation}
+                  className="absolute right-16 top-1/2 -translate-y-1/2 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md cursor-pointer"
+                >
+                  <MapPin className="h-6 w-6 text-white" />
+                </button>
+                {/* Search Button */}
+                <button 
+                  onClick={handleSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md cursor-pointer"
+                >
+                  <Search className="h-6 w-6 text-white" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Text Content Below Search */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 2.7, duration: 0.8 }}
+            className="text-center mt-8"
+          >
             <motion.h2
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9, duration: 0.8 }}
               className="text-3xl md:text-5xl font-bold text-gray-900 mb-6"
             >
               Find Your Perfect{' '}
@@ -309,9 +366,6 @@ const Home = () => {
             </motion.h2>
             
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.1, duration: 0.8 }}
               className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed"
             >
               Connect with like-minded roommates and discover verified PG accommodations near you. 
@@ -319,7 +373,7 @@ const Home = () => {
               <span className="text-orange-600 font-medium"> transparent pricing</span>, 
               <span className="text-yellow-600 font-medium"> hassle-free living</span>.
             </motion.p>
-          </ScrollReveal>
+          </motion.div>
         </div>
       </section>
 
@@ -424,7 +478,7 @@ const Home = () => {
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 Why Choose{' '}
-                <span className="text-red-600">Lyvo+</span>?
+                <span className="text-red-600">Lyvo</span><span className="text-black">+</span>?
               </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
                 Experience the future of co-living with our innovative platform that combines technology, 

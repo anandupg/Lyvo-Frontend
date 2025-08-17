@@ -133,7 +133,7 @@ const AdminSidebar = ({ onClose }) => {
             />
           </motion.div>
           <div className="hidden sm:block">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Lyvo Admin</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span> Admin</h1>
             <p className="text-xs text-gray-500">Co-Living Platform</p>
           </div>
         </motion.div>

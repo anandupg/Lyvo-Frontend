@@ -123,16 +123,38 @@ const Dashboard = () => {
       const userData = localStorage.getItem('user');
       
       if (!token || !userData) {
-        console.log('No authentication token or user data found');
+        console.log('Dashboard: No authentication token or user data found');
         navigate('/login');
         return;
       }
 
       try {
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+        console.log('Dashboard: User role check:', parsedUser.role);
+        
+        // Check user role and redirect if necessary
+        if (parsedUser.role === 2) {
+          // Admin user - redirect to admin dashboard
+          console.log('Dashboard: Redirecting admin to admin dashboard');
+          window.location.href = '/admin-dashboard';
+          return;
+        } else if (parsedUser.role === 3) {
+          // Owner user - redirect to owner dashboard
+          console.log('Dashboard: Redirecting owner to owner dashboard');
+          window.location.href = '/owner-dashboard';
+          return;
+        } else if (parsedUser.role === 1) {
+          // Regular user - stay on this dashboard
+          console.log('Dashboard: Regular user, staying on dashboard');
+          setUser(parsedUser);
+        } else {
+          // Invalid role - redirect to login
+          console.error('Dashboard: Invalid user role:', parsedUser.role);
+          navigate('/login');
+          return;
+        }
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error('Dashboard: Error parsing user data:', error);
         navigate('/login');
         return;
       }

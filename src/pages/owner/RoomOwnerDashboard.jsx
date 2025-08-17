@@ -68,7 +68,7 @@ const RoomOwnerDashboard = () => {
         const user = JSON.parse(userData);
         // Check if user is a room owner (role 3 or specific role for room owners)
         if (user.role !== 3) {
-          navigate('/dashboard');
+          navigate('/login');
           return;
         }
         setUser(user);
@@ -266,7 +266,7 @@ const RoomOwnerDashboard = () => {
           <div className="w-10 h-10 bg-gradient-to-br from-red-500 via-orange-400 to-red-700 rounded-xl flex items-center justify-center shadow-lg mr-3">
             <span className="text-white font-bold text-xl">L</span>
           </div>
-          <span className="text-xl font-bold text-gray-900">Lyvo+ Owner</span>
+          <span className="text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span> Owner</span>
         </div>
         
         <nav className="flex-1">

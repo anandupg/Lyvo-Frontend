@@ -106,7 +106,7 @@ const OwnerSidebar = ({ onClose }) => {
             />
           </motion.div>
           <div className="hidden sm:block">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Lyvo Owner</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span> Owner</h1>
             <p className="text-xs text-gray-500">Property Management</p>
           </div>
         </motion.div>

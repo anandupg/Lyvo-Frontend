@@ -144,8 +144,8 @@ const Navbar = () => {
               </div>
               <div className="flex flex-col">
                 <span className={`text-xl lg:text-2xl font-bold transition-colors duration-300 ${
-                  location.pathname === '/' ? 'text-red-600' : 'text-gray-900 group-hover:text-red-600'
-                }`}>Lyvo+</span>
+                  location.pathname === '/' ? 'text-gray-900' : 'text-gray-900 group-hover:text-red-600'
+                }`}><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
                 <span className="text-xs text-gray-500 font-medium hidden sm:block">Co-Living Platform</span>
               </div>
             </Link>
@@ -306,7 +306,7 @@ const Navbar = () => {
               />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-gray-900">Lyvo+</span>
+              <span className="text-lg font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
               <span className="text-xs text-gray-500 font-medium">Co-Living Platform</span>
             </div>
           </div>

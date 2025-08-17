@@ -93,7 +93,7 @@ const Signup = () => {
       localStorage.setItem('user', JSON.stringify(result.data.user));
       
       // Dispatch login event to update navbar
-      window.dispatchEvent(new Event('moodbites-login'));
+      window.dispatchEvent(new Event('lyvo-login'));
       
       // Navigate to dashboard
       navigate('/dashboard');
@@ -181,7 +181,7 @@ const Signup = () => {
     } else if (score < 80) {
       feedback = 'Good password. Almost there!';
     } else {
-      feedback = 'Strong password! Uncommon words are better. Capitalization doesn\'t help very much.';
+      feedback = 'Excellent! Your password is strong.';
     }
 
     setPasswordFeedback(feedback);
@@ -365,18 +365,20 @@ const Signup = () => {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold text-gray-900">Lyvo+</span>
+                  <span className="text-2xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
                   <span className="text-xs text-gray-500 font-medium">Co-Living Platform</span>
                 </div>
               </div>
             </div>
             
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Create an account
+              Join <span className="text-red-600">Lyvo</span><span className="text-black">+</span> as a Room Seeker
             </h2>
-            <p className="text-sm text-gray-600">
-              Sign up to get started
+            <p className="text-sm text-gray-600 mb-4">
+              Find your perfect co-living space and connect with roommates
             </p>
+            
+
           </div>
 
           {/* Error and Success Messages */}
@@ -576,7 +578,7 @@ const Signup = () => {
                   
                   {/* Password Requirements */}
                   <AnimatePresence>
-                    {showPasswordValidation && (
+                    {showPasswordValidation && !allPasswordValid && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -650,7 +652,7 @@ const Signup = () => {
           </form>
 
           {/* Sign In Link */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
               <Link
@@ -660,6 +662,18 @@ const Signup = () => {
                 Sign in
               </Link>
             </p>
+            
+            {/* Owner Signup Link */}
+            <div className="pt-3 border-t border-gray-200">
+              <p className="text-xs text-gray-500 mb-2">Are you a property owner?</p>
+              <Link
+                to="/room-owner-signup"
+                className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 underline"
+              >
+                <Shield className="w-4 h-4 mr-1" />
+                Sign up as Property Owner
+              </Link>
+            </div>
           </div>
         </div>
       </motion.div>

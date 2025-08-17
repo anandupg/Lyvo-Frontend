@@ -68,7 +68,24 @@ const Login = () => {
     const token = localStorage.getItem('authToken');
     const user = localStorage.getItem('user');
     if (token && user) {
-      navigate('/dashboard', { replace: true });
+      try {
+        const userData = JSON.parse(user);
+        console.log('Login: User already logged in with role:', userData.role);
+        
+        // Role-based redirect for already logged-in users
+        if (userData.role === 2) {
+          navigate('/admin-dashboard', { replace: true });
+        } else if (userData.role === 3) {
+          navigate('/owner-dashboard', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      } catch (error) {
+        console.error('Login: Error parsing user data:', error);
+        // If there's an error parsing user data, clear localStorage and stay on login
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+      }
     }
   }, [navigate]);
 
@@ -169,7 +186,7 @@ const Login = () => {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold text-gray-900">Lyvo+</span>
+                  <span className="text-2xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
                   <span className="text-xs text-gray-500 font-medium">Co-Living Platform</span>
                 </div>
               </div>

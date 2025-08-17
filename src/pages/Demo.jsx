@@ -57,7 +57,7 @@ const Demo = () => {
           className="text-center mb-16"
         >
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Lyvo+ <span className="text-red-500">Chatbot</span> Demo
+            <span className="text-red-600">Lyvo</span><span className="text-black">+</span> <span className="text-red-500">Chatbot</span> Demo
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Experience our intelligent assistant that helps you find the perfect co-living space, 
@@ -147,7 +147,7 @@ const Demo = () => {
           className="text-center mt-16"
         >
           <p className="text-lg text-gray-600 mb-6">
-            Ready to experience the Lyvo+ chatbot?
+            Ready to experience the <span className="text-red-600">Lyvo</span><span className="text-black">+</span> chatbot?
           </p>
           <div className="flex justify-center">
             <motion.button

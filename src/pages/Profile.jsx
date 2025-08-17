@@ -62,7 +62,29 @@ const Profile = () => {
         }
 
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+        console.log('Profile: User role check:', parsedUser.role);
+        
+        // Check user role and redirect if necessary
+        if (parsedUser.role === 2) {
+          // Admin user - redirect to admin dashboard
+          console.log('Profile: Redirecting admin to admin dashboard');
+          window.location.href = '/admin-dashboard';
+          return;
+        } else if (parsedUser.role === 3) {
+          // Owner user - redirect to owner profile
+          console.log('Profile: Redirecting owner to owner profile');
+          window.location.href = '/owner-profile';
+          return;
+        } else if (parsedUser.role === 1) {
+          // Regular user - stay on this profile page
+          console.log('Profile: Regular user, staying on profile page');
+          setUser(parsedUser);
+        } else {
+          // Invalid role - redirect to login
+          console.error('Profile: Invalid user role:', parsedUser.role);
+          navigate('/login');
+          return;
+        }
         
         setProfileData(prev => ({
           ...prev,

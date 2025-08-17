@@ -79,7 +79,7 @@ const ResetPassword = () => {
                 <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center">
                   <Home className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900">Lyvo</span>
+                <span className="text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
               </Link>
             </div>
           </div>
@@ -172,7 +172,7 @@ const ResetPassword = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center">
                 <Home className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Lyvo</span>
+              <span className="text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
             </Link>
             <Link 
               to="/login" 

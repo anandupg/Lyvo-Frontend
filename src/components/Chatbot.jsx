@@ -289,7 +289,7 @@ const Chatbot = () => {
                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-2.5 sm:h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
                  </div>
                  <div className="flex-1">
-                   <h3 className="font-bold text-base sm:text-sm">Lyvo+ Assistant</h3>
+                   <h3 className="font-bold text-base sm:text-sm"><span className="text-black">Lyvo</span><span className="text-black">+</span> Assistant</h3>
                    <p className="text-sm sm:text-xs text-red-100 flex items-center space-x-1">
                      <div className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-green-400 rounded-full animate-pulse"></div>
                      <span>Online • Ready to help</span>
@@ -407,7 +407,7 @@ const Chatbot = () => {
                         transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
                       />
                        </div>
-                       <span className="text-sm sm:text-xs text-gray-500 ml-1">Lyvo+ is typing...</span>
+                       <span className="text-sm sm:text-xs text-gray-500 ml-1"><span className="text-red-600">Lyvo</span><span className="text-black">+</span> is typing...</span>
                     </div>
                   </div>
                 </motion.div>

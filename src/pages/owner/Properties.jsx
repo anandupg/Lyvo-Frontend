@@ -39,7 +39,7 @@ const Properties = () => {
       try {
         const user = JSON.parse(userData);
         if (user.role !== 3) {
-          navigate('/dashboard');
+          navigate('/login');
           return;
         }
         setUser(user);

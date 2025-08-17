@@ -17,8 +17,12 @@ const Contact = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 pt-24 pb-12 px-4">
       <div className="max-w-lg w-full bg-white rounded-lg shadow-md p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg mb-2">
-            <span className="text-white font-bold text-2xl">L</span>
+          <div className="w-16 h-16 mb-2">
+            <img 
+              src="/Lyvo_no_bg.png" 
+              alt="Lyvo Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Contact Us</h1>
         </div>

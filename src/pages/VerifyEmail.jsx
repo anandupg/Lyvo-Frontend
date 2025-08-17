@@ -211,7 +211,9 @@ const VerifyEmail = () => {
             Email Verification
           </h2>
           <p className="mt-2 text-gray-600">
-            Completing your account setup
+            {user?.role === 3 ? 'Completing your property owner account setup' : 
+             user?.role === 2 ? 'Completing your admin account setup' : 
+             'Completing your account setup'}
           </p>
         </div>
 
@@ -252,10 +254,12 @@ const VerifyEmail = () => {
                 </div>
                 <p className="text-sm text-green-700">
                   Welcome, <span className="font-semibold">{user.name}</span>! 
-                  You're now part of the Lyvo+ community.
+                  {user.role === 3 ? 'You\'re now a verified property owner in the Lyvo+ community.' : 
+                   user.role === 2 ? 'You\'re now a verified admin in the Lyvo+ community.' : 
+                   'You\'re now part of the Lyvo+ community.'}
                 </p>
                 <p className="text-xs text-green-600 mt-2">
-                  You have been automatically logged in and will be redirected to your dashboard shortly...
+                  You have been automatically logged in and will be redirected to your {user.role === 3 ? 'owner dashboard' : user.role === 2 ? 'admin dashboard' : 'dashboard'} shortly...
                 </p>
               </motion.div>
             )}
@@ -307,7 +311,7 @@ const VerifyEmail = () => {
               >
                 <div className="flex items-center justify-center space-x-2 text-sm text-green-600">
                   <Loader className="w-4 h-4 animate-spin" />
-                  <span>Redirecting to dashboard...</span>
+                  <span>Redirecting to {user.role === 3 ? 'owner dashboard' : user.role === 2 ? 'admin dashboard' : 'dashboard'}...</span>
                 </div>
               </motion.div>
             )}

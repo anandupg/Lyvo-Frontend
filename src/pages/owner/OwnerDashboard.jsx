@@ -37,7 +37,7 @@ const OwnerDashboard = () => {
         const user = JSON.parse(userData);
         // Check if user is a property owner (role 3 or specific role for property owners)
         if (user.role !== 3) {
-          navigate('/dashboard');
+          navigate('/login');
           return;
         }
         setUser(user);
