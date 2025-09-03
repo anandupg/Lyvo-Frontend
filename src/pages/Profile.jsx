@@ -6,6 +6,7 @@ import {
   Briefcase, Building, CreditCard, Lock, Eye, EyeOff, Bell, Clock
 } from "lucide-react";
 import ScrollReveal from "../components/ScrollReveal";
+import ProfilePictureUpload from "../components/ProfilePictureUpload";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -45,7 +46,8 @@ const Profile = () => {
     noiseLevel: "",
     amenities: [],
     isVerified: false,
-    trustScore: 0
+    trustScore: 0,
+    profilePicture: ""
   });
 
   useEffect(() => {
@@ -88,24 +90,28 @@ const Profile = () => {
         
         setProfileData(prev => ({
           ...prev,
-          name: parsedUser.name || "Alex Johnson",
-          email: parsedUser.email || "alex@example.com",
-          joinDate: "March 2024",
-          location: "Koramangala, Bangalore",
-          preferredLocation: "Koramangala, Indiranagar, HSR Layout",
-          budget: "₹15,000 - ₹25,000",
-          roomType: "Single Room",
-          genderPreference: "Any",
-          occupation: "Software Engineer",
-          company: "Tech Corp",
-          workSchedule: "9 AM - 6 PM",
-          lifestyle: "Professional, Clean, Quiet",
-          cleanliness: "Very Clean",
-          noiseLevel: "Quiet",
-          amenities: ["Wifi", "Kitchen", "Parking", "Gym"],
-          isVerified: true,
+          name: parsedUser.name || "",
+          email: parsedUser.email || "",
+          profilePicture: parsedUser.profilePicture || "",
+          phone: parsedUser.phone || "",
+          location: parsedUser.location || "",
+          bio: parsedUser.bio || "",
+          occupation: parsedUser.occupation || "",
+          company: parsedUser.company || "",
+          workSchedule: parsedUser.workSchedule || "",
+          preferredLocation: parsedUser.preferredLocation || "",
+          budget: parsedUser.budget || "",
+          roomType: parsedUser.roomType || "",
+          genderPreference: parsedUser.genderPreference || "",
+          lifestyle: parsedUser.lifestyle || "",
+          cleanliness: parsedUser.cleanliness || "",
+          noiseLevel: parsedUser.noiseLevel || "",
+          smoking: parsedUser.smoking || false,
+          pets: parsedUser.pets || false,
+          amenities: parsedUser.amenities || [],
+          isVerified: parsedUser.isVerified || false,
           trustScore: 95,
-          bio: "Professional software engineer looking for a clean, quiet living space. I work from home sometimes and prefer a peaceful environment."
+          joinDate: parsedUser.createdAt ? new Date(parsedUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "Recently"
         }));
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -134,15 +140,87 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       setSaveStatus({ type: 'loading', message: 'Saving changes...' });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Prepare the data to update
+      const updateData = {
+        name: profileData.name,
+        phone: profileData.phone,
+        location: profileData.location,
+        bio: profileData.bio,
+        occupation: profileData.occupation,
+        company: profileData.company,
+        workSchedule: profileData.workSchedule,
+        preferredLocation: profileData.preferredLocation,
+        budget: profileData.budget,
+        roomType: profileData.roomType,
+        genderPreference: profileData.genderPreference,
+        lifestyle: profileData.lifestyle,
+        cleanliness: profileData.cleanliness,
+        noiseLevel: profileData.noiseLevel,
+        smoking: profileData.smoking,
+        pets: profileData.pets
+      };
+
+      // Call the backend API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:4002/api'}/user/profile/${user._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updateData)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
+
+      const result = await response.json();
+      
+      // Update local storage with new user data
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      const updatedUser = { ...currentUser, ...result.user };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // Update the user state
+      setUser(updatedUser);
+      
       setIsEditing(false);
       setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
+      
+      // Dispatch event to update navbar
+      window.dispatchEvent(new Event('lyvo-profile-update'));
+      
       setTimeout(() => {
         setSaveStatus({ type: '', message: '' });
       }, 3000);
     } catch (error) {
-      setSaveStatus({ type: 'error', message: 'Failed to update profile' });
+      console.error('Profile update error:', error);
+      setSaveStatus({ type: 'error', message: error.message || 'Failed to update profile' });
+      setTimeout(() => {
+        setSaveStatus({ type: '', message: '' });
+      }, 3000);
     }
+  };
+
+  const handleProfilePictureUpdate = (newImageUrl) => {
+    setProfileData(prev => ({
+      ...prev,
+      profilePicture: newImageUrl
+    }));
+    setSaveStatus({ type: 'success', message: 'Profile picture updated successfully!' });
+    setTimeout(() => {
+      setSaveStatus({ type: '', message: '' });
+    }, 3000);
   };
 
   const handlePasswordUpdate = async () => {
@@ -152,8 +230,39 @@ const Profile = () => {
         return;
       }
 
+      if (passwordData.newPassword.length < 6) {
+        setSaveStatus({ type: 'error', message: 'Password must be at least 6 characters long' });
+        return;
+      }
+
       setSaveStatus({ type: 'loading', message: 'Updating password...' });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Call the backend API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:4002/api'}/user/change-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update password');
+      }
+
       setSaveStatus({ type: 'success', message: 'Password updated successfully!' });
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -161,7 +270,11 @@ const Profile = () => {
         setSaveStatus({ type: '', message: '' });
       }, 3000);
     } catch (error) {
-      setSaveStatus({ type: 'error', message: 'Failed to update password' });
+      console.error('Password update error:', error);
+      setSaveStatus({ type: 'error', message: error.message || 'Failed to update password' });
+      setTimeout(() => {
+        setSaveStatus({ type: '', message: '' });
+      }, 3000);
     }
   };
 
@@ -211,9 +324,11 @@ const Profile = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent" />
               <div className="absolute bottom-6 left-8 flex items-end space-x-6">
                 <div className="relative group">
-                  <div className="w-24 h-24 rounded-2xl border-4 border-white shadow-lg bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center text-white text-3xl font-bold">
-                    {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'}
-                  </div>
+                  <ProfilePictureUpload
+                    currentImage={profileData.profilePicture}
+                    onImageUpdate={handleProfilePictureUpdate}
+                    className="w-24 h-24"
+                  />
                   {profileData.isVerified && (
                     <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
                       <Shield className="w-3 h-3 text-white" />
@@ -302,10 +417,20 @@ const Profile = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
-                    <p className="text-gray-900 py-3 font-medium flex items-center">
-                      <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                      {profileData.location}
-                    </p>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={profileData.location}
+                        onChange={(e) => handleInputChange("location", e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
+                        placeholder="Enter your location"
+                      />
+                    ) : (
+                      <p className="text-gray-900 py-3 font-medium flex items-center">
+                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                        {profileData.location || "Not provided"}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -516,19 +641,71 @@ const Profile = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Cleanliness</span>
-                    <span className="text-sm font-medium text-gray-900">{profileData.cleanliness}</span>
+                    {isEditing ? (
+                      <select
+                        value={profileData.cleanliness}
+                        onChange={(e) => handleInputChange("cleanliness", e.target.value)}
+                        className="text-sm font-medium text-gray-900 bg-transparent border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <option value="">Select</option>
+                        <option value="Very Clean">Very Clean</option>
+                        <option value="Clean">Clean</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Relaxed">Relaxed</option>
+                      </select>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">{profileData.cleanliness || "Not specified"}</span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Noise Level</span>
-                    <span className="text-sm font-medium text-gray-900">{profileData.noiseLevel}</span>
+                    {isEditing ? (
+                      <select
+                        value={profileData.noiseLevel}
+                        onChange={(e) => handleInputChange("noiseLevel", e.target.value)}
+                        className="text-sm font-medium text-gray-900 bg-transparent border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <option value="">Select</option>
+                        <option value="Quiet">Quiet</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Social">Social</option>
+                        <option value="Party">Party</option>
+                      </select>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">{profileData.noiseLevel || "Not specified"}</span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Smoking</span>
-                    <span className="text-sm font-medium text-gray-900">{profileData.smoking ? "Yes" : "No"}</span>
+                    {isEditing ? (
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={profileData.smoking}
+                          onChange={(e) => handleInputChange("smoking", e.target.checked)}
+                          className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                        />
+                        <span className="text-sm font-medium text-gray-900">{profileData.smoking ? "Yes" : "No"}</span>
+                      </label>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">{profileData.smoking ? "Yes" : "No"}</span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Pets</span>
-                    <span className="text-sm font-medium text-gray-900">{profileData.pets ? "Yes" : "No"}</span>
+                    {isEditing ? (
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={profileData.pets}
+                          onChange={(e) => handleInputChange("pets", e.target.checked)}
+                          className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                        />
+                        <span className="text-sm font-medium text-gray-900">{profileData.pets ? "Yes" : "No"}</span>
+                      </label>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">{profileData.pets ? "Yes" : "No"}</span>
+                    )}
                   </div>
                 </div>
               </div>

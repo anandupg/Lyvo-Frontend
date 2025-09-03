@@ -200,7 +200,7 @@ const Chatbot = () => {
     <>
              {/* Chatbot Toggle Button */}
       <motion.div
-         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30"
+         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[80]"
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ 
@@ -264,7 +264,7 @@ const Chatbot = () => {
              animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
              exit={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                           className="fixed bottom-24 right-4 z-20 w-[320px] h-[500px] sm:bottom-32 sm:right-20 bg-gradient-to-br from-white to-gray-50 rounded-[2rem] shadow-2xl border border-gray-200/50 backdrop-blur-sm flex flex-col"
+                           className="fixed bottom-24 right-4 z-[75] w-[320px] h-[500px] sm:bottom-32 sm:right-20 bg-gradient-to-br from-white to-gray-50 rounded-[2rem] shadow-2xl border border-gray-200/50 backdrop-blur-sm flex flex-col"
              style={{
                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
              }}

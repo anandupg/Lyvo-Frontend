@@ -18,12 +18,15 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import DebugLogout from "./pages/DebugLogout";
+import Onboarding from "./pages/Onboarding";
 import Loader from "./components/Loader";
 import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
 // Import owner pages and components
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/Properties";
 import OwnerProfile from "./pages/owner/Profile";
+import AddProperty from "./pages/owner/AddProperty";
+import Messages from "./pages/owner/Messages";
 // Import admin pages and components
 import AdminDashboard from "./pages/admin/Dashboard";
 import Users from "./pages/admin/Users";
@@ -321,6 +324,7 @@ function AppRoutesWithLoader() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/debug-logout" element={<DebugLogout />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/room-owner-dashboard" element={
             <ProtectedOwnerRoute>
               <RoomOwnerDashboard />
@@ -338,6 +342,16 @@ function AppRoutesWithLoader() {
           <Route path="/owner-properties" element={
             <ProtectedOwnerRoute>
               <OwnerProperties />
+            </ProtectedOwnerRoute>
+          } />
+          <Route path="/owner-add-property" element={
+            <ProtectedOwnerRoute>
+              <AddProperty />
+            </ProtectedOwnerRoute>
+          } />
+          <Route path="/owner-messages" element={
+            <ProtectedOwnerRoute>
+              <Messages />
             </ProtectedOwnerRoute>
           } />
           <Route path="/owner-profile" element={
@@ -398,6 +412,10 @@ function AppContent() {
           const currentPath = location.pathname;
           
           console.log('AppContent: Global auth check - User role:', userData.role, 'on path:', currentPath);
+          if (userData.isNewUser && !userData.hasCompletedBehaviorQuestions && currentPath !== '/onboarding') {
+            window.location.href = '/onboarding';
+            return;
+          }
           
           // If user is on a route that doesn't match their role, redirect them
           if (userData.role === 2 && !currentPath.startsWith('/admin')) {

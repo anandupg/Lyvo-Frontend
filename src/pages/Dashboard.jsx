@@ -41,9 +41,9 @@ const Dashboard = () => {
 
   // Simplified mock data
   const userProfile = {
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&w=150&h=150&fit=crop&crop=face",
+    name: user?.name || "Alex Johnson",
+    email: user?.email || "alex@example.com",
+    avatar: user?.profilePicture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&w=150&h=150&fit=crop&crop=face",
     currentLocation: "Koramangala, Bangalore",
     memberSince: "March 2024",
     verified: true
@@ -224,11 +224,22 @@ const Dashboard = () => {
               <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
                 <Bell className="w-5 h-5" />
               </button>
-              <img
-                src={userProfile.avatar}
-                alt="Profile"
-                className="w-8 h-8 rounded-full"
-              />
+              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
+                {userProfile.avatar && userProfile.avatar !== "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&w=150&h=150&fit=crop&crop=face" ? (
+                  <img
+                    src={userProfile.avatar}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ${userProfile.avatar && userProfile.avatar !== "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&w=150&h=150&fit=crop&crop=face" ? 'hidden' : 'flex'}`}>
+                  <User className="w-4 h-4 text-white" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
