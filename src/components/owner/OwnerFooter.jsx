@@ -17,7 +17,7 @@ const OwnerFooter = () => {
                 />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Lyvo</h3>
+                <h3 className="text-lg font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span></h3>
                 <p className="text-sm text-gray-600">Property Management Platform</p>
               </div>
             </div>
@@ -88,7 +88,7 @@ const OwnerFooter = () => {
         <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
             <p className="text-sm text-gray-600">
-              © 2024 Lyvo. All rights reserved.
+              © 2024 <span className="text-red-600">Lyvo</span><span className="text-black">+</span>. All rights reserved.
             </p>
             <div className="flex space-x-6">
               <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Privacy Policy</a>

@@ -295,7 +295,7 @@ const Messages = () => {
   }
 
   return (
-    <OwnerLayout>
+    <OwnerLayout hideFooter>
       <div className="h-[calc(100vh-120px)] bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
         {/* Mobile: Show conversations list when no chat is selected, or show chat when selected */}
         {/* Desktop: Always show both side by side */}

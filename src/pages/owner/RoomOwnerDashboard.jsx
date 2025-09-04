@@ -287,7 +287,7 @@ const RoomOwnerDashboard = () => {
           </ul>
         </nav>
         
-        <div className="mt-10 text-xs text-gray-400 text-center">&copy; {new Date().getFullYear()} Lyvo</div>
+                        <div className="mt-10 text-xs text-gray-400 text-center">&copy; {new Date().getFullYear()} <span className="text-red-600">Lyvo</span><span className="text-black">+</span></div>
       </aside>
 
       {/* Main Content */}

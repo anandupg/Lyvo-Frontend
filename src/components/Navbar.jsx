@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { Menu, X, Home, Info, Phone, BarChart3, User, LogOut } from "lucide-react";
+import { Menu, X, Home, Info, Phone, BarChart3, User, LogOut, LogIn, UserPlus, Building2 } from "lucide-react";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -135,25 +135,60 @@ const Navbar = () => {
           <div className="flex items-center justify-between h-16 lg:h-20">
             
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-3 group">
-              <div className="relative">
-                <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 overflow-hidden ${
-                  location.pathname === '/' ? 'shadow-[0_0_20px_rgba(239,68,68,0.4)]' : ''
-                }`}>
-                  <img 
-                    src="/Lyvo_no_bg.png" 
-                    alt="Lyvo Logo" 
-                    className="w-full h-full object-contain"
+            <Link to="/">
+              <motion.div
+                whileHover={{ 
+                  scale: 1.05,
+                  y: -2
+                }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-3 group cursor-pointer"
+              >
+                <div className="relative">
+                  <motion.div
+                    whileHover={{ 
+                      rotate: 5,
+                      boxShadow: "0 10px 30px rgba(239, 68, 68, 0.3)"
+                    }}
+                    transition={{ duration: 0.3 }}
+                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden ${
+                      location.pathname === '/' ? 'shadow-[0_0_20px_rgba(239,68,68,0.4)]' : ''
+                    }`}
+                  >
+                    <img 
+                      src="/Lyvo_no_bg.png" 
+                      alt="Lyvo Logo" 
+                      className="w-full h-full object-contain"
+                    />
+                  </motion.div>
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.7, 1, 0.7]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"
                   />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
-              </div>
-              <div className="flex flex-col">
-                <span className={`text-xl lg:text-2xl font-bold transition-colors duration-300 ${
-                  location.pathname === '/' ? 'text-gray-900' : 'text-gray-900 group-hover:text-red-600'
-                }`}><span className="text-red-600">Lyvo</span><span className="text-black">+</span></span>
-                <span className="text-xs text-gray-500 font-medium hidden sm:block">Co-Living Platform</span>
-              </div>
+                <div className="flex flex-col">
+                  <motion.span
+                    whileHover={{ 
+                      color: "rgb(239, 68, 68)"
+                    }}
+                    transition={{ duration: 0.2 }}
+                    className={`text-xl lg:text-2xl font-bold transition-colors duration-300 ${
+                      location.pathname === '/' ? 'text-gray-900' : 'text-gray-900 group-hover:text-red-600'
+                    }`}
+                  >
+                    <span className="text-red-600">Lyvo</span><span className="text-black">+</span>
+                  </motion.span>
+                  <span className="text-xs text-gray-500 font-medium hidden sm:block">Co-Living Platform</span>
+                </div>
+              </motion.div>
             </Link>
 
             {/* Desktop Navigation */}
@@ -162,20 +197,40 @@ const Navbar = () => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
                 return (
-                  <Link key={item.href} to={item.href} className={`relative px-4 py-2 transition-all duration-300 font-medium group ${
-                    isActive 
-                      ? 'text-red-600' 
-                      : 'text-gray-700 hover:text-red-600'
-                  }`}>
-                    <span className="relative z-10 flex items-center space-x-2">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600'}`} />
-                      <span>{item.name}</span>
-                    </span>
-                    <div className={`absolute inset-0 rounded-lg transition-all duration-300 origin-center ${
-                      isActive 
-                        ? 'bg-red-50 scale-100' 
-                        : 'bg-red-50 scale-0 group-hover:scale-100'
-                    }`}></div>
+                  <Link key={item.href} to={item.href}>
+                    <motion.div
+                      whileHover={{ 
+                        scale: 1.05,
+                        y: -1
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`relative px-4 py-2 transition-all duration-300 font-medium group cursor-pointer rounded-lg ${
+                        isActive 
+                          ? 'text-red-600 bg-red-50' 
+                          : 'text-gray-700 hover:text-red-600'
+                      }`}
+                    >
+                      <span className="relative z-10 flex items-center space-x-2">
+                        <motion.div
+                          whileHover={{ rotate: 5 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Icon className={`w-4 h-4 ${isActive ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600'}`} />
+                        </motion.div>
+                        <span>{item.name}</span>
+                      </span>
+                      {!isActive && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          whileHover={{ 
+                            scale: 1,
+                            opacity: 1
+                          }}
+                          transition={{ duration: 0.3 }}
+                          className="absolute inset-0 rounded-lg bg-red-50"
+                        />
+                      )}
+                    </motion.div>
                   </Link>
                 );
               })}
@@ -188,17 +243,111 @@ const Navbar = () => {
               <div className="hidden md:flex items-center space-x-3">
                 {!isLoggedIn ? (
                   <>
-                    <Link to="/login" className="px-4 py-2 text-gray-700 hover:text-red-600 transition-colors duration-200 font-medium">
-                      Sign In
+                    <Link to="/login">
+                      <motion.div
+                        whileHover={{ 
+                          scale: 1.05,
+                          y: -1
+                        }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`relative px-4 py-2 transition-all duration-300 font-medium group cursor-pointer rounded-lg ${
+                          location.pathname === '/login' 
+                            ? 'text-red-600 bg-red-50' 
+                            : 'text-gray-700 hover:text-red-600'
+                        }`}
+                      >
+                        <span className="relative z-10 flex items-center space-x-2">
+                          <motion.div
+                            whileHover={{ rotate: 5 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <LogIn className={`w-4 h-4 ${location.pathname === '/login' ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600'}`} />
+                          </motion.div>
+                          <span>Sign In</span>
+                        </span>
+                        {location.pathname !== '/login' && (
+                          <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            whileHover={{ 
+                              scale: 1,
+                              opacity: 1
+                            }}
+                            transition={{ duration: 0.3 }}
+                            className="absolute inset-0 rounded-lg bg-red-50"
+                          />
+                        )}
+                      </motion.div>
                     </Link>
                     <div className="flex items-center space-x-2">
-                      <Link to="/signup" className="relative px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-                        <span className="relative z-10">Get Started</span>
-                        <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                      <Link to="/signup">
+                        <motion.div
+                          whileHover={{ 
+                            scale: 1.05,
+                            y: -1
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          className={`relative px-4 py-2 transition-all duration-300 font-medium group cursor-pointer rounded-lg ${
+                            location.pathname === '/signup' 
+                              ? 'text-red-600 bg-red-50' 
+                              : 'text-gray-700 hover:text-red-600'
+                          }`}
+                        >
+                          <span className="relative z-10 flex items-center space-x-2">
+                            <motion.div
+                              whileHover={{ rotate: 5 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <UserPlus className={`w-4 h-4 ${location.pathname === '/signup' ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600'}`} />
+                            </motion.div>
+                            <span>Get Started</span>
+                          </span>
+                          {location.pathname !== '/signup' && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              whileHover={{ 
+                                scale: 1,
+                                opacity: 1
+                              }}
+                              transition={{ duration: 0.3 }}
+                              className="absolute inset-0 rounded-lg bg-red-50"
+                            />
+                          )}
+                        </motion.div>
                       </Link>
-                      <Link to="/room-owner-signup" className="relative px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-                        <span className="relative z-10">List Property</span>
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                      <Link to="/room-owner-signup">
+                        <motion.div
+                          whileHover={{ 
+                            scale: 1.05,
+                            y: -1
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          className={`relative px-4 py-2 transition-all duration-300 font-medium group cursor-pointer rounded-lg ${
+                            location.pathname === '/room-owner-signup' 
+                              ? 'text-blue-600 bg-blue-50' 
+                              : 'text-gray-700 hover:text-blue-600'
+                          }`}
+                        >
+                          <span className="relative z-10 flex items-center space-x-2">
+                            <motion.div
+                              whileHover={{ rotate: 5 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Building2 className={`w-4 h-4 ${location.pathname === '/room-owner-signup' ? 'text-blue-600' : 'text-gray-500 group-hover:text-blue-600'}`} />
+                            </motion.div>
+                            <span>List Property</span>
+                          </span>
+                          {location.pathname !== '/room-owner-signup' && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              whileHover={{ 
+                                scale: 1,
+                                opacity: 1
+                              }}
+                              transition={{ duration: 0.3 }}
+                              className="absolute inset-0 rounded-lg bg-blue-50"
+                            />
+                          )}
+                        </motion.div>
                       </Link>
                     </div>
                   </>
@@ -370,7 +519,7 @@ const Navbar = () => {
                 onClick={closeMobileMenu}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
                   isActive 
-                    ? 'bg-red-50 text-red-600 border-l-4 border-red-600' 
+                    ? 'bg-red-50 text-red-600' 
                     : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
                 }`}
               >
@@ -388,25 +537,39 @@ const Navbar = () => {
               <Link
                 to="/login"
                 onClick={closeMobileMenu}
-                className="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg"
+                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                  location.pathname === '/login'
+                    ? 'bg-red-50 text-red-600'
+                    : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
+                }`}
               >
-                <User className="h-5 w-5 mr-2" />
-                Sign In
+                <LogIn className="h-5 w-5" />
+                <span className="text-base">Sign In</span>
               </Link>
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   to="/signup"
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg text-sm"
+                  className={`flex items-center justify-center w-full px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 space-x-2 ${
+                    location.pathname === '/signup'
+                      ? 'bg-red-50 text-red-600'
+                      : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
+                  }`}
                 >
-                  Get Started
+                  <UserPlus className="h-4 w-4" />
+                  <span>Get Started</span>
                 </Link>
                 <Link
                   to="/room-owner-signup"
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg text-sm"
+                  className={`flex items-center justify-center w-full px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 space-x-2 ${
+                    location.pathname === '/room-owner-signup'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
                 >
-                  List Property
+                  <Building2 className="h-4 w-4" />
+                  <span>List Property</span>
                 </Link>
               </div>
             </div>

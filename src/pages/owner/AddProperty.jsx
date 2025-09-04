@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import OwnerLayout from '../../components/owner/OwnerLayout';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.jsx';
 import { 
   Building, 
   MapPin, 
@@ -35,7 +36,9 @@ const AddProperty = () => {
       city: '',
       state: '',
       pincode: '',
-      landmark: ''
+      landmark: '',
+      latitude: '',
+      longitude: ''
     },
     
     // Property Details
@@ -76,11 +79,35 @@ const AddProperty = () => {
     },
     
     // Images
-    images: []
+    images: [],
+    requiredImages: {
+      front: null,
+      back: null,
+      hall: null,
+      room: null,
+      toilet: null
+    }
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Google Maps Places state (from env key)
+  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  const autocompleteServiceRef = useRef(null);
+  const placesServiceRef = useRef(null);
+  const modalMapDivRef = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const [isSatellite, setIsSatellite] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [placeSearch, setPlaceSearch] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef(null);
+  const listRef = useRef(null);
+  const selectingRef = useRef(false);
 
   // Check authentication
   useEffect(() => {
@@ -110,6 +137,210 @@ const AddProperty = () => {
 
     checkAuth();
   }, [navigate]);
+
+  // Load Google Maps JS API (Places) using env key
+  useEffect(() => {
+    const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCoPzRJLAmma54BBOyF4AhZ2ZIqGvak8CA';
+    if (!key) return;
+    if (window.google && window.google.maps && window.google.maps.places) {
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+      placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
+      setIsGoogleLoaded(true);
+      return;
+    }
+    const existing = document.querySelector('script[data-google-places="true"]');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+        placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
+        setIsGoogleLoaded(true);
+      });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.googlePlaces = 'true';
+    script.onload = () => {
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+      placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
+      setIsGoogleLoaded(true);
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize map when modal opens
+  useEffect(() => {
+    if (!isMapOpen || !isGoogleLoaded) return;
+    // Clear previous map instance
+    mapRef.current = null;
+    markerRef.current = null;
+    if (!modalMapDivRef.current) return;
+    const center = {
+      lat: formData.address.latitude ? parseFloat(formData.address.latitude) : 12.9716,
+      lng: formData.address.longitude ? parseFloat(formData.address.longitude) : 77.5946,
+    };
+    mapRef.current = new window.google.maps.Map(modalMapDivRef.current, {
+      center,
+      zoom: 15,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      mapTypeId: isSatellite ? 'hybrid' : 'roadmap',
+    });
+    markerRef.current = new window.google.maps.Marker({ map: mapRef.current, position: center, draggable: true });
+    markerRef.current.addListener('dragend', () => {
+      const pos = markerRef.current.getPosition();
+      setFormData(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          latitude: String(pos.lat()),
+          longitude: String(pos.lng()),
+        }
+      }));
+    });
+    mapRef.current.addListener('click', (e) => {
+      const pos = e.latLng;
+      markerRef.current.setPosition(pos);
+      setFormData(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          latitude: String(pos.lat()),
+          longitude: String(pos.lng()),
+        }
+      }));
+    });
+  }, [isMapOpen, isGoogleLoaded, isSatellite]);
+
+  const toggleSatellite = () => {
+    const next = !isSatellite;
+    setIsSatellite(next);
+    if (mapRef.current) {
+      mapRef.current.setMapTypeId(next ? 'hybrid' : 'roadmap');
+    }
+  };
+
+  const copyCoords = () => {
+    const lat = formData.address.latitude;
+    const lng = formData.address.longitude;
+    if (!lat || !lng) {
+      alert('Set a location first (drag marker or select a place).');
+      return;
+    }
+    const text = `${lat}, ${lng}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Coordinates copied to clipboard');
+      }).catch(() => {
+        window.prompt('Copy coordinates:', text);
+      });
+    } else {
+      window.prompt('Copy coordinates:', text);
+    }
+  };
+
+  // Fetch place suggestions (debounced)
+  useEffect(() => {
+    if (!placeSearch || placeSearch.trim().length < 2 || !isGoogleLoaded || !autocompleteServiceRef.current) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+    if (selectingRef.current) {
+      // Ignore suggestion fetch right after a selection
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      try {
+        autocompleteServiceRef.current.getPlacePredictions({ input: placeSearch }, (predictions, status) => {
+          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            setActiveSuggestionIndex(-1);
+            return;
+          }
+          setSuggestions(predictions);
+          setShowSuggestions(true);
+          setActiveSuggestionIndex(-1);
+        });
+      } catch (err) {
+        console.error('Places autocomplete error:', err);
+      }
+    }, 250);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [placeSearch, isGoogleLoaded]);
+
+  // Keep active item visible when navigating via keyboard
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector(`[data-idx="${activeSuggestionIndex}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [activeSuggestionIndex]);
+
+  const selectPlace = (prediction) => {
+    if (!prediction || !placesServiceRef.current) return;
+    selectingRef.current = true;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    placesServiceRef.current.getDetails({ placeId: prediction.place_id, fields: ['geometry', 'address_components', 'formatted_address', 'name'] }, (place, status) => {
+      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
+        setPlaceSearch(prediction.description || '');
+        setShowSuggestions(false);
+        setActiveSuggestionIndex(-1);
+        selectingRef.current = false;
+        return;
+      }
+      const comps = place.address_components || [];
+      const byType = (t) => comps.find(c => c.types?.includes(t))?.long_name || '';
+      const street = [byType('route'), byType('sublocality'), byType('neighborhood')].filter(Boolean).join(', ');
+      const city = byType('locality') || byType('administrative_area_level_2');
+      const state = byType('administrative_area_level_1');
+      const pincode = byType('postal_code');
+      const landmark = place.name || '';
+      const lat = place.geometry?.location?.lat?.();
+      const lng = place.geometry?.location?.lng?.();
+      // Move map and marker
+      if (mapRef.current && markerRef.current && lat !== undefined && lng !== undefined) {
+        const pos = { lat, lng };
+        mapRef.current.setCenter(pos);
+        mapRef.current.setZoom(15);
+        markerRef.current.setPosition(pos);
+      }
+      setFormData(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          street: street || prev.address.street,
+          city: city || prev.address.city,
+          state: state || prev.address.state,
+          pincode: pincode || prev.address.pincode,
+          landmark: landmark || prev.address.landmark,
+          latitude: lat !== undefined ? String(lat) : prev.address.latitude,
+          longitude: lng !== undefined ? String(lng) : prev.address.longitude,
+        }
+      }));
+      setPlaceSearch(place.name || prediction.structured_formatting?.main_text || prediction.description || place.formatted_address || '');
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      // allow suggestion fetching after the value settles
+      setTimeout(() => { selectingRef.current = false; }, 0);
+    });
+  };
+
+  const onKeyDownPlace = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggestionIndex((p) => (p + 1) % suggestions.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggestionIndex((p) => (p - 1 + suggestions.length) % suggestions.length); }
+    else if (e.key === 'Enter') {
+      if (activeSuggestionIndex >= 0) { e.preventDefault(); selectPlace(suggestions[activeSuggestionIndex]); }
+    } else if (e.key === 'Escape') { setShowSuggestions(false); setActiveSuggestionIndex(-1); }
+  };
 
   const handleInputChange = (field, value) => {
     if (field.includes('.')) {
@@ -171,6 +402,31 @@ const AddProperty = () => {
     }));
   };
 
+  const handleRequiredImageUpload = (type, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const entry = {
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name
+    };
+    setFormData(prev => ({
+      ...prev,
+      requiredImages: { ...prev.requiredImages, [type]: entry }
+    }));
+    // Clear field error for this slot
+    if (errors[`requiredImages.${type}`]) {
+      setErrors(prev => ({ ...prev, [`requiredImages.${type}`]: '' }));
+    }
+  };
+
+  const removeRequiredImage = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      requiredImages: { ...prev.requiredImages, [type]: null }
+    }));
+  };
+
   const removeImage = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -195,6 +451,14 @@ const AddProperty = () => {
     if (!formData.availableUnits) newErrors.availableUnits = 'Available units is required';
     if (!formData.monthlyRent) newErrors.monthlyRent = 'Monthly rent is required';
     if (!formData.securityDeposit) newErrors.securityDeposit = 'Security deposit is required';
+
+    // Required image slots
+    const slots = ['front','back','hall','room','toilet'];
+    slots.forEach((s) => {
+      if (!formData.requiredImages[s]) {
+        newErrors[`requiredImages.${s}`] = 'Required';
+      }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -291,21 +555,21 @@ const AddProperty = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Property Type *
                 </label>
-                <select
-                  value={formData.propertyType}
-                  onChange={(e) => handleInputChange('propertyType', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                <Select value={formData.propertyType} onValueChange={(val) => handleInputChange('propertyType', val)}>
+                  <SelectTrigger className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
                     errors.propertyType ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select property type</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Independent House">Independent House</option>
-                  <option value="Villa">Villa</option>
-                  <option value="Studio">Studio</option>
-                  <option value="PG/Hostel">PG/Hostel</option>
-                  <option value="Commercial Space">Commercial Space</option>
-                </select>
+                  }`}>
+                    <SelectValue placeholder="Select property type" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="Apartment">Apartment</SelectItem>
+                    <SelectItem value="Independent House">Independent House</SelectItem>
+                    <SelectItem value="Villa">Villa</SelectItem>
+                    <SelectItem value="Studio">Studio</SelectItem>
+                    <SelectItem value="PG/Hostel">PG/Hostel</SelectItem>
+                    <SelectItem value="Commercial Space">Commercial Space</SelectItem>
+                  </SelectContent>
+                </Select>
                 {errors.propertyType && (
                   <p className="mt-1 text-sm text-red-600">{errors.propertyType}</p>
                 )}
@@ -344,6 +608,58 @@ const AddProperty = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              {/* Google Maps place search */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search PG/Property via Google Maps
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={placeSearch}
+                    onChange={(e) => setPlaceSearch(e.target.value)}
+                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    onKeyDown={onKeyDownPlace}
+                    placeholder="Start typing address, area, landmark..."
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  {showSuggestions && (
+                    <div ref={listRef} className="absolute z-40 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-80 overflow-auto">
+                      {suggestions.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500">No results</div>
+                      )}
+                      {suggestions.map((s, idx) => (
+                        <button
+                          key={`${s.place_id}-${idx}`}
+                          type="button"
+                          data-idx={idx}
+                          onMouseEnter={() => setActiveSuggestionIndex(idx)}
+                          onMouseLeave={() => setActiveSuggestionIndex(-1)}
+                          onClick={() => selectPlace(s)}
+                          className={`w-full text-left px-4 py-3 text-sm transition-colors ${idx===activeSuggestionIndex ? 'bg-red-50' : 'hover:bg-gray-50'}`}
+                        >
+                          <div className="text-gray-700 leading-snug line-clamp-2">{s.structured_formatting?.main_text || s.description || ''}</div>
+                          {s.structured_formatting?.secondary_text && (
+                            <div className="text-xs text-gray-500 mt-0.5">{s.structured_formatting.secondary_text}</div>
+                          )}
+                        </button>
+                      ))}
+                      <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-500">Powered by Google Places</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Map Launch */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Pin PG Location</label>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setIsMapOpen(true)} className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Open Map</button>
+                  <div className="text-xs text-gray-600">Lat: {formData.address.latitude || '—'} | Lng: {formData.address.longitude || '—'}</div>
+                  <button type="button" onClick={copyCoords} className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-xs">Copy Coords</button>
+                </div>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Street Address *
@@ -705,6 +1021,37 @@ const AddProperty = () => {
               <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Property Images</h2>
             </div>
+
+            {/* Required slots */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              {[
+                { key: 'front', label: 'Front' },
+                { key: 'back', label: 'Back' },
+                { key: 'hall', label: 'Hall' },
+                { key: 'room', label: 'Room' },
+                { key: 'toilet', label: 'Toilet' }
+              ].map(({ key, label }) => (
+                <div key={key} className="">
+                  <div className="text-xs font-medium text-gray-700 mb-2">{label} *</div>
+                  {!formData.requiredImages[key] ? (
+                    <label className={`flex items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer ${errors[`requiredImages.${key}`] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
+                      <div className="text-xs text-gray-500 text-center px-2">Upload {label}</div>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleRequiredImageUpload(key, e)} />
+                    </label>
+                  ) : (
+                    <div className="relative group">
+                      <img src={formData.requiredImages[key].preview} alt={formData.requiredImages[key].name} className="w-full h-28 object-cover rounded-lg border" />
+                      <button type="button" onClick={() => removeRequiredImage(key)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  {errors[`requiredImages.${key}`] && (
+                    <div className="mt-1 text-[11px] text-red-600">{errors[`requiredImages.${key}`]}</div>
+                  )}
+                </div>
+              ))}
+            </div>
             
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center justify-center w-full">
@@ -785,8 +1132,37 @@ const AddProperty = () => {
           </motion.div>
         </form>
       </div>
+
+      {/* Map Modal */}
+      {isMapOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-3xl overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="text-sm font-semibold text-gray-900">Select Location</div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={toggleSatellite} className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-xs">
+                  {isSatellite ? 'Satellite' : 'Map'} view
+                </button>
+                <button type="button" onClick={() => setIsMapOpen(false)} className="px-2 py-1 text-gray-500 hover:text-gray-700 text-sm">Close</button>
+              </div>
+            </div>
+            <div ref={modalMapDivRef} style={{ width: '100%', height: '420px' }} />
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 flex items-center justify-between">
+              <div>
+                Lat: {formData.address.latitude || '—'} | Lng: {formData.address.longitude || '—'}
+              </div>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setIsMapOpen(false)} className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs">Use This Location</button>
+                <button type="button" onClick={copyCoords} className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100">Copy Coords</button>
+                <span className="text-gray-500 hidden sm:inline">Drag marker or click map to set exact point</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </OwnerLayout>
   );
 };
 
 export default AddProperty;
+

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OwnerNavbar from './OwnerNavbar';
 import OwnerSidebar from './OwnerSidebar';
 import OwnerFooter from './OwnerFooter';
 
-const OwnerLayout = ({ children }) => {
+const OwnerLayout = ({ children, hideFooter = false }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showGovtIdPrompt, setShowGovtIdPrompt] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -64,6 +65,21 @@ const OwnerLayout = ({ children }) => {
     }
   };
 
+  // Check owner KYC prompt flag
+  useEffect(() => {
+    try {
+      const userRaw = localStorage.getItem('user');
+      if (!userRaw) return;
+      const user = JSON.parse(userRaw);
+      if (user?.role === 3) {
+        // If no govIdVerified flag or false, show prompt
+        if (!user.govIdVerified) {
+          setShowGovtIdPrompt(true);
+        }
+      }
+    } catch {}
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Desktop Sidebar - Hidden on mobile */}
@@ -78,13 +94,39 @@ const OwnerLayout = ({ children }) => {
           <OwnerNavbar onMenuToggle={toggleSidebar} />
         </div>
 
+        {/* Govt ID prompt (top-right) */}
+        {showGovtIdPrompt && (
+          <div className="fixed top-20 right-4 z-40 max-w-xs">
+            <div className="bg-white border border-yellow-300 rounded-xl shadow-lg p-4">
+              <div className="text-sm font-semibold text-gray-900 mb-1">Add Govt ID</div>
+              <div className="text-xs text-gray-600 mb-3">Verify your identity to boost trust. Upload any govt-approved ID.</div>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => { window.location.href = '/owner-settings#kyc'; }}
+                  className="px-3 py-1.5 bg-red-600 text-white text-xs rounded-md hover:bg-red-700"
+                >
+                  Add ID
+                </button>
+                <button
+                  onClick={() => setShowGovtIdPrompt(false)}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content Area */}
         <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto">
           {children}
         </main>
 
         {/* Footer */}
-        <OwnerFooter />
+        {!hideFooter && (
+          <OwnerFooter />
+        )}
       </div>
 
       {/* Mobile Sidebar Overlay */}

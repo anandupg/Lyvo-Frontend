@@ -33,7 +33,6 @@ const OwnerSidebar = ({ onClose }) => {
   const navigation = [
     { name: 'Dashboard', href: '/owner-dashboard', icon: Home },
     { name: 'Properties', href: '/owner-properties', icon: Building },
-    { name: 'Profile', href: '/owner-profile', icon: User },
     { name: 'Tenants', href: '/owner-tenants', icon: Users },
     { name: 'Bookings', href: '/owner-bookings', icon: Calendar },
     { name: 'Finances', href: '/owner-finances', icon: DollarSign },
@@ -106,7 +105,7 @@ const OwnerSidebar = ({ onClose }) => {
             />
           </motion.div>
           <div className="hidden sm:block">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span> Owner</h1>
+                            <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span> Owner</h1>
             <p className="text-xs text-gray-500">Property Management</p>
           </div>
         </motion.div>
@@ -143,7 +142,7 @@ const OwnerSidebar = ({ onClose }) => {
               {user.name || 'Property Owner'}
             </p>
             <p className="text-xs text-gray-500 truncate">
-              {user.email || 'owner@lyvo.com'}
+                              {user.email || 'owner@lyvo+.com'}
             </p>
           </div>
         </div>

@@ -6,7 +6,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Chatbot from "./components/Chatbot";
 import Home from "./pages/Home";
-import Dashboard from "./pages/Dashboard";
+
 import Profile from "./pages/Profile";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -21,18 +21,22 @@ import DebugLogout from "./pages/DebugLogout";
 import Onboarding from "./pages/Onboarding";
 import Loader from "./components/Loader";
 import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
+// Import seeker pages and components
+import SeekerDashboard from "./pages/seeker/SeekerDashboard";
+import SeekerSearch from "./pages/seeker/SeekerSearch";
+import SeekerFavorites from "./pages/seeker/SeekerFavorites";
 // Import owner pages and components
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/Properties";
-import OwnerProfile from "./pages/owner/Profile";
 import AddProperty from "./pages/owner/AddProperty";
 import Messages from "./pages/owner/Messages";
 // Import admin pages and components
 import AdminDashboard from "./pages/admin/Dashboard";
 import Users from "./pages/admin/Users";
 import AdminProperties from "./pages/admin/Properties";
-import Settings from "./pages/admin/Settings";
+import AdminSettings from "./pages/admin/Settings";
 import AdminNotFound from "./pages/admin/NotFound";
+import OwnerSettings from "./pages/owner/Settings";
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -144,6 +148,71 @@ const ProtectedOwnerRoute = ({ children }) => {
   return isAuthorized ? children : null;
 };
 
+// Protected Route Component for Seekers (role === 1)
+const ProtectedSeekerRoute = ({ children }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('authToken');
+      const user = localStorage.getItem('user');
+
+      if (token && user) {
+        try {
+          const userData = JSON.parse(user);
+          console.log('ProtectedSeekerRoute: User role check:', userData.role);
+          
+          // Check if user has seeker role (role === 1)
+          if (userData.role === 1) {
+            setIsAuthorized(true);
+          } else if (userData.role === 2) {
+            // Redirect admin to admin dashboard
+            console.log('ProtectedSeekerRoute: Redirecting admin to admin dashboard');
+            window.location.href = '/admin-dashboard';
+            return;
+          } else if (userData.role === 3) {
+            // Redirect owner to owner dashboard
+            console.log('ProtectedSeekerRoute: Redirecting owner to owner dashboard');
+            window.location.href = '/owner-dashboard';
+            return;
+          } else {
+            // Redirect to login if role is invalid
+            console.log('ProtectedSeekerRoute: Invalid role, redirecting to login');
+            window.location.href = '/login';
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          window.location.href = '/login';
+          return;
+        }
+      } else {
+        // Redirect to login if no token
+        console.log('ProtectedSeekerRoute: No token or user data, redirecting to login');
+        window.location.href = '/login';
+        return;
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return isAuthorized ? children : null;
+};
+
 // Protected Route Component for Regular Users (role === 1)
 const ProtectedUserRoute = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -237,9 +306,9 @@ const RootAuthCheck = ({ children }) => {
             window.location.href = '/owner-dashboard';
             return;
           } else if (userData.role === 1 && (currentPath.startsWith('/admin') || currentPath.startsWith('/owner'))) {
-            // Regular user on admin/owner route - redirect to user dashboard
-            console.log('RootAuthCheck: Redirecting regular user to user dashboard');
-            window.location.href = '/dashboard';
+            // Seeker user on admin/owner route - redirect to seeker dashboard
+            console.log('RootAuthCheck: Redirecting seeker to seeker dashboard');
+            window.location.href = '/seeker-dashboard';
             return;
           }
           
@@ -254,8 +323,8 @@ const RootAuthCheck = ({ children }) => {
               window.location.href = '/owner-dashboard';
               return;
             } else if (userData.role === 1) {
-              console.log('RootAuthCheck: Root path - redirecting regular user to user dashboard');
-              window.location.href = '/dashboard';
+              console.log('RootAuthCheck: Root path - redirecting seeker to seeker dashboard');
+              window.location.href = '/seeker-dashboard';
               return;
             }
           }
@@ -308,9 +377,31 @@ function AppRoutesWithLoader() {
           {/* Main site routes */}
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={
-            <ProtectedUserRoute>
-              <Dashboard />
-            </ProtectedUserRoute>
+            <ProtectedSeekerRoute>
+              <SeekerDashboard />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker" element={
+            <ProtectedSeekerRoute>
+              <SeekerDashboard />
+            </ProtectedSeekerRoute>
+          } />
+          
+          {/* Seeker routes - protected with role-based authentication */}
+          <Route path="/seeker-dashboard" element={
+            <ProtectedSeekerRoute>
+              <SeekerDashboard />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-search" element={
+            <ProtectedSeekerRoute>
+              <SeekerSearch />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-favorites" element={
+            <ProtectedSeekerRoute>
+              <SeekerFavorites />
+            </ProtectedSeekerRoute>
           } />
           <Route path="/profile" element={
             <ProtectedUserRoute>
@@ -354,9 +445,10 @@ function AppRoutesWithLoader() {
               <Messages />
             </ProtectedOwnerRoute>
           } />
-          <Route path="/owner-profile" element={
+          {/* Removed /owner-profile route */}
+          <Route path="/owner-settings" element={
             <ProtectedOwnerRoute>
-              <OwnerProfile />
+              <OwnerSettings />
             </ProtectedOwnerRoute>
           } />
 
@@ -378,7 +470,7 @@ function AppRoutesWithLoader() {
           } />
           <Route path="/admin-settings" element={
             <ProtectedAdminRoute>
-              <Settings />
+              <AdminSettings />
             </ProtectedAdminRoute>
           } />
 
@@ -396,9 +488,10 @@ function AppRoutesWithLoader() {
 function AppContent() {
   const location = useLocation();
 
-  // Check if current route is an admin or owner route
+  // Check if current route is an admin, owner, or seeker route
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isOwnerRoute = location.pathname.startsWith('/owner');
+  const isSeekerRoute = location.pathname.startsWith('/seeker') || location.pathname === '/dashboard';
 
   // Global authentication check
   useEffect(() => {
@@ -435,7 +528,7 @@ function AppContent() {
             return;
           }
           
-          // Special case: if user is on root path (/) and is logged in, redirect to appropriate dashboard
+          // If logged in and on root, stay on home (no redirect to dashboard for user)
           if (currentPath === '/') {
             if (userData.role === 2) {
               console.log('AppContent: Root path - redirecting admin to admin dashboard');
@@ -444,10 +537,6 @@ function AppContent() {
             } else if (userData.role === 3) {
               console.log('AppContent: Root path - redirecting owner to owner dashboard');
               window.location.href = '/owner-dashboard';
-              return;
-            } else if (userData.role === 1) {
-              console.log('AppContent: Root path - redirecting regular user to user dashboard');
-              window.location.href = '/dashboard';
               return;
             }
           }
@@ -462,12 +551,12 @@ function AppContent() {
 
   return (
     <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-stone-100">
-      {/* Only render main Navbar and Footer for non-admin and non-owner routes */}
-      {!isAdminRoute && !isOwnerRoute && <Navbar />}
+      {/* Only render main Navbar and Footer for non-admin, non-owner, and non-seeker routes */}
+      {!isAdminRoute && !isOwnerRoute && !isSeekerRoute && <Navbar />}
       <AppRoutesWithLoader />
-      {!isAdminRoute && !isOwnerRoute && <Footer />}
-      {/* Only render Chatbot for non-admin and non-owner routes */}
-      {!isAdminRoute && !isOwnerRoute && <Chatbot />}
+      {!isAdminRoute && !isOwnerRoute && !isSeekerRoute && <Footer />}
+      {/* Only render Chatbot for non-admin, non-owner, and non-seeker routes */}
+      {!isAdminRoute && !isOwnerRoute && !isSeekerRoute && <Chatbot />}
     </div>
   );
 }

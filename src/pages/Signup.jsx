@@ -95,8 +95,8 @@ const Signup = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Navigate to dashboard
-      navigate('/dashboard');
+      // Navigate to home
+      navigate('/');
       
     } catch (err) {
       setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');

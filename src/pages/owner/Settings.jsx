@@ -10,8 +10,13 @@ import {
   CreditCard,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  Plus,
+  Trash2
 } from 'lucide-react';
+import axios from 'axios';
+import ProfilePictureUpload from '../../components/ProfilePictureUpload';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.jsx';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -19,6 +24,20 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
+  const [profileUpdating, setProfileUpdating] = useState(false);
+  const [kycDocs, setKycDocs] = useState([{ type: '', number: '', file: null }]);
+
+  const addKycDoc = () => {
+    setKycDocs((prev) => [...prev, { type: '', number: '', file: null }]);
+  };
+
+  const removeKycDoc = (index) => {
+    setKycDocs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateKycDoc = (index, field, value) => {
+    setKycDocs((prev) => prev.map((doc, i) => (i === index ? { ...doc, [field]: value } : doc)));
+  };
 
   // Check authentication
   useEffect(() => {
@@ -49,13 +68,40 @@ const Settings = () => {
     checkAuth();
   }, [navigate]);
 
+  const handleRemoveProfilePicture = async () => {
+    if (!user?._id) return;
+    try {
+      setProfileUpdating(true);
+      const token = localStorage.getItem('authToken');
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:4002/api'}/user/profile/${user._id}`,
+        { profilePicture: null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const updated = { ...user, profilePicture: null };
+      localStorage.setItem('user', JSON.stringify(updated));
+      setUser(updated);
+    } catch (e) {
+      console.error('Remove profile picture error:', e);
+      alert('Failed to remove picture.');
+    } finally {
+      setProfileUpdating(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'properties', name: 'Properties', icon: Building },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
+    { id: 'kyc', name: 'Govt ID (KYC)', icon: Shield },
     { id: 'billing', name: 'Billing', icon: CreditCard },
   ];
+
+  useEffect(() => {
+    if (window.location.hash === '#kyc') {
+      setActiveTab('kyc');
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -83,17 +129,16 @@ const Settings = () => {
         <div className="bg-white rounded-lg border border-gray-200">
           {/* Mobile Tab Selector */}
           <div className="lg:hidden p-4 border-b border-gray-200">
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            >
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.name}
-                </option>
-              ))}
-            </select>
+            <Select value={activeTab} onValueChange={(val) => setActiveTab(val)}>
+              <SelectTrigger className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                <SelectValue placeholder="Select section" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {tabs.map((tab) => (
+                  <SelectItem key={tab.id} value={tab.id}>{tab.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Desktop Tabs */}
@@ -119,6 +164,84 @@ const Settings = () => {
 
           {/* Tab Content */}
           <div className="p-6">
+            {activeTab === 'kyc' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-lg font-semibold text-gray-900">Government ID Verification</h2>
+                <p className="text-sm text-gray-600">Upload any government-approved ID (e.g., Aadhaar, PAN, Driving License, Passport). This increases trust for seekers.</p>
+
+                {kycDocs.map((doc, index) => (
+                  <div key={index} className="space-y-4 p-4 border border-gray-200 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="relative">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">ID Type</label>
+                        <div className="relative">
+                          <Select value={doc.type} onValueChange={(val) => updateKycDoc(index, 'type', val)}>
+                            <SelectTrigger className="w-full px-3 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent appearance-none text-sm md:text-base bg-white">
+                              <SelectValue placeholder="Choose ID type" />
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              <SelectItem value="aadhaar">Aadhaar</SelectItem>
+                              <SelectItem value="pan">PAN</SelectItem>
+                              <SelectItem value="dl">Driving License</SelectItem>
+                              <SelectItem value="passport">Passport</SelectItem>
+                              <SelectItem value="voter">Voter ID</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">ID Number</label>
+                        <input
+                          type="text"
+                          value={doc.number}
+                          onChange={(e) => updateKycDoc(index, 'number', e.target.value)}
+                          className="w-full px-3 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm md:text-base"
+                          placeholder="Enter ID number"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload ID Image</label>
+                      <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
+                        <div className="text-xs text-gray-500 text-center px-2">Click to upload or drag and drop (PNG, JPG up to 5MB)</div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => updateKycDoc(index, 'file', e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end">
+                      {kycDocs.length > 1 && (
+                        <button type="button" onClick={() => removeKycDoc(index)} className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100">
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remove ID
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-between">
+                  <button type="button" onClick={addKycDoc} className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add another ID
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <button className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200">Submit for Verification</button>
+                    <span className="text-xs text-gray-500">We will review and update your status shortly.</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             {activeTab === 'profile' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -126,6 +249,31 @@ const Settings = () => {
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
+                {/* Profile Picture */}
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 mb-3">Profile Picture</div>
+                  <div className="flex items-center gap-4">
+                    <ProfilePictureUpload
+                      currentImage={user?.profilePicture || null}
+                      onImageUpdate={(url) => {
+                        const updated = { ...user, profilePicture: url };
+                        localStorage.setItem('user', JSON.stringify(updated));
+                        setUser(updated);
+                      }}
+                    />
+                    {user?.profilePicture && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveProfilePicture}
+                        disabled={profileUpdating}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      >
+                        {profileUpdating ? 'Removing…' : 'Remove'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
@@ -164,7 +312,7 @@ const Settings = () => {
                     </label>
                     <input
                       type="text"
-                      defaultValue="Lyvo Property Management"
+                      defaultValue="Lyvo+ Property Management"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>

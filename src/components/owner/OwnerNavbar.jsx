@@ -16,7 +16,21 @@ const OwnerNavbar = ({ onMenuToggle }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
+  // Keep navbar avatar in sync when profile changes
+  useEffect(() => {
+    const onUpdate = () => {
+      try { setUser(JSON.parse(localStorage.getItem('user') || '{}')); } catch {}
+    };
+    window.addEventListener('lyvo-profile-update', onUpdate);
+    window.addEventListener('lyvo-login', onUpdate);
+    window.addEventListener('lyvo-logout', onUpdate);
+    return () => {
+      window.removeEventListener('lyvo-profile-update', onUpdate);
+      window.removeEventListener('lyvo-login', onUpdate);
+      window.removeEventListener('lyvo-logout', onUpdate);
+    };
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -137,7 +151,7 @@ const OwnerNavbar = ({ onMenuToggle }) => {
               />
             </motion.div>
             <div className="hidden sm:block">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span> Owner</h1>
+                              <h1 className="text-lg sm:text-xl font-bold text-gray-900"><span className="text-red-600">Lyvo</span><span className="text-black">+</span> Owner</h1>
               <p className="text-xs text-gray-500">Property Management</p>
             </div>
           </Link>
@@ -269,11 +283,15 @@ const OwnerNavbar = ({ onMenuToggle }) => {
               whileTap="tap"
             >
               <motion.div 
-                className="w-7 h-7 sm:w-8 sm:h-8 bg-red-100 rounded-full flex items-center justify-center"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-red-100 flex items-center justify-center"
                 whileHover={{ scale: 1.05 }}
                 transition={{ duration: 0.2 }}
               >
-                <User className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                {user?.profilePicture ? (
+                  <img src={user.profilePicture} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                )}
               </motion.div>
               <span className="hidden sm:block text-sm font-medium text-gray-700">
                 {user.name || 'Owner'}
