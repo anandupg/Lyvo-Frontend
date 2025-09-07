@@ -21,6 +21,7 @@ const SeekerSidebar = ({ onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -165,40 +166,17 @@ const SeekerSidebar = ({ onClose }) => {
           }}
         >
           <motion.div 
-            className="relative w-12 h-12 bg-gradient-to-br from-red-400 via-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg"
+            className="relative w-12 h-12 rounded-full overflow-hidden shadow-lg"
             whileHover={{ 
-              scale: 1.1,
-              rotate: [0, -10, 10, 0],
-              transition: { duration: 0.4 }
-            }}
-            animate={{
-              boxShadow: [
-                "0 4px 15px rgba(239, 68, 68, 0.3)",
-                "0 8px 25px rgba(239, 68, 68, 0.4)",
-                "0 4px 15px rgba(239, 68, 68, 0.3)"
-              ]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
+              scale: 1.05,
+              transition: { duration: 0.2 }
             }}
           >
-            <span className="text-white font-bold text-lg">
-              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </span>
-            {/* Animated ring */}
-            <motion.div
-              className="absolute inset-0 rounded-full border-2 border-red-300"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0, 0.5]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+            <img 
+              src={user?.profilePicture || DEFAULT_AVATAR}
+              alt="Profile"
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
             />
           </motion.div>
           <div className="flex-1 min-w-0 pr-2">

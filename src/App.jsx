@@ -25,9 +25,12 @@ import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
 import SeekerDashboard from "./pages/seeker/SeekerDashboard";
 import SeekerSearch from "./pages/seeker/SeekerSearch";
 import SeekerFavorites from "./pages/seeker/SeekerFavorites";
+import SeekerOnboarding from "./pages/seeker/SeekerOnboarding";
+import SeekerProfile from "./pages/seeker/SeekerProfile";
 // Import owner pages and components
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/Properties";
+import PropertyDetails from "./pages/owner/PropertyDetails";
 import AddProperty from "./pages/owner/AddProperty";
 import Messages from "./pages/owner/Messages";
 // Import admin pages and components
@@ -312,7 +315,7 @@ const RootAuthCheck = ({ children }) => {
             return;
           }
           
-          // Special case: if user is on root path (/) and is logged in, redirect to appropriate dashboard
+          // Special case: if user is on root path (/) and is logged in, redirect to appropriate dashboard/onboarding
           if (currentPath === '/') {
             if (userData.role === 2) {
               console.log('RootAuthCheck: Root path - redirecting admin to admin dashboard');
@@ -323,8 +326,12 @@ const RootAuthCheck = ({ children }) => {
               window.location.href = '/owner-dashboard';
               return;
             } else if (userData.role === 1) {
-              console.log('RootAuthCheck: Root path - redirecting seeker to seeker dashboard');
-              window.location.href = '/seeker-dashboard';
+              console.log('RootAuthCheck: Root path - redirecting seeker to appropriate page');
+              if (userData.isNewUser && !userData.hasCompletedBehaviorQuestions) {
+                window.location.href = '/seeker-onboarding';
+              } else {
+                window.location.href = '/seeker-dashboard';
+              }
               return;
             }
           }
@@ -403,6 +410,16 @@ function AppRoutesWithLoader() {
               <SeekerFavorites />
             </ProtectedSeekerRoute>
           } />
+          <Route path="/seeker-onboarding" element={
+            <ProtectedSeekerRoute>
+              <SeekerOnboarding />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-profile" element={
+            <ProtectedSeekerRoute>
+              <SeekerProfile />
+            </ProtectedSeekerRoute>
+          } />
           <Route path="/profile" element={
             <ProtectedUserRoute>
               <Profile />
@@ -435,6 +452,11 @@ function AppRoutesWithLoader() {
               <OwnerProperties />
             </ProtectedOwnerRoute>
           } />
+          <Route path="/owner-property/:id" element={
+            <ProtectedOwnerRoute>
+              <PropertyDetails />
+            </ProtectedOwnerRoute>
+          } />
           <Route path="/owner-add-property" element={
             <ProtectedOwnerRoute>
               <AddProperty />
@@ -445,7 +467,12 @@ function AppRoutesWithLoader() {
               <Messages />
             </ProtectedOwnerRoute>
           } />
-          {/* Removed /owner-profile route */}
+          {/* Owner profile alias -> use settings page */}
+          <Route path="/owner-profile" element={
+            <ProtectedOwnerRoute>
+              <OwnerSettings />
+            </ProtectedOwnerRoute>
+          } />
           <Route path="/owner-settings" element={
             <ProtectedOwnerRoute>
               <OwnerSettings />
@@ -505,8 +532,8 @@ function AppContent() {
           const currentPath = location.pathname;
           
           console.log('AppContent: Global auth check - User role:', userData.role, 'on path:', currentPath);
-          if (userData.isNewUser && !userData.hasCompletedBehaviorQuestions && currentPath !== '/onboarding') {
-            window.location.href = '/onboarding';
+          if (userData.role === 1 && (userData.isNewUser !== false && !userData.hasCompletedBehaviorQuestions) && currentPath !== '/seeker-onboarding') {
+            window.location.href = '/seeker-onboarding';
             return;
           }
           

@@ -8,6 +8,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
   const [userDropdown, setUserDropdown] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -361,20 +362,12 @@ const Navbar = () => {
                       title={`Hi, ${user?.name || 'User'}!`}
                     >
                       <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
-                        {user?.profilePicture ? (
-                          <img
-                            src={user.profilePicture}
-                            alt="Profile"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div className={`w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ${user?.profilePicture ? 'hidden' : 'flex'}`}>
-                          <User className="w-4 h-4 text-white" />
-                        </div>
+                        <img
+                          src={user?.profilePicture || DEFAULT_AVATAR}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                        />
                       </div>
                       <div className="flex flex-col items-start">
                         <span className="text-sm font-semibold text-gray-900">{user?.name || 'User'}</span>
@@ -393,20 +386,12 @@ const Navbar = () => {
                         <div className="px-4 py-2 border-b border-gray-100">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200">
-                              {user?.profilePicture ? (
-                                <img
-                                  src={user.profilePicture}
-                                  alt="Profile"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ${user?.profilePicture ? 'hidden' : 'flex'}`}>
-                                <User className="w-3 h-3 text-white" />
-                              </div>
+                              <img
+                                src={user?.profilePicture || DEFAULT_AVATAR}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                              />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-900">Hi, {user?.name || 'User'}!</p>
@@ -578,20 +563,12 @@ const Navbar = () => {
               <div className="px-4 py-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
-                    {user?.profilePicture ? (
-                      <img
-                        src={user.profilePicture}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ${user?.profilePicture ? 'hidden' : 'flex'}`}>
-                      <User className="w-5 h-5 text-white" />
-                    </div>
+                    <img
+                      src={user?.profilePicture || DEFAULT_AVATAR}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                    />
                   </div>
                   <div className="flex flex-col">
                     <div className="text-sm font-semibold text-gray-900">

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const QUESTIONS_API = "http://localhost:4010/api/behaviour";
-const USER_API = "http://localhost:4002/api/user";
+const QUESTIONS_API = import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:4002/api/behaviour";
+const USER_API = import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:4002/api/user";
 
 const Onboarding = () => {
   const navigate = useNavigate();

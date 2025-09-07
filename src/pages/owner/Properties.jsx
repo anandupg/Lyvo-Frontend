@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import OwnerLayout from '../../components/owner/OwnerLayout';
 import { 
   Building, 
-  Plus, 
   Search, 
   Filter, 
   Eye, 
@@ -15,18 +14,49 @@ import {
   Users,
   DollarSign,
   Star,
-  Calendar,
-  MessageCircle
+  Calendar
 } from 'lucide-react';
 
 const Properties = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [imageLoading, setImageLoading] = useState({});
 
-  // Check authentication
+  // Fetch properties from backend
+  const fetchProperties = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_ADD_PROPERTY_API_URL || 'http://localhost:3002'}/api/properties`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          console.log('Properties fetched:', result.data);
+          setProperties(result.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
+  };
+
+  // Refresh properties (can be called from other components)
+  window.refreshProperties = fetchProperties;
+
+  // Check authentication and fetch properties
   useEffect(() => {
     const checkAuth = () => {
       const authToken = localStorage.getItem('authToken');
@@ -44,6 +74,7 @@ const Properties = () => {
           return;
         }
         setUser(user);
+        fetchProperties(); // Fetch properties after auth
       } catch (error) {
         console.error('Error parsing user data:', error);
         navigate('/login');
@@ -55,74 +86,70 @@ const Properties = () => {
     checkAuth();
   }, [navigate]);
 
-  // Mock data for properties
-  const properties = [
-    {
-      id: 1,
-      name: "Sunset Apartments",
-      location: "Koramangala, Bangalore",
-      type: "Apartment Complex",
-      status: "Active",
-      tenants: 12,
-      maxTenants: 15,
-      monthlyRent: 45000,
-      rating: 4.6,
-      lastUpdated: "2024-01-15",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 2,
-      name: "Green Valley Residences",
-      location: "Indiranagar, Bangalore",
-      type: "Independent Houses",
-      status: "Active",
-      tenants: 8,
-      maxTenants: 8,
-      monthlyRent: 38000,
-      rating: 4.8,
-      lastUpdated: "2024-01-10",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 3,
-      name: "City Center Flats",
-      location: "MG Road, Bangalore",
-      type: "Studio Apartments",
-      status: "Active",
-      tenants: 4,
-      maxTenants: 6,
-      monthlyRent: 22000,
-      rating: 4.4,
-      lastUpdated: "2024-01-12",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 4,
-      name: "Riverside Villas",
-      location: "Whitefield, Bangalore",
-      type: "Villas",
-      status: "Under Construction",
-      tenants: 0,
-      maxTenants: 4,
-      monthlyRent: 75000,
-      rating: 0,
-      lastUpdated: "2024-01-08",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 5,
-      name: "Tech Park Residences",
-      location: "Electronic City, Bangalore",
-      type: "Serviced Apartments",
-      status: "Maintenance",
-      tenants: 6,
-      maxTenants: 10,
-      monthlyRent: 32000,
-      rating: 4.2,
-      lastUpdated: "2024-01-05",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
+  // Transform properties data for display
+  const transformedProperties = properties.map(property => {
+    // Collect all uploaded images
+    let allImages = [];
+    let hasUploadedImages = false;
+    
+    console.log('Processing property:', property.property_name);
+    console.log('Property images:', property.images);
+    
+    if (property.images) {
+      // Handle both old format (frontImage, backImage, etc.) and new format (front, back, etc.)
+      const imageOptions = [
+        // New format
+        { url: property.images.front, label: 'Front' },
+        { url: property.images.hall, label: 'Hall' },
+        { url: property.images.room, label: 'Room' },
+        { url: property.images.back, label: 'Back' },
+        { url: property.images.toilet, label: 'Toilet' },
+        // Old format (fallback)
+        { url: property.images.frontImage, label: 'Front' },
+        { url: property.images.hallImage, label: 'Hall' },
+        { url: property.images.roomImage, label: 'Room' },
+        { url: property.images.backImage, label: 'Back' },
+        { url: property.images.toiletImage, label: 'Toilet' }
+      ].filter(img => img.url); // Remove null/undefined values
+      
+      // Add additional images array if it exists
+      if (property.images.images && Array.isArray(property.images.images)) {
+        property.images.images.forEach((url, index) => {
+          if (url) {
+            imageOptions.push({ url, label: `Image ${index + 1}` });
+          }
+        });
+      }
+      
+      allImages = imageOptions;
+      hasUploadedImages = imageOptions.length > 0;
+      
+      console.log('Found images:', allImages.length);
     }
-  ];
+    
+    // Add default fallback image if no uploaded images
+    if (!hasUploadedImages) {
+      allImages = [{ 
+        url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center', 
+        label: 'Default' 
+      }];
+    }
+
+    return {
+      id: property._id || property.id, // Use _id from MongoDB, fallback to id
+      name: property.property_name,
+      location: `${property.address?.city || ''}, ${property.address?.state || ''}`,
+      type: property.property_type,
+      status: property.status === 'active' ? 'Active' : 'Inactive',
+      tenants: 0, // Default values since we don't have tenant data yet
+      maxTenants: 10,
+      monthlyRent: property.pricing?.monthly_rent || 0,
+      rating: 0, // Default rating
+      lastUpdated: property.created_at ? new Date(property.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      images: allImages,
+      hasUploadedImages: hasUploadedImages
+    };
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -156,7 +183,7 @@ const Properties = () => {
     }
   };
 
-  const filteredProperties = properties.filter(property => {
+  const filteredProperties = transformedProperties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          property.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || property.status === filterStatus;
@@ -184,22 +211,6 @@ const Properties = () => {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Properties</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your property portfolio and listings</p>
-          </div>
-          <div className="sm:mt-0 flex space-x-3">
-            <button
-              onClick={() => navigate('/owner-messages')}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200"
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Messages
-            </button>
-            <button
-              onClick={() => navigate('/owner-add-property')}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Property
-            </button>
           </div>
         </div>
 
@@ -240,25 +251,77 @@ const Properties = () => {
         {/* Properties Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredProperties.map((property, index) => (
-            <motion.div
+            <div
               key={property.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
               className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200"
             >
-              {/* Property Image */}
-              <div className="relative h-40 sm:h-48 bg-gray-200">
-                <img
-                  src={property.image}
-                  alt={property.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
+              {/* Property Images Gallery */}
+              <div 
+                className="relative h-40 sm:h-48 bg-gray-200 overflow-hidden"
+              >
+                {/* Current image display */}
+                <div className="relative w-full h-full">
+                  <img
+                    src={property.images[0]?.url}
+                    alt={`${property.name} - ${property.images[0]?.label}`}
+                    className="w-full h-full object-cover"
+                    onLoad={() => {
+                      setImageLoading(prev => ({
+                        ...prev,
+                        [property.id]: false
+                      }));
+                    }}
+                    onError={(e) => {
+                      // Fallback to default image if Cloudinary image fails to load
+                      e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center';
+                      setImageLoading(prev => ({
+                        ...prev,
+                        [property.id]: false
+                      }));
+                    }}
+                  />
+                  
+                  {/* Loading overlay */}
+                  {imageLoading[property.id] !== false && (
+                    <motion.div 
+                      className="absolute inset-0 bg-gray-200 flex items-center justify-center"
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: 0 }}
+                      transition={{ delay: 0.5, duration: 0.3 }}
+                    >
+                      <motion.div
+                        className="w-8 h-8 border-2 border-gray-300 border-t-red-600 rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                    </motion.div>
+                  )}
+                  
+                  {/* Image label overlay */}
+                  {property.images[0]?.label !== 'Default' && (
+                    <div className="absolute bottom-1 left-1">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-black bg-opacity-50 text-white">
+                        {property.images[0]?.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                
+                {/* Status badge with animation */}
+                <motion.div 
+                  className="absolute top-2 sm:top-3 right-2 sm:right-3"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                >
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(property.status)}`}>
                     {property.status}
                   </span>
-                </div>
+                </motion.div>
+                
+                
+                
               </div>
 
               {/* Property Details */}
@@ -299,7 +362,11 @@ const Properties = () => {
                 {/* Actions */}
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => navigate(`/owner-property/${property.id}`)}
+                    onClick={() => {
+                      console.log('View button clicked for property:', property.id);
+                      console.log('Navigating to:', `/owner-property/${property.id}`);
+                      navigate(`/owner-property/${property.id}`);
+                    }}
                     className="flex-1 flex items-center justify-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200"
                   >
                     <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
@@ -319,7 +386,7 @@ const Properties = () => {
                   Last updated: {new Date(property.lastUpdated).toLocaleDateString()}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -331,18 +398,9 @@ const Properties = () => {
             <p className="text-sm sm:text-base text-gray-500 mb-4">
               {searchTerm || filterStatus !== 'all' 
                 ? 'Try adjusting your search or filters'
-                : 'Get started by adding your first property'
+                : 'No properties available'
               }
             </p>
-            {!searchTerm && filterStatus === 'all' && (
-              <button
-                onClick={() => navigate('/owner-add-property')}
-                className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Property
-              </button>
-            )}
           </div>
         )}
       </div>

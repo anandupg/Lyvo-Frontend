@@ -19,7 +19,9 @@ import {
   X,
   Plus,
   ArrowLeft,
-  Save
+  Save,
+  FileText,
+  Eye
 } from 'lucide-react';
 
 const AddProperty = () => {
@@ -40,15 +42,6 @@ const AddProperty = () => {
       latitude: '',
       longitude: ''
     },
-    
-    // Property Details
-    totalUnits: '',
-    availableUnits: '',
-    floorNumber: '',
-    totalFloors: '',
-    builtUpArea: '',
-    carpetArea: '',
-    yearBuilt: '',
     
     // Pricing
     monthlyRent: '',
@@ -86,7 +79,10 @@ const AddProperty = () => {
       hall: null,
       room: null,
       toilet: null
-    }
+    },
+    
+    // Documents
+    documents: []
   });
 
   const [errors, setErrors] = useState({});
@@ -108,6 +104,7 @@ const AddProperty = () => {
   const debounceRef = useRef(null);
   const listRef = useRef(null);
   const selectingRef = useRef(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   // Check authentication
   useEffect(() => {
@@ -434,6 +431,37 @@ const AddProperty = () => {
     }));
   };
 
+  // Document upload functions
+  const handleDocumentUpload = (event) => {
+    const files = Array.from(event.target.files);
+    const newDocuments = files.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+      type: file.type
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      documents: [...prev.documents, ...newDocuments]
+    }));
+  };
+
+  const removeDocument = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      documents: prev.documents.filter((_, i) => i !== index)
+    }));
+  };
+
+  const previewDocument = (document) => {
+    setPreviewDoc({
+      url: document.preview,
+      name: document.name,
+      type: document.type.includes('pdf') ? 'pdf' : 'image'
+    });
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -447,8 +475,6 @@ const AddProperty = () => {
     if (!formData.address.pincode.trim()) newErrors['address.pincode'] = 'Pincode is required';
     
     // Property details validation
-    if (!formData.totalUnits) newErrors.totalUnits = 'Total units is required';
-    if (!formData.availableUnits) newErrors.availableUnits = 'Available units is required';
     if (!formData.monthlyRent) newErrors.monthlyRent = 'Monthly rent is required';
     if (!formData.securityDeposit) newErrors.securityDeposit = 'Security deposit is required';
 
@@ -474,15 +500,76 @@ const AddProperty = () => {
     setIsSubmitting(true);
     
     try {
-      // Here you would typically send the data to your backend
-      // For now, we'll simulate an API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        throw new Error('Authentication token not found');
+      }
+
+      // Prepare form data for API
+      const formDataToSend = new FormData();
       
-      // Success - redirect to properties page
-      navigate('/owner-properties');
+      // Add property data as JSON string
+      formDataToSend.append('propertyData', JSON.stringify(formData));
+      
+      // Add required images
+      console.log('Required images:', formData.requiredImages);
+      Object.entries(formData.requiredImages).forEach(([type, imageData]) => {
+        if (imageData && imageData.file) {
+          console.log(`Adding required image: ${type}Image`, imageData.file.name);
+          formDataToSend.append(`${type}Image`, imageData.file);
+        }
+      });
+      
+      // Add additional images
+      console.log('Additional images:', formData.images);
+      formData.images.forEach((imageData, index) => {
+        if (imageData.file) {
+          console.log(`Adding additional image: images`, imageData.file.name);
+          formDataToSend.append('images', imageData.file);
+        }
+      });
+      
+      // Add documents
+      console.log('Documents:', formData.documents);
+      formData.documents.forEach((documentData, index) => {
+        if (documentData.file) {
+          console.log(`Adding document: documents`, documentData.file.name);
+          formDataToSend.append('documents', documentData.file);
+        }
+      });
+      
+      console.log('FormData entries:');
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(key, value);
+      }
+
+      // Make API call to simple backend
+      const response = await fetch(`${import.meta.env.VITE_ADD_PROPERTY_API_URL || 'http://localhost:3002'}/api/properties/add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: formDataToSend
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to create property');
+      }
+
+      if (result.success) {
+        // Success - refresh properties list and redirect
+        if (window.refreshProperties) {
+          window.refreshProperties();
+        }
+        navigate('/owner-properties');
+      } else {
+        throw new Error(result.message || 'Failed to create property');
+      }
     } catch (error) {
       console.error('Error adding property:', error);
-      // Handle error (show toast, etc.)
+      alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -747,129 +834,7 @@ const AddProperty = () => {
             </div>
           </motion.div>
 
-          {/* Property Details */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200"
-          >
-            <div className="flex items-center space-x-2 mb-4 sm:mb-6">
-              <Home className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Property Details</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Total Units *
-                </label>
-                <input
-                  type="number"
-                  value={formData.totalUnits}
-                  onChange={(e) => handleInputChange('totalUnits', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.totalUnits ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Number of units"
-                  min="1"
-                />
-                {errors.totalUnits && (
-                  <p className="mt-1 text-sm text-red-600">{errors.totalUnits}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Available Units *
-                </label>
-                <input
-                  type="number"
-                  value={formData.availableUnits}
-                  onChange={(e) => handleInputChange('availableUnits', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.availableUnits ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Available units"
-                  min="0"
-                />
-                {errors.availableUnits && (
-                  <p className="mt-1 text-sm text-red-600">{errors.availableUnits}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Floor Number
-                </label>
-                <input
-                  type="number"
-                  value={formData.floorNumber}
-                  onChange={(e) => handleInputChange('floorNumber', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Floor number"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Total Floors
-                </label>
-                <input
-                  type="number"
-                  value={formData.totalFloors}
-                  onChange={(e) => handleInputChange('totalFloors', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Total floors"
-                  min="1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Built-up Area (sq ft)
-                </label>
-                <input
-                  type="number"
-                  value={formData.builtUpArea}
-                  onChange={(e) => handleInputChange('builtUpArea', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Built-up area"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Carpet Area (sq ft)
-                </label>
-                <input
-                  type="number"
-                  value={formData.carpetArea}
-                  onChange={(e) => handleInputChange('carpetArea', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Carpet area"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Year Built
-                </label>
-                <input
-                  type="number"
-                  value={formData.yearBuilt}
-                  onChange={(e) => handleInputChange('yearBuilt', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Year built"
-                  min="1900"
-                  max={new Date().getFullYear()}
-                />
-              </div>
-            </div>
-          </motion.div>
+          
 
           {/* Pricing Information */}
           <motion.div
@@ -1098,6 +1063,120 @@ const AddProperty = () => {
             </div>
           </motion.div>
 
+          {/* Property Documents */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+            className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200"
+          >
+            <div className="flex items-center space-x-2 mb-4 sm:mb-6">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Property Documents</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">Upload property documents like lease agreements, property papers, etc.</p>
+            
+            <div className="space-y-6">
+              {/* Document Upload Area */}
+              <div className="relative">
+                <label className="cursor-pointer block">
+                  <div className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 group">
+                    <div className="flex flex-col items-center justify-center pt-6 pb-6">
+                      <div className="p-4 bg-red-50 rounded-full mb-4 group-hover:bg-red-100 transition-colors">
+                        <FileText className="w-8 h-8 text-red-600" />
+                      </div>
+                      <p className="mb-2 text-sm font-medium text-gray-700">
+                        <span className="text-red-600">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PDF files only, up to 10MB each</p>
+                    </div>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf"
+                      onChange={handleDocumentUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              {/* Document Preview */}
+              {formData.documents.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-700">Uploaded Documents</h3>
+                    <span className="text-xs text-gray-500">{formData.documents.length} file(s)</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {formData.documents.map((document, index) => (
+                      <div key={index} className="group relative bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className={`p-2 rounded-lg ${
+                              document.type.includes('pdf') ? 'bg-red-100' : 
+                              document.type.includes('image') ? 'bg-green-100' : 
+                              'bg-blue-100'
+                            }`}>
+                              <FileText className={`w-5 h-5 ${
+                                document.type.includes('pdf') ? 'text-red-600' : 
+                                document.type.includes('image') ? 'text-green-600' : 
+                                'text-blue-600'
+                              }`} />
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate" title={document.name}>
+                              {document.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">PDF Document</p>
+                            <div className="flex items-center mt-2 space-x-2">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {document.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => previewDocument(document)}
+                              className="flex-shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                              title="Preview document"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeDocument(index)}
+                              className="flex-shrink-0 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                              title="Remove document"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {formData.documents.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500">No documents uploaded yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Upload property documents to get started</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
           {/* Submit Button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1156,6 +1235,72 @@ const AddProperty = () => {
                 <button type="button" onClick={copyCoords} className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100">Copy Coords</button>
                 <span className="text-gray-500 hidden sm:inline">Drag marker or click map to set exact point</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="text-sm font-semibold text-gray-900">Document Preview - {previewDoc.name}</div>
+              <button 
+                type="button" 
+                onClick={() => setPreviewDoc(null)} 
+                className="px-2 py-1 text-gray-500 hover:text-gray-700 text-sm"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 max-h-[80vh] overflow-auto">
+              {previewDoc.type === 'pdf' ? (
+                <div className="w-full h-[70vh] border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                  <iframe 
+                    title="PDF Preview" 
+                    src={`${previewDoc.url}#toolbar=1&navpanes=1&scrollbar=1`}
+                    className="w-full h-full border-0" 
+                    style={{ minHeight: '600px' }}
+                    onLoad={() => {
+                      console.log('PDF preview loaded successfully');
+                    }}
+                    onError={(e) => {
+                      console.error('PDF preview error:', e);
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentElement;
+                      fallback.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full bg-gray-50 p-8">
+                          <div class="text-center">
+                            <FileText class="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">PDF Preview Not Available</h3>
+                            <p class="text-gray-600 mb-4">This PDF cannot be previewed in the browser.</p>
+                            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                              <a href="${previewDoc.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                <ExternalLink class="w-4 h-4 mr-2" />
+                                Open in New Tab
+                              </a>
+                              <a href="${previewDoc.url}" download="${previewDoc.name}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <Download class="w-4 h-4 mr-2" />
+                                Download PDF
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                    }}
+                  />
+                </div>
+              ) : (
+                <img 
+                  src={previewDoc.url} 
+                  alt={previewDoc.name} 
+                  className="w-full max-h-[70vh] object-contain border border-gray-200 rounded-lg" 
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Available';
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

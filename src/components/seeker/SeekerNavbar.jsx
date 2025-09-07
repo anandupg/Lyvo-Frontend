@@ -15,6 +15,7 @@ const SeekerNavbar = ({ onMenuToggle }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -224,40 +225,15 @@ const SeekerNavbar = ({ onMenuToggle }) => {
               whileTap={{ scale: 0.95 }}
             >
               <motion.div 
-                className="relative w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-lg"
-                whileHover={{ 
-                  scale: 1.1,
-                  rotate: [0, -5, 5, 0],
-                  transition: { duration: 0.3 }
-                }}
-                animate={{
-                  boxShadow: [
-                    "0 4px 15px rgba(239, 68, 68, 0.3)",
-                    "0 8px 25px rgba(239, 68, 68, 0.4)",
-                    "0 4px 15px rgba(239, 68, 68, 0.3)"
-                  ]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
+                className="relative w-8 h-8 rounded-full overflow-hidden shadow-md"
+                whileHover={{ scale: 1.08 }}
+                transition={{ duration: 0.2 }}
               >
-                <span className="text-white font-bold text-sm">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </span>
-                {/* Animated ring */}
-                <motion.div
-                  className="absolute inset-0 rounded-full border-2 border-red-300"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.5, 0, 0.5]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
+                <img
+                  src={user?.profilePicture || DEFAULT_AVATAR}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
                 />
               </motion.div>
               <span className="hidden sm:block text-sm font-medium text-gray-700 group-hover:text-red-700 transition-colors">

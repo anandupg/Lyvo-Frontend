@@ -142,12 +142,12 @@ const Home = () => {
             ))}
           </div>
           
-          {/* Hero Section */}
+      {/* Hero Section */}
           <div className="relative pt-20 pb-4 px-2 sm:px-6 lg:px-8 sm:pt-28 lg:pt-32 overflow-hidden">
-          <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center">
             <ScrollReveal direction="up" delay={0.02}>
               <div className="flex flex-col items-center justify-center mb-12">
-                {/* Clean Brand Logo */}
+              {/* Clean Brand Logo */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}

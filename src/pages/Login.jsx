@@ -78,7 +78,11 @@ const Login = () => {
         } else if (userData.role === 3) {
           navigate('/owner-dashboard', { replace: true });
         } else {
-          navigate('/seeker-dashboard', { replace: true });
+          if ((userData.isNewUser !== false) && !userData.hasCompletedBehaviorQuestions) {
+            navigate('/seeker-onboarding', { replace: true });
+          } else {
+            navigate('/seeker-dashboard', { replace: true });
+          }
         }
       } catch (error) {
         console.error('Login: Error parsing user data:', error);
@@ -116,7 +120,12 @@ const Login = () => {
       } else if (result.data.user && result.data.user.role === 3) {
         navigate('/owner-dashboard');
       } else {
-        navigate('/seeker-dashboard');
+        const u = result.data.user;
+        if ((u.isNewUser !== false) && !u.hasCompletedBehaviorQuestions) {
+          navigate('/seeker-onboarding');
+        } else {
+          navigate('/seeker-dashboard');
+        }
       }
       
     } catch (err) {
@@ -153,7 +162,12 @@ const Login = () => {
       } else if (response.data.user && response.data.user.role === 3) {
         navigate('/owner-dashboard');
       } else {
-        navigate('/seeker-dashboard');
+        const u = response.data.user;
+        if ((u.isNewUser !== false) && !u.hasCompletedBehaviorQuestions) {
+          navigate('/seeker-onboarding');
+        } else {
+          navigate('/seeker-dashboard');
+        }
       }
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');
