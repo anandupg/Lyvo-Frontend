@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Coffee, MoonStar, Users, Smile, Meh, Frown, Salad, Drumstick, Leaf, Soup, Volume2, VolumeX, DoorOpen, Shield, Wallet } from "lucide-react";
 import SeekerNavbar from "../../components/seeker/SeekerNavbar";
 
-const BASE = import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:4002";
-const QUESTIONS_API = `${BASE}/api/behaviour`;
+const RAW_BASE = import.meta.env.VITE_USER_SERVICE_URL || import.meta.env.VITE_API_URL || "http://localhost:4002";
+const BASE_TRIM = String(RAW_BASE || '').replace(/\/$/, '');
+const API_BASE = BASE_TRIM.endsWith('/api') ? BASE_TRIM : `${BASE_TRIM}/api`;
+const QUESTIONS_API = `${API_BASE}/behaviour`;
 
 const SeekerOnboarding = () => {
   const navigate = useNavigate();

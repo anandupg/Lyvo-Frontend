@@ -40,7 +40,9 @@ const AdminSidebar = ({ onClose }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/admin-dashboard', icon: Home },
-    { name: 'Users', href: '/admin-users', icon: Users },
+    { name: 'All Users', href: '/admin-users', icon: Users },
+    { name: 'Room Owners', href: '/admin-owners', icon: User },
+    { name: 'Seekers', href: '/admin-seekers', icon: User },
     { name: 'Properties', href: '/admin-properties', icon: Building },
     { name: 'Bookings', href: '/admin-bookings', icon: Calendar },
     { name: 'Reports', href: '/admin-reports', icon: BarChart3 },

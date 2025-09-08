@@ -65,19 +65,44 @@ const OwnerLayout = ({ children, hideFooter = false }) => {
     }
   };
 
-  // Check owner KYC prompt flag
+  // Helper: decide whether to show KYC prompt
+  const computeShowKycPrompt = (user) => {
+    if (!user || user.role !== 3) return false;
+    const hasAnyDoc = Boolean(user.govtIdFrontUrl) || Boolean(user.govtIdBackUrl);
+    const isApproved = user.kycVerified === true || user.kycStatus === 'approved';
+    // Show prompt only if user has no docs and not approved
+    return !(hasAnyDoc || isApproved);
+  };
+
+  // Check owner KYC prompt flag with DB fetch for freshness
   useEffect(() => {
-    try {
-      const userRaw = localStorage.getItem('user');
-      if (!userRaw) return;
-      const user = JSON.parse(userRaw);
-      if (user?.role === 3) {
-        // If no govIdVerified flag or false, show prompt
-        if (!user.govIdVerified) {
-          setShowGovtIdPrompt(true);
+    const check = async () => {
+      try {
+        const userRaw = localStorage.getItem('user');
+        if (!userRaw) return;
+        const parsed = JSON.parse(userRaw);
+        if (parsed?.role !== 3) return;
+        // Default local decision first
+        setShowGovtIdPrompt(computeShowKycPrompt(parsed));
+        // Try to refresh from API
+        const token = localStorage.getItem('authToken');
+        if (!token || !parsed?._id) return;
+        const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+        const res = await fetch(`${base}/user/profile/${parsed._id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const fresh = await res.json();
+          if (fresh?._id) {
+            localStorage.setItem('user', JSON.stringify(fresh));
+            setShowGovtIdPrompt(computeShowKycPrompt(fresh));
+          }
         }
-      }
-    } catch {}
+      } catch (_) {}
+    };
+    check();
+    // Listen for user updates (e.g., after KYC upload)
+    const handler = () => check();
+    window.addEventListener('lyvo-user-updated', handler);
+    return () => window.removeEventListener('lyvo-user-updated', handler);
   }, []);
 
   return (

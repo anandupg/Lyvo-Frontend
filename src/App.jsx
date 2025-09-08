@@ -33,9 +33,11 @@ import OwnerProperties from "./pages/owner/Properties";
 import PropertyDetails from "./pages/owner/PropertyDetails";
 import AddProperty from "./pages/owner/AddProperty";
 import Messages from "./pages/owner/Messages";
+import KycRequired from "./pages/owner/KycRequired";
 // Import admin pages and components
 import AdminDashboard from "./pages/admin/Dashboard";
-import Users from "./pages/admin/Users";
+import AdminOwners from "./pages/admin/Owners";
+import AdminSeekers from "./pages/admin/Seekers";
 import AdminProperties from "./pages/admin/Properties";
 import AdminSettings from "./pages/admin/Settings";
 import AdminNotFound from "./pages/admin/NotFound";
@@ -462,6 +464,11 @@ function AppRoutesWithLoader() {
               <AddProperty />
             </ProtectedOwnerRoute>
           } />
+          <Route path="/owner-kyc-required" element={
+            <ProtectedOwnerRoute>
+              <KycRequired />
+            </ProtectedOwnerRoute>
+          } />
           <Route path="/owner-messages" element={
             <ProtectedOwnerRoute>
               <Messages />
@@ -485,9 +492,14 @@ function AppRoutesWithLoader() {
               <AdminDashboard />
             </ProtectedAdminRoute>
           } />
-          <Route path="/admin-users" element={
+          <Route path="/admin-owners" element={
             <ProtectedAdminRoute>
-              <Users />
+              <AdminOwners />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin-seekers" element={
+            <ProtectedAdminRoute>
+              <AdminSeekers />
             </ProtectedAdminRoute>
           } />
           <Route path="/admin-properties" element={

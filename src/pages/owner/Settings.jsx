@@ -26,6 +26,24 @@ const Settings = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [profileUpdating, setProfileUpdating] = useState(false);
   const [kycDocs, setKycDocs] = useState([{ type: '', number: '', file: null }]);
+  const [kycSubmitting, setKycSubmitting] = useState(false);
+  const [kycMessage, setKycMessage] = useState('');
+
+  const refreshUserFromApi = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const current = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!token || !current?._id) return;
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      const { data } = await axios.get(`${base}/user/profile/${current._id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (data?._id) {
+        localStorage.setItem('user', JSON.stringify(data));
+        setUser(data);
+      }
+    } catch (e) {
+      console.error('refreshUserFromApi error:', e);
+    }
+  };
 
   const addKycDoc = () => {
     setKycDocs((prev) => [...prev, { type: '', number: '', file: null }]);
@@ -37,6 +55,56 @@ const Settings = () => {
 
   const updateKycDoc = (index, field, value) => {
     setKycDocs((prev) => prev.map((doc, i) => (i === index ? { ...doc, [field]: value } : doc)));
+  };
+
+  const handleSubmitKyc = async () => {
+    try {
+      setKycSubmitting(true);
+      setKycMessage('');
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setKycMessage('Not authenticated');
+        return;
+      }
+      // Upload only one image per request; pick the first selected file
+      const firstWithFile = kycDocs.find(d => d.file) || null;
+      if (!firstWithFile) {
+        setKycMessage('Please add an ID image to upload.');
+        return;
+      }
+      // Decide which side to upload based on current user state
+      let side = 'front';
+      if (user?.govtIdFrontUrl && !user?.govtIdBackUrl) {
+        side = 'back';
+      } else if (user?.govtIdFrontUrl && user?.govtIdBackUrl) {
+        setKycMessage('Both front and back already uploaded. Awaiting review.');
+        return;
+      }
+      const form = new FormData();
+      form.append(side, firstWithFile.file);
+      // Optional metadata
+      if (kycDocs[0]?.type) form.append('idType', kycDocs[0].type);
+      if (kycDocs[0]?.number) form.append('idNumber', kycDocs[0].number);
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      const { data } = await axios.post(`${base}/user/kyc/upload`, form, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (data?.user) {
+        const updated = { ...(JSON.parse(localStorage.getItem('user')) || {}), ...data.user };
+        localStorage.setItem('user', JSON.stringify(updated));
+        setUser(updated);
+        // Notify other components (e.g., layout) that user has updated
+        window.dispatchEvent(new Event('lyvo-user-updated'));
+      }
+      await refreshUserFromApi();
+      window.dispatchEvent(new Event('lyvo-user-updated'));
+      setKycMessage(`KYC ${side === 'front' ? 'front' : 'back'} image submitted. Status: pending`);
+    } catch (e) {
+      console.error('KYC submit error:', e);
+      setKycMessage(e?.response?.data?.message || 'Failed to submit KYC');
+    } finally {
+      setKycSubmitting(false);
+    }
   };
 
   // Check authentication
@@ -102,6 +170,12 @@ const Settings = () => {
       setActiveTab('kyc');
     }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'kyc') {
+      refreshUserFromApi();
+    }
+  }, [activeTab]);
 
   if (loading) {
     return (
@@ -174,6 +248,40 @@ const Settings = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Government ID Verification</h2>
                 <p className="text-sm text-gray-600">Upload any government-approved ID (e.g., Aadhaar, PAN, Driving License, Passport). This increases trust for seekers.</p>
 
+                {/* Existing KYC preview and status */}
+                {(user?.govtIdFrontUrl || user?.govtIdBackUrl) && (
+                  <div className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm font-medium text-gray-900">Submitted Documents</div>
+                      {user?.kycStatus && (
+                        <span className={`text-xs px-2 py-1 rounded-md ${user.kycStatus === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}`}>
+                          Status: {String(user.kycStatus).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {user?.govtIdFrontUrl && (
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Front</div>
+                          <img src={user.govtIdFrontUrl} alt="Govt ID Front" className="w-full h-40 object-cover rounded-lg border" />
+                        </div>
+                      )}
+                      {user?.govtIdBackUrl && (
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Back</div>
+                          <img src={user.govtIdBackUrl} alt="Govt ID Back" className="w-full h-40 object-cover rounded-lg border" />
+                        </div>
+                      )}
+                    </div>
+                    {user?.kycStatus === 'rejected' && (
+                      <div className="text-xs text-red-600 mt-3">Your KYC was rejected. Please re-submit clear images.</div>
+                    )}
+                    {user?.kycStatus === 'approved' && (
+                      <div className="text-xs text-green-600 mt-3">Your KYC is approved.</div>
+                    )}
+                  </div>
+                )}
+
                 {kycDocs.map((doc, index) => (
                   <div key={index} className="space-y-4 p-4 border border-gray-200 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -208,15 +316,33 @@ const Settings = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Upload ID Image</label>
-                      <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
-                        <div className="text-xs text-gray-500 text-center px-2">Click to upload or drag and drop (PNG, JPG up to 5MB)</div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => updateKycDoc(index, 'file', e.target.files && e.target.files[0] ? e.target.files[0] : null)}
-                        />
-                      </label>
+                      {doc.file ? (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={URL.createObjectURL(doc.file)}
+                            alt="Preview"
+                            className="w-28 h-28 object-cover rounded-lg border"
+                            onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateKycDoc(index, 'file', null)}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
+                          <div className="text-xs text-gray-500 text-center px-2">Click to upload (PNG, JPG up to 5MB)</div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => updateKycDoc(index, 'file', e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                          />
+                        </label>
+                      )}
                     </div>
 
                     <div className="flex justify-end">
@@ -236,10 +362,15 @@ const Settings = () => {
                     Add another ID
                   </button>
                   <div className="flex items-center gap-3">
-                    <button className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200">Submit for Verification</button>
+                    <button type="button" onClick={handleSubmitKyc} disabled={kycSubmitting} className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50">
+                      {kycSubmitting ? 'Submitting…' : 'Submit for Verification'}
+                    </button>
                     <span className="text-xs text-gray-500">We will review and update your status shortly.</span>
                   </div>
                 </div>
+                {kycMessage && (
+                  <div className="text-xs mt-2 text-gray-600">{kycMessage}</div>
+                )}
               </motion.div>
             )}
             {activeTab === 'profile' && (

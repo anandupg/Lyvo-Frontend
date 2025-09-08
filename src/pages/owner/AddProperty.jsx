@@ -28,11 +28,13 @@ const AddProperty = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [needsKyc, setNeedsKyc] = useState(false);
   const [formData, setFormData] = useState({
     // Basic Information
     propertyName: '',
     propertyType: '',
     description: '',
+    maximumOccupancy: '',
     address: {
       street: '',
       city: '',
@@ -124,6 +126,8 @@ const AddProperty = () => {
           return;
         }
         setUser(user);
+        const requiresKyc = !user.kycVerified && !(user.govtIdFrontUrl && user.govtIdBackUrl);
+        setNeedsKyc(requiresKyc);
       } catch (error) {
         console.error('Error parsing user data:', error);
         navigate('/login');
@@ -134,6 +138,8 @@ const AddProperty = () => {
 
     checkAuth();
   }, [navigate]);
+
+  // Stay on this page; do not auto-redirect. Show prompt instead.
 
   // Load Google Maps JS API (Places) using env key
   useEffect(() => {
@@ -469,6 +475,7 @@ const AddProperty = () => {
     if (!formData.propertyName.trim()) newErrors.propertyName = 'Property name is required';
     if (!formData.propertyType) newErrors.propertyType = 'Property type is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.maximumOccupancy || parseInt(formData.maximumOccupancy) <= 0) newErrors.maximumOccupancy = 'Maximum occupancy is required';
     if (!formData.address.street.trim()) newErrors['address.street'] = 'Street address is required';
     if (!formData.address.city.trim()) newErrors['address.city'] = 'City is required';
     if (!formData.address.state.trim()) newErrors['address.state'] = 'State is required';
@@ -588,6 +595,9 @@ const AddProperty = () => {
     );
   }
 
+  // If KYC not completed, show blocking prompt and allow navigating to dedicated page
+  const showKycBlock = !loading && user && needsKyc;
+
   return (
     <OwnerLayout>
       <div className="max-w-4xl mx-auto p-3 sm:p-0 space-y-4 sm:space-y-6">
@@ -607,7 +617,25 @@ const AddProperty = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+        {/* Govt ID (KYC) Reminder */}
+        {showKycBlock && (
+          <div className="p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="text-xs sm:text-sm text-yellow-900">
+              To add a property, please upload and verify your Government ID.
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/owner-settings#kyc')}
+                className="px-3 py-2 bg-red-600 text-white rounded-md text-xs sm:text-sm hover:bg-red-700"
+              >
+                Go to Upload Documents
+              </button>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className={`space-y-6 sm:space-y-8 ${showKycBlock ? 'pointer-events-none opacity-50 select-none' : ''}`}>
           {/* Basic Information */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -659,6 +687,25 @@ const AddProperty = () => {
                 </Select>
                 {errors.propertyType && (
                   <p className="mt-1 text-sm text-red-600">{errors.propertyType}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum Occupancy *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maximumOccupancy}
+                  onChange={(e) => handleInputChange('maximumOccupancy', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    errors.maximumOccupancy ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Number of people allowed"
+                />
+                {errors.maximumOccupancy && (
+                  <p className="mt-1 text-sm text-red-600">{errors.maximumOccupancy}</p>
                 )}
               </div>
 
