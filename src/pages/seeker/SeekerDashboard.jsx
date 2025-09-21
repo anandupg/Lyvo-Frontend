@@ -164,22 +164,9 @@ const SeekerDashboard = () => {
         
         console.log('Map created successfully');
         
-        // Add a default marker for Bangalore
-        new window.google.maps.Marker({
-          position: { lat: 12.9716, lng: 77.5946 },
-          map: mapInstanceRef.current,
-          title: 'Bangalore',
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="white" stroke-width="2"/>
-                <path d="M16 8l-4 8h8l-4-8z" fill="white"/>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(32, 32)
-          }
-        });
-        console.log('Default marker added');
+        // Load all properties on map initialization
+        loadAllPropertiesOnMap();
+        console.log('Map initialized, loading properties...');
         // If we already have a selected location, draw/update the radius circle
         if (selectedLocation) {
           const center = new window.google.maps.LatLng(selectedLocation.lat, selectedLocation.lng);
@@ -372,54 +359,107 @@ const SeekerDashboard = () => {
     return calculateDistance(lat1, lng1, lat2, lng2);
   };
 
-  const searchNearbyPGs = (lat, lng, radiusKm = radius) => {
-    // Mock data for nearby PGs - in real app, this would be an API call
-    const mockPGs = [
-      {
-        id: 1,
-        name: 'Student PG Koramangala',
-        address: 'Koramangala, Bangalore',
-        lat: lat + 0.01,
-        lng: lng + 0.01,
-        price: '₹15,000',
-        rating: 4.5,
-        distance: '0.8 km',
-        amenities: ['AC', 'Food', 'WiFi']
-      },
-      {
-        id: 2,
-        name: 'Professional PG Indiranagar',
-        address: 'Indiranagar, Bangalore',
-        lat: lat - 0.02,
-        lng: lng + 0.015,
-        price: '₹18,000',
-        rating: 4.3,
-        distance: '1.2 km',
-        amenities: ['AC', 'Food', 'WiFi', 'Gym']
-      },
-      {
-        id: 3,
-        name: 'Co-living Space HSR',
-        address: 'HSR Layout, Bangalore',
-        lat: lat + 0.025,
-        lng: lng - 0.01,
-        price: '₹12,000',
-        rating: 4.7,
-        distance: '2.1 km',
-        amenities: ['WiFi', 'Laundry', 'Gym']
+  const searchNearbyPGs = async (lat, lng, radiusKm = radius) => {
+    try {
+      // Fetch real properties from the database
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    ];
 
-    // Filter PGs within radius using accurate geodesic calc when available
-    const filteredPGs = mockPGs
-      .map((pg) => {
-        const dKm = getDistanceKm(lat, lng, pg.lat, pg.lng);
-        return { ...pg, distance: `${dKm.toFixed(1)} km`, _distanceKm: dKm };
-      })
-      .filter(pg => pg._distanceKm <= radiusKm);
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned non-JSON response');
+      }
 
-    setNearbyPGs(filteredPGs);
-    addMarkersToMap(filteredPGs);
+      const data = await response.json();
+      const properties = data.properties || [];
+
+      // Transform properties to match the expected format and filter by radius
+      const nearbyProperties = properties
+        .filter(property => property.latitude && property.longitude) // Only include properties with coordinates
+        .map((property) => {
+          const dKm = getDistanceKm(lat, lng, property.latitude, property.longitude);
+          return {
+            id: property._id,
+            name: property.propertyName || 'Unnamed Property',
+            address: property.address || 'Address not available',
+            lat: property.latitude,
+            lng: property.longitude,
+            price: property.rent ? `₹${property.rent.toLocaleString()}` : 'Price not available',
+            rating: 4.5, // Default rating since we don't have ratings yet
+            distance: `${dKm.toFixed(1)} km`,
+            _distanceKm: dKm,
+            amenities: property.amenities || [],
+            propertyType: property.propertyType || 'PG',
+            maxOccupancy: property.maxOccupancy || 1,
+            images: property.images || [],
+            ownerName: property.ownerName || 'Unknown Owner'
+          };
+        })
+        .filter(pg => pg._distanceKm <= radiusKm)
+        .sort((a, b) => a._distanceKm - b._distanceKm); // Sort by distance
+
+      setNearbyPGs(nearbyProperties);
+      addMarkersToMap(nearbyProperties);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      
+      // Fallback to mock data if API fails
+      const mockPGs = [
+        {
+          id: 1,
+          name: 'Student PG Koramangala',
+          address: 'Koramangala, Bangalore',
+          lat: lat + 0.01,
+          lng: lng + 0.01,
+          price: '₹15,000',
+          rating: 4.5,
+          distance: '0.8 km',
+          amenities: ['AC', 'Food', 'WiFi']
+        },
+        {
+          id: 2,
+          name: 'Professional PG Indiranagar',
+          address: 'Indiranagar, Bangalore',
+          lat: lat - 0.02,
+          lng: lng + 0.015,
+          price: '₹18,000',
+          rating: 4.3,
+          distance: '1.2 km',
+          amenities: ['AC', 'Food', 'WiFi', 'Gym']
+        },
+        {
+          id: 3,
+          name: 'Co-living Space HSR',
+          address: 'HSR Layout, Bangalore',
+          lat: lat + 0.025,
+          lng: lng - 0.01,
+          price: '₹12,000',
+          rating: 4.7,
+          distance: '2.1 km',
+          amenities: ['WiFi', 'Laundry', 'Gym']
+        }
+      ];
+
+      const filteredPGs = mockPGs
+        .map((pg) => {
+          const dKm = getDistanceKm(lat, lng, pg.lat, pg.lng);
+          return { ...pg, distance: `${dKm.toFixed(1)} km`, _distanceKm: dKm };
+        })
+        .filter(pg => pg._distanceKm <= radiusKm);
+
+      setNearbyPGs(filteredPGs);
+      addMarkersToMap(filteredPGs);
+    }
   };
 
   // Calculate distance between two coordinates
@@ -434,6 +474,59 @@ const SeekerDashboard = () => {
     return R * c;
   };
 
+  // Load all properties on map initialization
+  const loadAllPropertiesOnMap = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned non-JSON response');
+      }
+
+      const data = await response.json();
+      const properties = data.properties || [];
+
+      // Transform properties to match the expected format
+      const allProperties = properties
+        .filter(property => property.latitude && property.longitude) // Only include properties with coordinates
+        .map((property) => {
+          return {
+            id: property._id,
+            name: property.propertyName || 'Unnamed Property',
+            address: property.address || 'Address not available',
+            lat: property.latitude,
+            lng: property.longitude,
+            price: property.rent ? `₹${property.rent.toLocaleString()}` : 'Price not available',
+            rating: 4.5, // Default rating since we don't have ratings yet
+            distance: '0 km', // Will be calculated when user searches
+            _distanceKm: 0,
+            amenities: property.amenities || [],
+            propertyType: property.propertyType || 'PG',
+            maxOccupancy: property.maxOccupancy || 1,
+            images: property.images || [],
+            ownerName: property.ownerName || 'Unknown Owner'
+          };
+        });
+
+      console.log(`Loaded ${allProperties.length} properties on map`);
+      addMarkersToMap(allProperties);
+    } catch (error) {
+      console.error('Error loading properties on map:', error);
+    }
+  };
+
   // Add markers to map
   const addMarkersToMap = (pgs) => {
     if (!mapInstanceRef.current) return;
@@ -443,28 +536,70 @@ const SeekerDashboard = () => {
     markersRef.current = [];
 
     pgs.forEach(pg => {
+      // Create different colored markers based on property type
+      const getMarkerColor = (propertyType) => {
+        switch (propertyType?.toLowerCase()) {
+          case 'pg': return '#ef4444'; // Red
+          case 'co-living': return '#3b82f6'; // Blue
+          case 'apartment': return '#10b981'; // Green
+          case 'house': return '#f59e0b'; // Yellow
+          default: return '#ef4444'; // Default red
+        }
+      };
+
+      const markerColor = getMarkerColor(pg.propertyType);
+      
       const marker = new window.google.maps.Marker({
         position: { lat: pg.lat, lng: pg.lng },
         map: mapInstanceRef.current,
-        title: pg.name,
+        title: `${pg.name} - ${pg.price}`,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="white" stroke-width="2"/>
-              <path d="M16 8l-4 8h8l-4-8z" fill="white"/>
+            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="16" fill="${markerColor}" stroke="white" stroke-width="3"/>
+              <path d="M20 8l-6 12h12l-6-12z" fill="white"/>
+              <text x="20" y="32" text-anchor="middle" fill="white" font-size="8" font-weight="bold">${pg.propertyType?.charAt(0)?.toUpperCase() || 'P'}</text>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(32, 32)
+          scaledSize: new window.google.maps.Size(40, 40)
         }
       });
 
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
-          <div class="p-2">
-            <h3 class="font-semibold text-gray-900">${pg.name}</h3>
-            <p class="text-sm text-gray-600">${pg.address}</p>
-            <p class="text-sm font-medium text-red-600">${pg.price}</p>
-            <p class="text-xs text-gray-500">${pg.distance} away</p>
+          <div class="p-4 max-w-sm">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">${pg.name}</h3>
+              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">${pg.propertyType || 'PG'}</span>
+            </div>
+            <p class="text-xs text-gray-600 mb-2">${pg.address}</p>
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-lg font-bold text-red-600">${pg.price}</p>
+              ${pg.distance !== '0 km' ? `<p class="text-xs text-gray-500">${pg.distance} away</p>` : ''}
+            </div>
+            <div class="space-y-1 text-xs text-gray-600">
+              ${pg.maxOccupancy ? `<p><span class="font-medium">Max Occupancy:</span> ${pg.maxOccupancy} people</p>` : ''}
+              ${pg.ownerName ? `<p><span class="font-medium">Owner:</span> ${pg.ownerName}</p>` : ''}
+              ${pg.amenities && Object.keys(pg.amenities).length > 0 ? `
+                <div class="mt-2">
+                  <p class="font-medium mb-1">Amenities:</p>
+                  <div class="flex flex-wrap gap-1">
+                    ${Object.entries(pg.amenities)
+                      .filter(([key, value]) => value === true)
+                      .slice(0, 3)
+                      .map(([key]) => `<span class="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">${key}</span>`)
+                      .join('')}
+                    ${Object.keys(pg.amenities).filter(key => pg.amenities[key] === true).length > 3 ? 
+                      `<span class="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">+${Object.keys(pg.amenities).filter(key => pg.amenities[key] === true).length - 3} more</span>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            ${pg.images && pg.images.length > 0 ? `
+              <div class="mt-3">
+                <img src="${pg.images[0]}" alt="${pg.name}" class="w-full h-20 object-cover rounded border" />
+              </div>
+            ` : ''}
           </div>
         `
       });
@@ -530,7 +665,7 @@ const SeekerDashboard = () => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     setUser(userData);
 
-    // Mock data
+    // Mock data for recent searches and bookings (these would come from user's history)
     setRecentSearches([
       { id: 1, location: 'Koramangala, Bangalore', date: '2 hours ago' },
       { id: 2, location: 'Indiranagar, Bangalore', date: '1 day ago' },
@@ -577,29 +712,82 @@ const SeekerDashboard = () => {
       }
     ]);
 
-    setRecommendations([
-      {
-        id: 1,
-        name: 'New PG Near Tech Park',
-        location: 'Electronic City, Bangalore',
-        price: '₹12,000',
-        rating: 4.7,
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        distance: '2.5 km',
-        matchScore: 95
-      },
-      {
-        id: 2,
-        name: 'Premium Co-living Space',
-        location: 'Whitefield, Bangalore',
-        price: '₹22,000',
-        rating: 4.8,
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        distance: '5.2 km',
-        matchScore: 88
-      }
-    ]);
+    // Fetch real property recommendations
+    fetchPropertyRecommendations();
   }, []);
+
+  // Fetch property recommendations from the database
+  const fetchPropertyRecommendations = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned non-JSON response');
+      }
+
+      const data = await response.json();
+      const properties = data.properties || [];
+
+      // Transform properties to recommendations format (limit to 4 for display)
+      const recommendations = properties
+        .slice(0, 4)
+        .map((property, index) => ({
+          id: property._id,
+          name: property.propertyName || 'Unnamed Property',
+          location: property.address || 'Address not available',
+          price: property.rent ? `₹${property.rent.toLocaleString()}` : 'Price not available',
+          rating: 4.5, // Default rating
+          image: property.images && property.images.length > 0 
+            ? property.images[0] 
+            : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
+          distance: `${(index + 1) * 2}.${index + 1} km`, // Mock distance for now
+          matchScore: 95 - (index * 5), // Decreasing match score
+          propertyType: property.propertyType || 'PG',
+          maxOccupancy: property.maxOccupancy || 1,
+          amenities: property.amenities || []
+        }));
+
+      setRecommendations(recommendations);
+    } catch (error) {
+      console.error('Error fetching property recommendations:', error);
+      
+      // Fallback to mock data if API fails
+      setRecommendations([
+        {
+          id: 1,
+          name: 'New PG Near Tech Park',
+          location: 'Electronic City, Bangalore',
+          price: '₹12,000',
+          rating: 4.7,
+          image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
+          distance: '2.5 km',
+          matchScore: 95
+        },
+        {
+          id: 2,
+          name: 'Premium Co-living Space',
+          location: 'Whitefield, Bangalore',
+          price: '₹22,000',
+          rating: 4.8,
+          image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
+          distance: '5.2 km',
+          matchScore: 88
+        }
+      ]);
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -804,9 +992,32 @@ const SeekerDashboard = () => {
           <div className="mt-4">
             <div 
               ref={mapRef}
-              className="w-full h-80 rounded-lg border border-gray-200"
+              className="w-full h-80 rounded-lg border border-gray-200 relative"
               style={{ minHeight: '320px' }}
             />
+            
+            {/* Property Type Legend */}
+            <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+              <div className="text-sm font-medium text-gray-900 mb-2">Property Types:</div>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                  <span>PG</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                  <span>Co-living</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                  <span>Apartment</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+                  <span>House</span>
+                </div>
+              </div>
+            </div>
             {/* Debug info and manual initialization */}
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
               <div>

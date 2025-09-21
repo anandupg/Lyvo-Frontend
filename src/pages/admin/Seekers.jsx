@@ -10,6 +10,7 @@ const AdminSeekers = () => {
   const [items, setItems] = useState([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   useEffect(() => {
     const fetchSeekers = async () => {
@@ -26,6 +27,7 @@ const AdminSeekers = () => {
           name: u.name,
           email: u.email,
           isVerified: !!u.isVerified,
+          isActive: u.isActive !== false, // Default to true if not specified
           createdAt: u.createdAt,
           updatedAt: u.updatedAt,
         }));
@@ -44,6 +46,46 @@ const AdminSeekers = () => {
     o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     o.email.toLowerCase().includes(searchTerm.toLowerCase())
   ), [items, searchTerm]);
+
+  const handleToggleStatus = async (userId) => {
+    try {
+      setTogglingStatus(true);
+      const token = localStorage.getItem('authToken');
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      
+      const response = await fetch(`${base}/admin/user/${userId}/toggle-status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to toggle user status');
+      }
+
+      // Update the local state
+      setItems(prev => prev.map(item => 
+        item._id === userId 
+          ? { ...item, isActive: !item.isActive }
+          : item
+      ));
+
+      // Update selected item if it's the same user
+      if (selected && selected._id === userId) {
+        setSelected(prev => ({ ...prev, isActive: !prev.isActive }));
+      }
+
+      alert(`User ${data.user.isActive ? 'activated' : 'deactivated'} successfully!`);
+    } catch (error) {
+      console.error('Toggle status error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -75,10 +117,11 @@ const AdminSeekers = () => {
             <table className="w-full table-fixed">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 text-left w-1/4">Seeker</th>
-                  <th className="px-6 py-3 text-left w-1/4">Email</th>
-                  <th className="px-6 py-3 text-left w-32">Email Verified</th>
-                  <th className="px-6 py-3 text-left w-28">Actions</th>
+                  <th className="px-6 py-3 text-left w-1/5">Seeker</th>
+                  <th className="px-6 py-3 text-left w-1/5">Email</th>
+                  <th className="px-6 py-3 text-left w-20">Status</th>
+                  <th className="px-6 py-3 text-left w-24">Email Verified</th>
+                  <th className="px-6 py-3 text-left w-32">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -86,9 +129,28 @@ const AdminSeekers = () => {
                   <tr key={o._id} className="hover:bg-gray-50">
                     <td className="px-6 py-3 truncate">{o.name}</td>
                     <td className="px-6 py-3 truncate flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400" />{o.email}</td>
+                    <td className="px-6 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${o.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {o.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      </span>
+                    </td>
                     <td className="px-6 py-3">{o.isVerified? 'Yes':'No'}</td>
                     <td className="px-6 py-3">
-                      <button onClick={()=>{setSelected(o);setDetailsOpen(true);}} className="inline-flex items-center px-2 py-1 text-xs border rounded-md hover:bg-gray-50"><Eye className="w-4 h-4 mr-1"/>Details</button>
+                      <div className="flex gap-1">
+                        <button onClick={()=>{setSelected(o);setDetailsOpen(true);}} className="inline-flex items-center px-2 py-1 text-xs border rounded-md hover:bg-gray-50"><Eye className="w-4 h-4 mr-1"/>Details</button>
+                        <button 
+                          onClick={() => handleToggleStatus(o._id)}
+                          disabled={togglingStatus}
+                          className={`inline-flex items-center px-2 py-1 text-xs rounded-md text-white disabled:opacity-50 ${
+                            o.isActive 
+                              ? 'bg-red-600 hover:bg-red-700' 
+                              : 'bg-green-600 hover:bg-green-700'
+                          }`}
+                          title={o.isActive ? 'Deactivate User' : 'Activate User'}
+                        >
+                          {o.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -100,7 +162,25 @@ const AdminSeekers = () => {
               <div key={o._id} className="border rounded-lg p-3">
                 <div className="font-semibold">{o.name}</div>
                 <div className="text-sm text-gray-600 flex items-center gap-2"><Mail className="w-4 h-4" />{o.email}</div>
-                <button onClick={()=>{setSelected(o);setDetailsOpen(true);}} className="mt-2 inline-flex items-center px-2 py-1 text-xs border rounded-md">View</button>
+                <div className="mt-2">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${o.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {o.isActive ? 'ACTIVE' : 'INACTIVE'}
+                  </span>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={()=>{setSelected(o);setDetailsOpen(true);}} className="inline-flex items-center px-2 py-1 text-xs border rounded-md">View</button>
+                  <button 
+                    onClick={() => handleToggleStatus(o._id)}
+                    disabled={togglingStatus}
+                    className={`inline-flex items-center px-2 py-1 text-xs rounded-md text-white disabled:opacity-50 ${
+                      o.isActive 
+                        ? 'bg-red-600 hover:bg-red-700' 
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    {o.isActive ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

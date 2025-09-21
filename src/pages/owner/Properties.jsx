@@ -35,7 +35,7 @@ const Properties = () => {
         return;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_ADD_PROPERTY_API_URL || 'http://localhost:3002'}/api/properties`, {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties`, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }

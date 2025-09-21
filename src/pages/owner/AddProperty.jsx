@@ -32,9 +32,9 @@ const AddProperty = () => {
   const [formData, setFormData] = useState({
     // Basic Information
     propertyName: '',
-    propertyType: '',
     description: '',
-    maximumOccupancy: '',
+    numberOfRooms: '',
+    propertyMode: 'room', // Only room mode supported
     address: {
       street: '',
       city: '',
@@ -45,24 +45,16 @@ const AddProperty = () => {
       longitude: ''
     },
     
-    // Pricing
+    // Pricing (only security deposit retained; monthly rent moved per-room)
     monthlyRent: '',
     securityDeposit: '',
-    maintenanceCharges: '',
-    utilityCharges: '',
     
-    // Amenities
+    // Amenities (limited set per requirements)
     amenities: {
-      parking: false,
-      wifi: false,
-      ac: false,
+      parking4w: false,
+      parking2w: false,
       kitchen: false,
-      gym: false,
-      security: false,
-      waterSupply: false,
-      powerBackup: false,
-      garden: false,
-      swimmingPool: false
+      powerBackup: false
     },
     
     // Rules and Policies
@@ -79,16 +71,152 @@ const AddProperty = () => {
       front: null,
       back: null,
       hall: null,
-      room: null,
-      toilet: null
+      kitchen: null
     },
+    toiletOutside: false,
+    outsideToiletImage: null,
     
-    // Documents
-    documents: []
+    // Property Document (only Land Tax Receipt)
+    landTaxReceipt: null,
+    documents: [], // Additional documents array (currently not used but prevents errors)
+    
+    // Room Details
+    rooms: []
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
+
+  // Function to generate room details based on number of rooms
+  const generateRoomDetails = (roomCount) => {
+    const rooms = [];
+    for (let i = 1; i <= roomCount; i++) {
+      rooms.push({
+        roomNumber: i,
+        roomType: '',
+        roomSize: '',
+        bedType: '',
+        occupancy: 1, // Default to 1, will be updated when room type is selected
+        rent: '',
+        amenities: {
+          ac: false,
+          wifi: false,
+          tv: false,
+          fridge: false,
+          wardrobe: false,
+          studyTable: false,
+          balcony: false,
+          attachedBathroom: false
+        },
+        description: '',
+        roomImage: null,
+        toiletImage: null
+      });
+    }
+    return rooms;
+  };
+
+  // Handle number of rooms change
+  const handleRoomCountChange = (value) => {
+    const raw = parseInt(value);
+    const roomCount = isNaN(raw) ? 0 : Math.min(raw, 6);
+    setFormData(prev => ({
+      ...prev,
+      numberOfRooms: String(roomCount),
+      rooms: roomCount > 0 ? generateRoomDetails(roomCount) : []
+    }));
+    setShowRoomDetails(roomCount > 0);
+    // Validation feedback for exceeding max
+    if (!isNaN(raw) && raw > 6) {
+      setErrors(prev => ({ ...prev, numberOfRooms: 'Maximum 6 rooms allowed' }));
+    } else if (errors.numberOfRooms === 'Maximum 6 rooms allowed') {
+      setErrors(prev => ({ ...prev, numberOfRooms: '' }));
+    }
+  };
+
+
+  // Function to get occupancy based on room type
+  const getOccupancyFromRoomType = (roomType) => {
+    const occupancyMap = {
+      'Single': 1,
+      'Double': 2,
+      'Triple': 3,
+      'Quad': 4,
+      'Master': 2,
+      'Studio': 1
+    };
+    return occupancyMap[roomType] || 1;
+  };
+
+  // Handle room detail changes
+  const handleRoomChange = (roomIndex, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      rooms: prev.rooms.map((room, index) => {
+        if (index === roomIndex) {
+          const updatedRoom = { ...room, [field]: value };
+          
+          // Auto-set occupancy when room type changes
+          if (field === 'roomType' && value) {
+            updatedRoom.occupancy = getOccupancyFromRoomType(value);
+          }
+          
+          return updatedRoom;
+        }
+        return room;
+      })
+    }));
+  };
+
+  // Handle room amenity changes
+  const handleRoomAmenityChange = (roomIndex, amenity, value) => {
+    setFormData(prev => ({
+      ...prev,
+      rooms: prev.rooms.map((room, index) => 
+        index === roomIndex 
+          ? { 
+              ...room, 
+              amenities: { 
+                ...room.amenities, 
+                [amenity]: value 
+              }
+            }
+          : room
+      )
+    }));
+  };
+
+  // Per-room image handlers
+  const handleRoomImageUpload = (roomIndex, kind, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const entry = {
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name
+    };
+    setFormData(prev => ({
+      ...prev,
+      rooms: prev.rooms.map((room, index) =>
+        index === roomIndex ? { ...room, [kind]: entry } : room
+      )
+    }));
+    // clear specific field error
+    const errKey = kind === 'roomImage' ? `room_${roomIndex}_roomImage` : `room_${roomIndex}_toiletImage`;
+    if (errors[errKey]) {
+      setErrors(prev => ({ ...prev, [errKey]: '' }));
+    }
+  };
+
+  const removeRoomImage = (roomIndex, kind) => {
+    setFormData(prev => ({
+      ...prev,
+      rooms: prev.rooms.map((room, index) =>
+        index === roomIndex ? { ...room, [kind]: null } : room
+      )
+    }));
+  };
 
   // Google Maps Places state (from env key)
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
@@ -106,7 +234,7 @@ const AddProperty = () => {
   const debounceRef = useRef(null);
   const listRef = useRef(null);
   const selectingRef = useRef(false);
-  const [previewDoc, setPreviewDoc] = useState(null);
+  
 
   // Check authentication
   useEffect(() => {
@@ -423,6 +551,20 @@ const AddProperty = () => {
     }
   };
 
+  const handleOutsideToiletImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const entry = {
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name
+    };
+    setFormData(prev => ({ ...prev, outsideToiletImage: entry }));
+    if (errors['outsideToiletImage']) {
+      setErrors(prev => ({ ...prev, outsideToiletImage: '' }));
+    }
+  };
+
   const removeRequiredImage = (type) => {
     setFormData(prev => ({
       ...prev,
@@ -437,61 +579,90 @@ const AddProperty = () => {
     }));
   };
 
-  // Document upload functions
-  const handleDocumentUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newDocuments = files.map(file => ({
+  // Document upload functions (only Land Tax Receipt is supported)
+  const handleLandTaxReceiptUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const entry = {
       file,
       preview: URL.createObjectURL(file),
       name: file.name,
       type: file.type
-    }));
-    
+    };
     setFormData(prev => ({
       ...prev,
-      documents: [...prev.documents, ...newDocuments]
+      landTaxReceipt: entry
     }));
+    if (errors['landTaxReceipt']) {
+      setErrors(prev => ({ ...prev, landTaxReceipt: '' }));
+    }
+  };
+  // Deprecated: generic documents list removed
+
+  const removeLandTaxReceipt = () => {
+    setFormData(prev => ({ ...prev, landTaxReceipt: null }));
   };
 
-  const removeDocument = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      documents: prev.documents.filter((_, i) => i !== index)
-    }));
-  };
 
-  const previewDocument = (document) => {
-    setPreviewDoc({
-      url: document.preview,
-      name: document.name,
-      type: document.type.includes('pdf') ? 'pdf' : 'image'
-    });
-  };
+  // previewDoc no longer used for generic docs
 
   const validateForm = () => {
     const newErrors = {};
 
     // Basic validation
     if (!formData.propertyName.trim()) newErrors.propertyName = 'Property name is required';
-    if (!formData.propertyType) newErrors.propertyType = 'Property type is required';
+    // Description is always required
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.maximumOccupancy || parseInt(formData.maximumOccupancy) <= 0) newErrors.maximumOccupancy = 'Maximum occupancy is required';
+    if (formData.propertyMode==='room') {
+      const n = parseInt(formData.numberOfRooms);
+      if (!n || n <= 0) newErrors.numberOfRooms = 'Number of rooms is required';
+      else if (n > 6) newErrors.numberOfRooms = 'Maximum 6 rooms allowed';
+    } else {
+      if (!formData.dormitory.numDorms) newErrors['dormitory.numDorms'] = 'Number of dorms is required';
+      const count = parseInt(formData.dormitory.numDorms || '0');
+      if (count > 0) {
+        const missing = (formData.dormitory.bedsPerDorms || []).findIndex(v => !v || parseInt(v) <= 0);
+        if (missing !== -1) newErrors['dormitory.bedsPerDorms'] = 'Enter beds for each dorm';
+      }
+      if (!formData.dormitory.pricePerBed) newErrors['dormitory.pricePerBed'] = 'Price per bed is required';
+    }
+    
+    // Room details validation
+    if (formData.propertyMode==='room' && formData.rooms.length > 0) {
+      formData.rooms.forEach((room, index) => {
+        if (!room.roomType) newErrors[`room_${index}_type`] = `Room ${index + 1} type is required`;
+        if (!room.roomSize || parseInt(room.roomSize) <= 0) newErrors[`room_${index}_size`] = `Room ${index + 1} size is required`;
+        if (!room.bedType) newErrors[`room_${index}_bed`] = `Room ${index + 1} bed type is required`;
+        // Occupancy is automatically set based on room type, no validation needed
+        if (!room.rent || parseInt(room.rent) <= 0) newErrors[`room_${index}_rent`] = `Room ${index + 1} rent is required`;
+        if (!room.roomImage) newErrors[`room_${index}_roomImage`] = `Room ${index + 1} image is required`;
+        if (room.amenities?.attachedBathroom && !room.toiletImage) newErrors[`room_${index}_toiletImage`] = `Room ${index + 1} toilet image is required`;
+      });
+    }
     if (!formData.address.street.trim()) newErrors['address.street'] = 'Street address is required';
     if (!formData.address.city.trim()) newErrors['address.city'] = 'City is required';
     if (!formData.address.state.trim()) newErrors['address.state'] = 'State is required';
     if (!formData.address.pincode.trim()) newErrors['address.pincode'] = 'Pincode is required';
     
     // Property details validation
-    if (!formData.monthlyRent) newErrors.monthlyRent = 'Monthly rent is required';
     if (!formData.securityDeposit) newErrors.securityDeposit = 'Security deposit is required';
 
     // Required image slots
-    const slots = ['front','back','hall','room','toilet'];
+    const slots = ['front','back','hall','kitchen'];
     slots.forEach((s) => {
       if (!formData.requiredImages[s]) {
         newErrors[`requiredImages.${s}`] = 'Required';
       }
     });
+
+    if (formData.toiletOutside && !formData.outsideToiletImage) {
+      newErrors['outsideToiletImage'] = 'Outside toilet image is required';
+    }
+
+    // Required property document: Latest Land Tax Receipt (PDF)
+    if (!formData.landTaxReceipt) {
+      newErrors['landTaxReceipt'] = 'Latest Land Tax Receipt (PDF) is required';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -514,36 +685,76 @@ const AddProperty = () => {
 
       // Prepare form data for API
       const formDataToSend = new FormData();
+
+      // Clone data and strip file objects
+      const payload = { ...formData };
+      if (formData.propertyMode==='room') {
+        // Remove room details for dormitory listing
+        payload.rooms = (payload.rooms || []).map((r) => {
+          const { roomImage, toiletImage, ...rest } = r;
+          return rest;
+        });
+      } else {
+        payload.rooms = [];
+      }
       
       // Add property data as JSON string
-      formDataToSend.append('propertyData', JSON.stringify(formData));
-      
-      // Add required images
-      console.log('Required images:', formData.requiredImages);
-      Object.entries(formData.requiredImages).forEach(([type, imageData]) => {
-        if (imageData && imageData.file) {
-          console.log(`Adding required image: ${type}Image`, imageData.file.name);
-          formDataToSend.append(`${type}Image`, imageData.file);
+      formDataToSend.append('propertyData', JSON.stringify(payload));
+
+      // Add required property images
+      if (formData.requiredImages.front?.file) {
+        formDataToSend.append('frontImage', formData.requiredImages.front.file);
+      }
+      if (formData.requiredImages.back?.file) {
+        formDataToSend.append('backImage', formData.requiredImages.back.file);
+      }
+      if (formData.requiredImages.hall?.file) {
+        formDataToSend.append('hallImage', formData.requiredImages.hall.file);
+      }
+      if (formData.requiredImages.kitchen?.file) {
+        formDataToSend.append('kitchenImage', formData.requiredImages.kitchen.file);
+      }
+
+      // Add per-room images or dormitory images accordingly
+      if (formData.propertyMode==='room') {
+        (formData.rooms || []).forEach((room, idx) => {
+          if (room.roomImage?.file) {
+            formDataToSend.append(`rooms[${idx}][roomImage]`, room.roomImage.file);
+          }
+          if (room.toiletImage?.file) {
+            formDataToSend.append(`rooms[${idx}][toiletImage]`, room.toiletImage.file);
+          }
+        });
+      } else {
+        (formData.dormitory.images || []).forEach((img, idx) => {
+          if (img.file) formDataToSend.append(`dormitoryImages`, img.file);
+        });
+        if (formData.dormitory.toiletImage?.file) {
+          formDataToSend.append('dormitoryToiletImage', formData.dormitory.toiletImage.file);
         }
-      });
-      
-      // Add additional images
-      console.log('Additional images:', formData.images);
-      formData.images.forEach((imageData, index) => {
-        if (imageData.file) {
-          console.log(`Adding additional image: images`, imageData.file.name);
-          formDataToSend.append('images', imageData.file);
-        }
-      });
+      }
+
+      // Add outside toilet flag and image
+      formDataToSend.append('toiletOutside', String(!!formData.toiletOutside));
+      if (formData.toiletOutside && formData.outsideToiletImage?.file) {
+        formDataToSend.append('outsideToiletImage', formData.outsideToiletImage.file);
+      }
       
       // Add documents
       console.log('Documents:', formData.documents);
-      formData.documents.forEach((documentData, index) => {
-        if (documentData.file) {
-          console.log(`Adding document: documents`, documentData.file.name);
-          formDataToSend.append('documents', documentData.file);
-        }
-      });
+      if (formData.landTaxReceipt?.file) {
+        formDataToSend.append('landTaxReceipt', formData.landTaxReceipt.file);
+      }
+      
+      // Handle additional documents if they exist
+      if (formData.documents && Array.isArray(formData.documents)) {
+        formData.documents.forEach((documentData, index) => {
+          if (documentData.file) {
+            console.log(`Adding document: documents`, documentData.file.name);
+            formDataToSend.append('documents', documentData.file);
+          }
+        });
+      }
       
       console.log('FormData entries:');
       for (let [key, value] of formDataToSend.entries()) {
@@ -551,7 +762,7 @@ const AddProperty = () => {
       }
 
       // Make API call to simple backend
-      const response = await fetch(`${import.meta.env.VITE_ADD_PROPERTY_API_URL || 'http://localhost:3002'}/api/properties/add`, {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/add`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`
@@ -666,48 +877,49 @@ const AddProperty = () => {
                 )}
               </div>
 
+              {/* Security Deposit moved to Basic Info */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Property Type *
+                  Security Deposit (₹) *
                 </label>
-                <Select value={formData.propertyType} onValueChange={(val) => handleInputChange('propertyType', val)}>
-                  <SelectTrigger className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.propertyType ? 'border-red-500' : 'border-gray-300'
-                  }`}>
-                    <SelectValue placeholder="Select property type" />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="Apartment">Apartment</SelectItem>
-                    <SelectItem value="Independent House">Independent House</SelectItem>
-                    <SelectItem value="Villa">Villa</SelectItem>
-                    <SelectItem value="Studio">Studio</SelectItem>
-                    <SelectItem value="PG/Hostel">PG/Hostel</SelectItem>
-                    <SelectItem value="Commercial Space">Commercial Space</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.propertyType && (
-                  <p className="mt-1 text-sm text-red-600">{errors.propertyType}</p>
+                <input
+                  type="number"
+                  value={formData.securityDeposit}
+                  onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    errors.securityDeposit ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Security deposit amount"
+                  min="0"
+                />
+                {errors.securityDeposit && (
+                  <p className="mt-1 text-sm text-red-600">{errors.securityDeposit}</p>
                 )}
               </div>
 
+
+              {formData.propertyMode==='room' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Maximum Occupancy *
+                  Number of Rooms *
                 </label>
                 <input
                   type="number"
                   min="1"
-                  value={formData.maximumOccupancy}
-                  onChange={(e) => handleInputChange('maximumOccupancy', e.target.value)}
+                  max="6"
+                  value={formData.numberOfRooms}
+                  onChange={(e) => handleRoomCountChange(e.target.value)}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.maximumOccupancy ? 'border-red-500' : 'border-gray-300'
+                    errors.numberOfRooms ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="Number of people allowed"
+                  placeholder="Enter number of rooms (max 6)"
                 />
-                {errors.maximumOccupancy && (
-                  <p className="mt-1 text-sm text-red-600">{errors.maximumOccupancy}</p>
+                {errors.numberOfRooms && (
+                  <p className="mt-1 text-sm text-red-600">{errors.numberOfRooms}</p>
                 )}
               </div>
+              )}
+
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -728,6 +940,279 @@ const AddProperty = () => {
               </div>
             </div>
           </motion.div>
+
+
+          {/* Room Details Section */}
+          {showRoomDetails && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200"
+            >
+              <div className="flex items-center space-x-2 mb-4 sm:mb-6">
+                <Home className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Room Details</h2>
+              </div>
+              
+              <div className="space-y-4">
+                {formData.rooms.map((room, index) => (
+                  <div key={index} className="border border-red-200 rounded-md p-3 sm:p-4 shadow-sm hover:shadow-md transition-all bg-red-50">
+                    <div className="flex items-center justify-between mb-3 rounded-md px-3 py-2 border border-red-200 bg-red-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold">
+                          {room.roomNumber}
+                        </div>
+                        <div>
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 tracking-wide">Room {room.roomNumber}</h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {room.roomType && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                {room.roomType}
+                              </span>
+                            )}
+                            {room.roomSize && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                {room.roomSize} sq ft
+                              </span>
+                            )}
+                            {room.occupancy && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                {room.occupancy} pax
+                              </span>
+                            )}
+                            {room.rent && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-200">
+                                ₹{room.rent}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-50 text-red-700 border border-red-200">Room Details</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 items-start">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Room Type *
+                        </label>
+                        <Select 
+                          value={room.roomType} 
+                          onValueChange={(val) => handleRoomChange(index, 'roomType', val)}
+                        >
+                          <SelectTrigger className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            errors[`room_${index}_type`] ? 'border-red-500' : 'border-gray-300'
+                          }`}>
+                            <SelectValue placeholder="Select room type" />
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            <SelectItem value="Single">Single</SelectItem>
+                            <SelectItem value="Double">Double</SelectItem>
+                            <SelectItem value="Triple">Triple</SelectItem>
+                            <SelectItem value="Quad">Quad</SelectItem>
+                            <SelectItem value="Master">Master</SelectItem>
+                            <SelectItem value="Studio">Studio</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors[`room_${index}_type`] && (
+                          <p className="mt-1 text-sm text-red-600">{errors[`room_${index}_type`]}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Room Size (sq ft) *
+                        </label>
+                        <input
+                          type="number"
+                          min="50"
+                          value={room.roomSize}
+                          onChange={(e) => handleRoomChange(index, 'roomSize', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            errors[`room_${index}_size`] ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          placeholder="Enter room size"
+                        />
+                        {errors[`room_${index}_size`] && (
+                          <p className="mt-1 text-sm text-red-600">{errors[`room_${index}_size`]}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Bed Type *
+                        </label>
+                        <Select 
+                          value={room.bedType} 
+                          onValueChange={(val) => handleRoomChange(index, 'bedType', val)}
+                        >
+                          <SelectTrigger className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            errors[`room_${index}_bed`] ? 'border-red-500' : 'border-gray-300'
+                          }`}>
+                            <SelectValue placeholder="Select bed type" />
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            <SelectItem value="Single Bed">Single Bed</SelectItem>
+                            <SelectItem value="Double Bed">Double Bed</SelectItem>
+                            <SelectItem value="Queen Bed">Queen Bed</SelectItem>
+                            <SelectItem value="King Bed">King Bed</SelectItem>
+                            <SelectItem value="Bunk Bed">Bunk Bed</SelectItem>
+                            <SelectItem value="No Bed">No Bed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors[`room_${index}_bed`] && (
+                          <p className="mt-1 text-sm text-red-600">{errors[`room_${index}_bed`]}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Occupancy *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={room.occupancy}
+                          readOnly
+                          className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed border-gray-300"
+                          placeholder="Auto-set based on room type"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Automatically set based on room type</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Monthly Rent (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={room.rent}
+                          onChange={(e) => handleRoomChange(index, 'rent', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            errors[`room_${index}_rent`] ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          placeholder="Enter monthly rent"
+                        />
+                        {errors[`room_${index}_rent`] && (
+                          <p className="mt-1 text-sm text-red-600">{errors[`room_${index}_rent`]}</p>
+                        )}
+                      </div>
+
+                      {/* Attached Bathroom toggle moved here */}
+                      <div className="md:mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Attached Bathroom
+                        </label>
+                        <div className="flex items-center h-10 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRoomAmenityChange(index, 'attachedBathroom', !room.amenities.attachedBathroom)}
+                            className={`relative inline-flex items-center h-9 w-16 rounded-full transition-colors border ${room.amenities.attachedBathroom ? 'bg-green-500 border-green-500' : 'bg-gray-200 border-gray-300'}`}
+                            title="Toggle attached bathroom"
+                            aria-pressed={room.amenities.attachedBathroom}
+                          >
+                            <span className={`absolute left-1 top-1 h-7 w-7 rounded-full bg-white shadow transition-transform ${room.amenities.attachedBathroom ? 'translate-x-7' : 'translate-x-0'}`}></span>
+                            <span className="sr-only">Attached bathroom toggle</span>
+                          </button>
+                          <span className={`text-xs font-semibold ${room.amenities.attachedBathroom ? 'text-green-700' : 'text-gray-600'}`}>
+                            {room.amenities.attachedBathroom ? 'YES' : 'NO'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Description + Image (and Toilet Image if attached) in one row */}
+                      <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                        <div className="flex flex-col h-full">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Room Description
+                          </label>
+                          <textarea
+                            value={room.description}
+                            onChange={(e) => handleRoomChange(index, 'description', e.target.value)}
+                            rows={5}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent border-gray-300 h-36"
+                            placeholder="Describe this room's features..."
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Room Image *
+                          </label>
+                          {!room.roomImage ? (
+                            <label className={`flex items-center justify-center w-full h-36 border-2 border-dashed rounded-lg cursor-pointer ${errors[`room_${index}_roomImage`] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
+                              <div className="text-xs text-gray-500 text-center px-2">Upload Room Image</div>
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleRoomImageUpload(index, 'roomImage', e)} />
+                            </label>
+                          ) : (
+                            <div className="relative inline-block">
+                              <img src={room.roomImage.preview} alt={room.roomImage.name} className="w-full max-w-[220px] h-36 object-cover rounded-lg border" />
+                              <button type="button" onClick={() => removeRoomImage(index, 'roomImage')} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                          {errors[`room_${index}_roomImage`] && (
+                            <div className="mt-1 text-[11px] text-red-600">{errors[`room_${index}_roomImage`]}</div>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          {room.amenities.attachedBathroom && (
+                            <>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Toilet Image (for attached bathroom) *
+                              </label>
+                              {!room.toiletImage ? (
+                                <label className={`flex items-center justify-center w-full h-36 border-2 border-dashed rounded-lg cursor-pointer ${errors[`room_${index}_toiletImage`] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
+                                  <div className="text-xs text-gray-500 text-center px-2">Upload Toilet Image</div>
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleRoomImageUpload(index, 'toiletImage', e)} />
+                                </label>
+                              ) : (
+                                <div className="relative inline-block">
+                                  <img src={room.toiletImage.preview} alt={room.toiletImage.name} className="w-full max-w-[220px] h-36 object-cover rounded-lg border" />
+                                  <button type="button" onClick={() => removeRoomImage(index, 'toiletImage')} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                              {errors[`room_${index}_toiletImage`] && (
+                                <div className="mt-1 text-[11px] text-red-600">{errors[`room_${index}_toiletImage`]}</div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      
+
+                      <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Room Amenities</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 items-center">
+                          {Object.entries(room.amenities)
+                            .filter(([amenity]) => amenity !== 'attachedBathroom')
+                            .map(([amenity, checked]) => (
+                              <label key={amenity} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => handleRoomAmenityChange(index, amenity, e.target.checked)}
+                                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                />
+                                <span className="text-sm text-gray-700 capitalize">
+                                  {amenity.replace(/([A-Z])/g, ' $1').trim()}
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Address Information */}
           <motion.div
@@ -883,86 +1368,7 @@ const AddProperty = () => {
 
           
 
-          {/* Pricing Information */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200"
-          >
-            <div className="flex items-center space-x-2 mb-4 sm:mb-6">
-              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Pricing Information</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Rent (₹) *
-                </label>
-                <input
-                  type="number"
-                  value={formData.monthlyRent}
-                  onChange={(e) => handleInputChange('monthlyRent', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.monthlyRent ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Monthly rent amount"
-                  min="0"
-                />
-                {errors.monthlyRent && (
-                  <p className="mt-1 text-sm text-red-600">{errors.monthlyRent}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Security Deposit (₹) *
-                </label>
-                <input
-                  type="number"
-                  value={formData.securityDeposit}
-                  onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.securityDeposit ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Security deposit amount"
-                  min="0"
-                />
-                {errors.securityDeposit && (
-                  <p className="mt-1 text-sm text-red-600">{errors.securityDeposit}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Maintenance Charges (₹)
-                </label>
-                <input
-                  type="number"
-                  value={formData.maintenanceCharges}
-                  onChange={(e) => handleInputChange('maintenanceCharges', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Monthly maintenance"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Utility Charges (₹)
-                </label>
-                <input
-                  type="number"
-                  value={formData.utilityCharges}
-                  onChange={(e) => handleInputChange('utilityCharges', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Monthly utilities"
-                  min="0"
-                />
-              </div>
-            </div>
-          </motion.div>
+          
 
           {/* Amenities */}
           <motion.div
@@ -977,16 +1383,21 @@ const AddProperty = () => {
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-              {Object.entries(formData.amenities).map(([amenity, checked]) => (
-                <label key={amenity} className="flex items-center space-x-3 cursor-pointer">
+              {[
+                ['parking4w', 'Parking (4 wheeler)'],
+                ['parking2w', 'Parking (2 wheeler)'],
+                ['kitchen', 'Kitchen'],
+                ['powerBackup', 'Power Backup']
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={checked}
-                    onChange={() => handleAmenityChange(amenity)}
+                    checked={!!formData.amenities[key]}
+                    onChange={() => handleAmenityChange(key)}
                     className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
                   />
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {amenity.replace(/([A-Z])/g, ' $1').trim()}
+                  <span className="text-sm font-medium text-gray-700">
+                    {label}
                   </span>
                 </label>
               ))}
@@ -1035,13 +1446,12 @@ const AddProperty = () => {
             </div>
 
             {/* Required slots */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
                 { key: 'front', label: 'Front' },
                 { key: 'back', label: 'Back' },
                 { key: 'hall', label: 'Hall' },
-                { key: 'room', label: 'Room' },
-                { key: 'toilet', label: 'Toilet' }
+                { key: 'kitchen', label: 'Kitchen' }
               ].map(({ key, label }) => (
                 <div key={key} className="">
                   <div className="text-xs font-medium text-gray-700 mb-2">{label} *</div>
@@ -1064,6 +1474,8 @@ const AddProperty = () => {
                 </div>
               ))}
             </div>
+
+            
             
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center justify-center w-full">
@@ -1084,6 +1496,50 @@ const AddProperty = () => {
                   />
                 </label>
               </div>
+
+              {/* Toilet Outside the Room - placed under this uploader */}
+              <div className="mt-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">
+                    Toilet Outside the Room
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, toiletOutside: !prev.toiletOutside }))}
+                    className={`relative inline-flex items-center h-7 w-14 rounded-full transition-colors border ${formData.toiletOutside ? 'bg-blue-500 border-blue-500' : 'bg-gray-200 border-gray-300'}`}
+                    aria-pressed={formData.toiletOutside}
+                  >
+                    <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${formData.toiletOutside ? 'translate-x-7' : 'translate-x-0'}`}></span>
+                    <span className="sr-only">Toilet outside toggle</span>
+                  </button>
+                  <span className={`text-xs font-semibold ${formData.toiletOutside ? 'text-blue-700' : 'text-gray-600'}`}>
+                    {formData.toiletOutside ? 'YES' : 'NO'}
+                  </span>
+                </div>
+              </div>
+
+              {formData.toiletOutside && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Outside Toilet Image *</label>
+                  {!formData.outsideToiletImage ? (
+                    <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer ${errors['outsideToiletImage'] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
+                      <Plus className="w-6 h-6 text-gray-400 mb-1" />
+                      <div className="text-xs text-gray-500 text-center px-2">Click to upload or drag and drop</div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleOutsideToiletImageUpload} />
+                    </label>
+                  ) : (
+                    <div className="relative inline-block">
+                      <img src={formData.outsideToiletImage.preview} alt={formData.outsideToiletImage.name} className="w-44 h-28 object-cover rounded-lg border" />
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, outsideToiletImage: null }))} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  {errors['outsideToiletImage'] && (
+                    <div className="mt-1 text-[11px] text-red-600">{errors['outsideToiletImage']}</div>
+                  )}
+                </div>
+              )}
 
               {/* Image Preview */}
               {formData.images.length > 0 && (
@@ -1121,106 +1577,43 @@ const AddProperty = () => {
               <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Property Documents</h2>
             </div>
-            <p className="text-sm text-gray-600 mb-6">Upload property documents like lease agreements, property papers, etc.</p>
+          <p className="text-sm text-gray-600 mb-6">Upload the latest Land Tax Receipt (PDF). No other property documents are accepted.</p>
             
             <div className="space-y-6">
-              {/* Document Upload Area */}
-              <div className="relative">
-                <label className="cursor-pointer block">
-                  <div className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 group">
-                    <div className="flex flex-col items-center justify-center pt-6 pb-6">
-                      <div className="p-4 bg-red-50 rounded-full mb-4 group-hover:bg-red-100 transition-colors">
-                        <FileText className="w-8 h-8 text-red-600" />
+            {/* Land Tax Receipt (Required) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">Latest Land Tax Receipt (PDF) *</label>
+                {formData.landTaxReceipt && (
+                  <button type="button" onClick={removeLandTaxReceipt} className="text-xs text-red-600 hover:underline">Remove</button>
+                )}
                       </div>
-                      <p className="mb-2 text-sm font-medium text-gray-700">
-                        <span className="text-red-600">Click to upload</span> or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500">PDF files only, up to 10MB each</p>
-                    </div>
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf"
-                      onChange={handleDocumentUpload}
-                      className="hidden"
-                    />
-                  </div>
+              {!formData.landTaxReceipt ? (
+                <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer ${errors['landTaxReceipt'] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
+                  <FileText className="w-6 h-6 text-gray-400 mb-1" />
+                  <div className="text-xs text-gray-500 text-center px-2">Click to upload latest Land Tax Receipt (PDF only)</div>
+                  <input type="file" accept="application/pdf" className="hidden" onChange={handleLandTaxReceiptUpload} />
                 </label>
+              ) : (
+                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded bg-red-100">
+                      <FileText className="w-5 h-5 text-red-600" />
               </div>
-
-              {/* Document Preview */}
-              {formData.documents.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-700">Uploaded Documents</h3>
-                    <span className="text-xs text-gray-500">{formData.documents.length} file(s)</span>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{formData.landTaxReceipt.name}</div>
+                      <div className="text-xs text-gray-500">PDF Document</div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {formData.documents.map((document, index) => (
-                      <div key={index} className="group relative bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className={`p-2 rounded-lg ${
-                              document.type.includes('pdf') ? 'bg-red-100' : 
-                              document.type.includes('image') ? 'bg-green-100' : 
-                              'bg-blue-100'
-                            }`}>
-                              <FileText className={`w-5 h-5 ${
-                                document.type.includes('pdf') ? 'text-red-600' : 
-                                document.type.includes('image') ? 'text-green-600' : 
-                                'text-blue-600'
-                              }`} />
                             </div>
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate" title={document.name}>
-                              {document.name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">PDF Document</p>
-                            <div className="flex items-center mt-2 space-x-2">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                {document.type.split('/')[1]?.toUpperCase() || 'FILE'}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => previewDocument(document)}
-                              className="flex-shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              title="Preview document"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeDocument(index)}
-                              className="flex-shrink-0 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              title="Remove document"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <button type="button" onClick={removeLandTaxReceipt} className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">Change</button>
                 </div>
               )}
-
-              {/* Empty State */}
-              {formData.documents.length === 0 && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-500">No documents uploaded yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Upload property documents to get started</p>
-                </div>
+              {errors['landTaxReceipt'] && (
+                <div className="mt-1 text-[11px] text-red-600">{errors['landTaxReceipt']}</div>
               )}
+            </div>
+
+            {/* All other generic document upload UI removed */}
             </div>
           </motion.div>
 
@@ -1287,71 +1680,7 @@ const AddProperty = () => {
         </div>
       )}
 
-      {/* Document Preview Modal */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl overflow-hidden shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <div className="text-sm font-semibold text-gray-900">Document Preview - {previewDoc.name}</div>
-              <button 
-                type="button" 
-                onClick={() => setPreviewDoc(null)} 
-                className="px-2 py-1 text-gray-500 hover:text-gray-700 text-sm"
-              >
-                Close
-              </button>
-            </div>
-            <div className="p-4 max-h-[80vh] overflow-auto">
-              {previewDoc.type === 'pdf' ? (
-                <div className="w-full h-[70vh] border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                  <iframe 
-                    title="PDF Preview" 
-                    src={`${previewDoc.url}#toolbar=1&navpanes=1&scrollbar=1`}
-                    className="w-full h-full border-0" 
-                    style={{ minHeight: '600px' }}
-                    onLoad={() => {
-                      console.log('PDF preview loaded successfully');
-                    }}
-                    onError={(e) => {
-                      console.error('PDF preview error:', e);
-                      e.target.style.display = 'none';
-                      const fallback = e.target.parentElement;
-                      fallback.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full bg-gray-50 p-8">
-                          <div class="text-center">
-                            <FileText class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">PDF Preview Not Available</h3>
-                            <p class="text-gray-600 mb-4">This PDF cannot be previewed in the browser.</p>
-                            <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                              <a href="${previewDoc.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                <ExternalLink class="w-4 h-4 mr-2" />
-                                Open in New Tab
-                              </a>
-                              <a href="${previewDoc.url}" download="${previewDoc.name}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                <Download class="w-4 h-4 mr-2" />
-                                Download PDF
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      `;
-                    }}
-                  />
-                </div>
-              ) : (
-                <img 
-                  src={previewDoc.url} 
-                  alt={previewDoc.name} 
-                  className="w-full max-h-[70vh] object-contain border border-gray-200 rounded-lg" 
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Available';
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </OwnerLayout>
   );
 };

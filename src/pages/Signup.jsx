@@ -15,17 +15,21 @@ const PasswordStrength = {
 };
 
 const Signup = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(PasswordStrength);
   const [passwordFeedback, setPasswordFeedback] = useState('');
   const [showPasswordValidation, setShowPasswordValidation] = useState(false);
-  const [touched, setTouched] = useState({ name: false, email: false, password: false });
-  const [errors, setErrors] = useState({ name: '', email: '', password: '' });
+  const [touched, setTouched] = useState({ name: false, email: false, password: false, confirmPassword: false });
+  const [errors, setErrors] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [completedFields, setCompletedFields] = useState({ name: false, email: false, password: false, confirmPassword: false });
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
   const navigate = useNavigate();
 
   // Initialize Google Sign-In
@@ -259,6 +263,94 @@ const Signup = () => {
     return undefined;
   };
 
+  const validateConfirmPassword = (confirmPassword, password) => {
+    if (!confirmPassword) {
+      return 'Please confirm your password';
+    }
+    if (confirmPassword !== password) {
+      return 'Passwords do not match';
+    }
+    return undefined;
+  };
+
+  // Check if a field can be accessed (previous field must be completed and valid)
+  const canAccessField = (fieldName) => {
+    const fieldOrder = ['name', 'email', 'password', 'confirmPassword'];
+    const currentIndex = fieldOrder.indexOf(fieldName);
+    
+    if (currentIndex === 0) return true; // First field is always accessible
+    
+    // Check if previous field is completed
+    const previousField = fieldOrder[currentIndex - 1];
+    const isPreviousFieldCompleted = completedFields[previousField];
+    
+    // Special case for password field - email must be completed AND not exist in DB
+    if (fieldName === 'password') {
+      return isPreviousFieldCompleted && !emailExists;
+    }
+    
+    return isPreviousFieldCompleted;
+  };
+
+  // Check if all fields are completed and valid
+  const isFormReady = () => {
+    return completedFields.name && completedFields.email && completedFields.password && completedFields.confirmPassword && !emailExists;
+  };
+
+  // Check if email exists in database
+  const checkEmailExists = async (email) => {
+    if (!email || !email.includes('@')) {
+      setEmailExists(false);
+      return;
+    }
+
+    try {
+      setEmailChecking(true);
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      console.log('Checking email:', email, 'at URL:', `${base}/user/check-email?email=${encodeURIComponent(email)}`);
+      
+      const response = await fetch(`${base}/user/check-email?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      console.log('Email check response:', data);
+      
+      if (response.ok) {
+        setEmailExists(data.exists);
+        if (data.exists) {
+          setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
+          setCompletedFields(prev => ({ ...prev, email: false }));
+        } else {
+          setErrors(prev => ({ ...prev, email: '' }));
+          // Re-validate email format
+          const emailError = validateEmail(email);
+          setCompletedFields(prev => ({ ...prev, email: !emailError }));
+        }
+      } else {
+        console.error('Email check failed:', data);
+      }
+    } catch (error) {
+      console.error('Error checking email:', error);
+    } finally {
+      setEmailChecking(false);
+    }
+  };
+
+  // Debounced email check - runs as user types
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.email && formData.email.includes('@') && formData.email.includes('.')) {
+        checkEmailExists(formData.email);
+      } else if (formData.email && !formData.email.includes('@')) {
+        // Reset email exists state if email format is invalid
+        setEmailExists(false);
+        setErrors(prev => ({ ...prev, email: '' }));
+        setCompletedFields(prev => ({ ...prev, email: false }));
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email]);
+
   const handleBlur = (field) => {
     setTouched(prev => ({ ...prev, [field]: true }));
     
@@ -274,9 +366,15 @@ const Signup = () => {
       case 'password':
         error = validatePassword(formData.password);
         break;
+      case 'confirmPassword':
+        error = validateConfirmPassword(formData.confirmPassword, formData.password);
+        break;
     }
     
     setErrors(prev => ({ ...prev, [field]: error }));
+    
+    // Mark field as completed if no error
+    setCompletedFields(prev => ({ ...prev, [field]: !error }));
   };
 
   const handleChange = (e) => {
@@ -292,6 +390,34 @@ const Signup = () => {
     if (id === 'password' && value && !showPasswordValidation) {
       setShowPasswordValidation(true);
     }
+    
+    // Real-time validation and completion status
+    let currentError = '';
+    switch (id) {
+      case 'name':
+        currentError = validateFullName(value);
+        break;
+      case 'email':
+        currentError = validateEmail(value);
+        break;
+      case 'password':
+        currentError = validatePassword(value);
+        break;
+      case 'confirmPassword':
+        currentError = validateConfirmPassword(value, formData.password);
+        break;
+    }
+    
+    // Update errors and completion status
+    setErrors(prev => ({ ...prev, [id]: currentError || '' }));
+    setCompletedFields(prev => ({ ...prev, [id]: !currentError }));
+    
+    // If password changes, also re-validate confirm password if it's been touched
+    if (id === 'password' && touched.confirmPassword) {
+      const confirmPasswordError = validateConfirmPassword(formData.confirmPassword, value);
+      setErrors(prev => ({ ...prev, confirmPassword: confirmPasswordError || '' }));
+      setCompletedFields(prev => ({ ...prev, confirmPassword: !confirmPasswordError }));
+    }
   };
 
   const handleSignup = async (e) => {
@@ -301,17 +427,19 @@ const Signup = () => {
     const nameError = validateFullName(formData.name);
     const emailError = validateEmail(formData.email);
     const passwordError = validatePassword(formData.password);
+    const confirmPasswordError = validateConfirmPassword(formData.confirmPassword, formData.password);
     
     setErrors({
       name: nameError || '',
       email: emailError || '',
-      password: passwordError || ''
+      password: passwordError || '',
+      confirmPassword: confirmPasswordError || ''
     });
     
-    setTouched({ name: true, email: true, password: true });
+    setTouched({ name: true, email: true, password: true, confirmPassword: true });
     
     // Check if there are any errors
-    if (nameError || emailError || passwordError) {
+    if (nameError || emailError || passwordError || confirmPasswordError) {
       setError("Please fix the errors above before submitting.");
       return;
     }
@@ -327,12 +455,15 @@ const Signup = () => {
       setSuccess(response.data.message);
       
       // Clear form data
-      setFormData({ name: '', email: '', password: '' });
+      setFormData({ name: '', email: '', password: '', confirmPassword: '' });
       setPasswordStrength(PasswordStrength);
       setPasswordFeedback('');
       setShowPasswordValidation(false);
-      setErrors({ name: '', email: '', password: '' });
-      setTouched({ name: false, email: false, password: false });
+      setErrors({ name: '', email: '', password: '', confirmPassword: '' });
+      setTouched({ name: false, email: false, password: false, confirmPassword: false });
+      setCompletedFields({ name: false, email: false, password: false, confirmPassword: false });
+      setEmailChecking(false);
+      setEmailExists(false);
       
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');
@@ -447,7 +578,7 @@ const Signup = () => {
           <form onSubmit={handleSignup} className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
+                Full Name {completedFields.name && <CheckCircle className="inline w-4 h-4 text-green-500 ml-1" />}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -455,9 +586,14 @@ const Signup = () => {
                   id="name"
                   type="text"
                   required
+                  disabled={!canAccessField('name')}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 ${
-                    touched.name && errors.name 
+                    !canAccessField('name')
+                      ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      : touched.name && errors.name 
                       ? 'border-red-300 bg-red-50' 
+                      : completedFields.name
+                      ? 'border-green-300 bg-green-50'
                       : 'border-gray-300'
                   }`}
                   placeholder="Enter your full name"
@@ -480,7 +616,7 @@ const Signup = () => {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                Email {completedFields.email && !emailExists && <CheckCircle className="inline w-4 h-4 text-green-500 ml-1" />}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -488,9 +624,14 @@ const Signup = () => {
                   id="email"
                   type="email"
                   required
+                  disabled={!canAccessField('email')}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 ${
-                    touched.email && errors.email 
+                    !canAccessField('email')
+                      ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      : formData.email && (errors.email || emailExists)
                       ? 'border-red-300 bg-red-50' 
+                      : formData.email && completedFields.email && !emailExists
+                      ? 'border-green-300 bg-green-50'
                       : 'border-gray-300'
                   }`}
                   placeholder="Enter your email"
@@ -498,22 +639,40 @@ const Signup = () => {
                   onChange={handleChange}
                   onBlur={() => handleBlur('email')}
                 />
+                {emailChecking && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                  </div>
+                )}
               </div>
-              {touched.email && errors.email && (
+              {(formData.email && (errors.email || emailExists)) && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-1 text-sm text-red-600 flex items-center gap-1"
                 >
                   <X className="w-4 h-4" />
-                  {errors.email}
+                  {emailExists ? 'Email already registered. Please use a different email.' : errors.email}
+                </motion.p>
+              )}
+              {formData.email && !errors.email && !emailExists && completedFields.email && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-green-600 flex items-center gap-1"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Email is available
                 </motion.p>
               )}
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                Password {completedFields.password && <CheckCircle className="inline w-4 h-4 text-green-500 ml-1" />}
+                {!canAccessField('password') && emailExists && (
+                  <span className="text-xs text-red-500 ml-2">(Complete email validation first)</span>
+                )}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -521,9 +680,14 @@ const Signup = () => {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  disabled={!canAccessField('password')}
                   className={`w-full pl-10 pr-12 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 ${
-                    touched.password && errors.password 
+                    !canAccessField('password')
+                      ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      : touched.password && errors.password 
                       ? 'border-red-300 bg-red-50' 
+                      : completedFields.password
+                      ? 'border-green-300 bg-green-50'
                       : 'border-gray-300'
                   }`}
                   placeholder="Enter your password"
@@ -534,7 +698,8 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={!canAccessField('password')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -639,15 +804,75 @@ const Signup = () => {
               )}
             </div>
 
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password {completedFields.confirmPassword && <CheckCircle className="inline w-4 h-4 text-green-500 ml-1" />}
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  disabled={!canAccessField('confirmPassword')}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 ${
+                    !canAccessField('confirmPassword')
+                      ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      : touched.confirmPassword && errors.confirmPassword 
+                      ? 'border-red-300 bg-red-50' 
+                      : touched.confirmPassword && formData.confirmPassword && formData.confirmPassword === formData.password
+                      ? 'border-green-300 bg-green-50'
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('confirmPassword')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={!canAccessField('confirmPassword')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {touched.confirmPassword && errors.confirmPassword && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" />
+                  {errors.confirmPassword}
+                </motion.p>
+              )}
+              {touched.confirmPassword && formData.confirmPassword && formData.confirmPassword === formData.password && !errors.confirmPassword && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-green-600 flex items-center gap-1"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Passwords match
+                </motion.p>
+              )}
+            </div>
+
             {/* Create Account Button */}
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={isFormReady() ? { scale: 1.02 } : {}}
+              whileTap={isFormReady() ? { scale: 0.98 } : {}}
               type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-semibold shadow-sm hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !isFormReady()}
+              className={`w-full py-3 px-4 rounded-lg font-semibold shadow-sm transition-all duration-200 ${
+                isFormReady() 
+                  ? 'bg-red-600 text-white hover:bg-red-700' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? "Creating account..." : !isFormReady() ? "Complete all fields to continue" : "Create account"}
             </motion.button>
           </form>
 

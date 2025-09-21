@@ -43,6 +43,18 @@ const PropertyDetails = () => {
   const [user, setUser] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [isEditRoomModalOpen, setIsEditRoomModalOpen] = useState(false);
+  const [roomStatusLoading, setRoomStatusLoading] = useState({});
+  const [roomEditLoading, setRoomEditLoading] = useState(false);
+  const [editRoomData, setEditRoomData] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isEditPropertyModalOpen, setIsEditPropertyModalOpen] = useState(false);
+  const [propertyEditLoading, setPropertyEditLoading] = useState(false);
+  const [editPropertyData, setEditPropertyData] = useState({});
+  const [ownerEmail, setOwnerEmail] = useState('');
 
   const openDocumentPreview = (docUrl, fileName) => {
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
@@ -65,6 +77,502 @@ const PropertyDetails = () => {
       name: fileName,
       type: isPdf ? 'pdf' : 'image'
     });
+  };
+
+  const openRoomDetails = (room) => {
+    console.log('Opening room details for room:', room);
+    console.log('Room ID:', room._id);
+    setSelectedRoom(room);
+    setIsRoomModalOpen(true);
+  };
+
+  const openEditRoom = (room) => {
+    console.log('Opening edit room for:', room);
+    setEditRoomData({
+      _id: room._id,
+      room_number: room.room_number,
+      room_type: room.room_type,
+      room_size: room.room_size,
+      bed_type: room.bed_type,
+      occupancy: room.occupancy,
+      rent: room.rent,
+      description: room.description || '',
+      amenities: { 
+        ac: false,
+        wifi: false,
+        tv: false,
+        fridge: false,
+        wardrobe: false,
+        studyTable: false,
+        balcony: false,
+        attachedBathroom: false,
+        ...room.amenities 
+      },
+      room_image: room.room_image,
+      toilet_image: room.toilet_image
+    });
+    setIsEditRoomModalOpen(true);
+  };
+
+  const openEditProperty = () => {
+    console.log('Opening edit property with data:', property);
+    console.log('Property address:', property.address);
+    console.log('Property amenities:', property.amenities);
+    console.log('Owner email state:', ownerEmail);
+    console.log('Property contact_email:', property.contact_email);
+    
+    // Ensure owner email is loaded before opening modal
+    if (!ownerEmail) {
+      fetchOwnerEmail();
+    }
+    
+    setEditPropertyData({
+      _id: property._id,
+      property_name: property.property_name || '',
+      address: property.address?.street || '',
+      city: property.address?.city || '',
+      state: property.address?.state || '',
+      pincode: property.address?.pincode || '',
+      landmark: property.address?.landmark || '',
+      latitude: property.latitude || '',
+      longitude: property.longitude || '',
+      description: property.description || '',
+      amenities: property.amenities || {
+        parking4w: false,
+        parking2w: false,
+        kitchen: false,
+        powerBackup: false
+      },
+      rules: property.rules || {
+        petsAllowed: false,
+        smokingAllowed: false,
+        visitorsAllowed: true,
+        cookingAllowed: true
+      },
+      contact_number: property.contact_number || '',
+      contact_email: ownerEmail || property.contact_email || '',
+      security_deposit: property.security_deposit || 0,
+      maintenance_fee: property.maintenance_fee || 0,
+      images: property.images || [],
+      requiredImages: {
+        front: property.required_images?.front || null,
+        back: property.required_images?.back || null,
+        hall: property.required_images?.hall || null,
+        kitchen: property.required_images?.kitchen || null
+      },
+      landTaxReceipt: property.land_tax_receipt || null
+    });
+    
+    setIsEditPropertyModalOpen(true);
+  };
+
+  const handleEditRoomChange = (field, value) => {
+    setEditRoomData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-set occupancy when room type changes
+      if (field === 'room_type') {
+        const occupancyMap = {
+          'Single': 1,
+          'Double': 2,
+          'Triple': 3,
+          'Quad': 4,
+          'Master': 2,
+          'Studio': 1
+        };
+        updated.occupancy = occupancyMap[value] || 1;
+      }
+      
+      return updated;
+    });
+  };
+
+  const handleAmenityChange = (amenity, value) => {
+    setEditRoomData(prev => {
+      const updated = {
+        ...prev,
+        amenities: {
+          ...prev.amenities,
+          [amenity]: value
+        }
+      };
+      
+      // If attached bathroom is disabled, clear toilet image
+      if (amenity === 'attachedBathroom' && !value) {
+        updated.toilet_image = null;
+        updated.toilet_image_file = null;
+      }
+      
+      return updated;
+    });
+  };
+
+  const handlePropertyEditChange = (field, value) => {
+    setEditPropertyData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handlePropertyAmenityChange = (amenity, value) => {
+    setEditPropertyData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        [amenity]: value
+      }
+    }));
+  };
+
+  const handlePropertyRuleChange = (rule, value) => {
+    setEditPropertyData(prev => ({
+      ...prev,
+      rules: {
+        ...prev.rules,
+        [rule]: value
+      }
+    }));
+  };
+
+  const handleRoomImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setEditRoomData(prev => ({
+        ...prev,
+        room_image: imageUrl,
+        room_image_file: file
+      }));
+    }
+  };
+
+  const handleToiletImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setEditRoomData(prev => ({
+        ...prev,
+        toilet_image: imageUrl,
+        toilet_image_file: file
+      }));
+    }
+  };
+
+  const removeRoomImage = () => {
+    setEditRoomData(prev => ({
+      ...prev,
+      room_image: null,
+      room_image_file: null
+    }));
+  };
+
+  const removeToiletImage = () => {
+    setEditRoomData(prev => ({
+      ...prev,
+      toilet_image: null,
+      toilet_image_file: null
+    }));
+  };
+
+  const refreshPropertyData = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })()
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setProperty(result.data);
+          console.log('Property data refreshed');
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing property data:', error);
+    }
+  };
+
+  const fetchOwnerEmail = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const userId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })();
+      
+      console.log('Fetching owner email for userId:', userId);
+      console.log('User service URL:', `${import.meta.env.VITE_USER_SERVICE_API_URL || 'http://localhost:4002'}/api/users/${userId}`);
+      
+      const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_API_URL || 'http://localhost:4002'}/api/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userId
+        }
+      });
+
+      console.log('Owner email response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Owner email response data:', result);
+        if (result.success && result.data) {
+          setOwnerEmail(result.data.email || '');
+          console.log('Owner email fetched and set:', result.data.email);
+        }
+      } else {
+        console.error('Failed to fetch owner email:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching owner email:', error);
+    }
+  };
+
+  const updateRoom = async () => {
+    try {
+      setRoomEditLoading(true);
+      
+      const authToken = localStorage.getItem('authToken');
+      const userId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })();
+      
+      // Prepare form data
+      const formData = new FormData();
+      
+      // Add room data (excluding file objects)
+      const roomDataToSend = { ...editRoomData };
+      delete roomDataToSend.room_image_file;
+      delete roomDataToSend.toilet_image_file;
+      delete roomDataToSend.room_image;
+      delete roomDataToSend.toilet_image;
+      
+      formData.append('roomData', JSON.stringify(roomDataToSend));
+      
+      // Add images if they exist
+      if (editRoomData.room_image_file) {
+        formData.append('room_image', editRoomData.room_image_file);
+      }
+      if (editRoomData.toilet_image_file) {
+        formData.append('toilet_image', editRoomData.toilet_image_file);
+      }
+      
+      console.log('Updating room:', editRoomData._id);
+      console.log('Room data:', roomDataToSend);
+      
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/rooms/${editRoomData._id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userId
+        },
+        body: formData
+      });
+
+      const responseData = await response.json();
+      console.log('Update response:', responseData);
+
+      if (response.ok) {
+        // Refresh the entire property data to get updated images
+        await refreshPropertyData();
+        
+        // Update selectedRoom if it's the same room being edited
+        if (selectedRoom && selectedRoom._id === editRoomData._id) {
+          // Fetch updated property data
+          try {
+            const authToken = localStorage.getItem('authToken');
+            const userId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })();
+            
+            const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${id}`, {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'x-user-id': userId
+              }
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.data) {
+                const updatedRoom = result.data.rooms.find(room => room._id === editRoomData._id);
+                if (updatedRoom) {
+                  setSelectedRoom(updatedRoom);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching updated room data:', error);
+          }
+        }
+        
+        setIsEditRoomModalOpen(false);
+        setSuccessMessage('Room updated successfully!');
+        setShowSuccessModal(true);
+        
+        // Auto-close success modal after 3 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false);
+        }, 3000);
+      } else {
+        console.error('Failed to update room:', response.status, responseData);
+        setSuccessMessage(`Failed to update room: ${responseData.message || 'Unknown error'}`);
+        setShowSuccessModal(true);
+      }
+    } catch (error) {
+      console.error('Error updating room:', error);
+      setSuccessMessage(`Error updating room: ${error.message}`);
+      setShowSuccessModal(true);
+    } finally {
+      setRoomEditLoading(false);
+    }
+  };
+
+  const updateProperty = async () => {
+    try {
+      setPropertyEditLoading(true);
+      
+      const authToken = localStorage.getItem('authToken');
+      const userId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })();
+      
+      // Structure the data properly for the backend
+      const updateData = {
+        property_name: editPropertyData.property_name,
+        description: editPropertyData.description,
+        amenities: editPropertyData.amenities,
+        rules: editPropertyData.rules,
+        contact_number: editPropertyData.contact_number,
+        security_deposit: editPropertyData.security_deposit,
+        maintenance_fee: editPropertyData.maintenance_fee,
+        latitude: editPropertyData.latitude,
+        longitude: editPropertyData.longitude,
+        address: {
+          street: editPropertyData.address,
+          city: editPropertyData.city,
+          state: editPropertyData.state,
+          pincode: editPropertyData.pincode,
+          landmark: editPropertyData.landmark
+        }
+      };
+      
+      console.log('Updating property:', editPropertyData._id);
+      console.log('Property data:', updateData);
+      
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${editPropertyData._id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          'x-user-id': userId
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      const responseData = await response.json();
+      console.log('Update response:', responseData);
+
+      if (response.ok) {
+        // Refresh the entire property data
+        await refreshPropertyData();
+        
+        setIsEditPropertyModalOpen(false);
+        setSuccessMessage('Property updated successfully!');
+        setShowSuccessModal(true);
+        
+        // Auto-close success modal after 3 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false);
+        }, 3000);
+      } else {
+        console.error('Failed to update property:', response.status, responseData);
+        setSuccessMessage(`Failed to update property: ${responseData.message || 'Unknown error'}`);
+        setShowSuccessModal(true);
+      }
+    } catch (error) {
+      console.error('Error updating property:', error);
+      setSuccessMessage(`Error updating property: ${error.message}`);
+      setShowSuccessModal(true);
+    } finally {
+      setPropertyEditLoading(false);
+    }
+  };
+
+  const updateRoomStatus = async (roomId, newStatus) => {
+    try {
+      console.log('Updating room status:', { roomId, newStatus });
+      setRoomStatusLoading(prev => ({ ...prev, [roomId]: true }));
+      
+      const authToken = localStorage.getItem('authToken');
+      const userId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id || u.id || ''; } catch { return ''; } })();
+      
+      console.log('API call details:', {
+        url: `${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/rooms/${roomId}/status`,
+        authToken: authToken ? 'Present' : 'Missing',
+        userId: userId || 'Missing'
+      });
+      
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/rooms/${roomId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          'x-user-id': userId
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      console.log('Response status:', response.status);
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
+
+      if (response.ok) {
+        // Update the room status in the local state
+        setProperty(prev => ({
+          ...prev,
+          rooms: prev.rooms.map(room => 
+            room._id === roomId ? { ...room, status: newStatus } : room
+          )
+        }));
+        
+        // Update selected room if it's the same
+        if (selectedRoom && selectedRoom._id === roomId) {
+          setSelectedRoom(prev => ({ ...prev, status: newStatus }));
+        }
+        
+        console.log('Room status updated successfully');
+        setSuccessMessage('Room status updated successfully!');
+        setShowSuccessModal(true);
+        
+        // Auto-close success modal after 3 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false);
+        }, 3000);
+      } else {
+        console.error('Failed to update room status:', response.status, responseData);
+        setSuccessMessage(`Failed to update room status: ${responseData.message || 'Unknown error'}`);
+        setShowSuccessModal(true);
+      }
+    } catch (error) {
+      console.error('Error updating room status:', error);
+      setSuccessMessage(`Error updating room status: ${error.message}`);
+      setShowSuccessModal(true);
+    } finally {
+      setRoomStatusLoading(prev => ({ ...prev, [roomId]: false }));
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'inactive': return 'bg-gray-100 text-gray-800';
+      case 'maintenance': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'active': return CheckCircle;
+      case 'inactive': return XCircle;
+      case 'maintenance': return Clock;
+      default: return XCircle;
+    }
   };
 
   // Check authentication
@@ -102,7 +610,7 @@ const PropertyDetails = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
 
-        const url = `${import.meta.env.VITE_ADD_PROPERTY_API_URL || 'http://localhost:3002'}/api/properties/${id}`;
+        const url = `${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${id}`;
         console.log('PropertyDetails - Fetching from URL:', url);
         
         const response = await fetch(url, {
@@ -116,7 +624,16 @@ const PropertyDetails = () => {
           const result = await response.json();
           if (result.success) {
             console.log('Property details fetched:', result.data);
+            console.log('Property toilet_outside:', result.data.toilet_outside);
+            console.log('Property outside_toilet_image:', result.data.outside_toilet_image);
             console.log('Property documents:', result.data.documents);
+            console.log('Property rooms:', result.data.rooms);
+            if (result.data.rooms) {
+              result.data.rooms.forEach((room, index) => {
+                console.log(`Room ${index}:`, room);
+                console.log(`Room ${index} ID:`, room._id);
+              });
+            }
             setProperty(result.data);
           }
         } else {
@@ -134,43 +651,56 @@ const PropertyDetails = () => {
     }
   }, [id]);
 
-  // Process images to create the expected array format
-  const processImages = (imagesData) => {
+  // Fetch owner email
+  useEffect(() => {
+    if (id) {
+      fetchOwnerEmail();
+    }
+  }, [id]);
+
+  // Update editPropertyData when ownerEmail changes
+  useEffect(() => {
+    if (ownerEmail && isEditPropertyModalOpen) {
+      setEditPropertyData(prev => ({
+        ...prev,
+        contact_email: ownerEmail
+      }));
+    }
+  }, [ownerEmail, isEditPropertyModalOpen]);
+
+  // Process property images to create the expected array format
+  const processPropertyImages = (imagesData) => {
     if (!imagesData) return [];
     
     const imageArray = [];
     
-    // Handle both old format (frontImage, backImage, etc.) and new format (front, back, etc.)
-    const imageMappings = [
+    // Handle property images (front, back, hall, kitchen)
+    const propertyImageMappings = [
       { key: 'front', label: 'Front View' },
-      { key: 'hall', label: 'Hall' },
-      { key: 'room', label: 'Room' },
       { key: 'back', label: 'Back View' },
-      { key: 'toilet', label: 'Toilet' },
-      { key: 'frontImage', label: 'Front View' },
-      { key: 'hallImage', label: 'Hall' },
-      { key: 'roomImage', label: 'Room' },
-      { key: 'backImage', label: 'Back View' },
-      { key: 'toiletImage', label: 'Toilet' }
+      { key: 'hall', label: 'Hall' },
+      { key: 'kitchen', label: 'Kitchen' }
     ];
     
-    // Add individual images
-    imageMappings.forEach(({ key, label }) => {
+    // Add property images
+    propertyImageMappings.forEach(({ key, label }) => {
       if (imagesData[key] && imagesData[key] !== null) {
         imageArray.push({
           url: imagesData[key],
-          label: label
+          label: label,
+          type: 'property'
         });
       }
     });
     
-    // Add additional images array if it exists
-    if (imagesData.images && Array.isArray(imagesData.images)) {
-      imagesData.images.forEach((url, index) => {
+    // Add gallery images if they exist
+    if (imagesData.gallery && Array.isArray(imagesData.gallery)) {
+      imagesData.gallery.forEach((url, index) => {
         if (url && url !== null) {
           imageArray.push({
             url: url,
-            label: `Additional Image ${index + 1}`
+            label: `Gallery Image ${index + 1}`,
+            type: 'gallery'
           });
         }
       });
@@ -179,15 +709,44 @@ const PropertyDetails = () => {
     return imageArray;
   };
 
+  // Process room images
+  const processRoomImages = (rooms) => {
+    if (!rooms || !Array.isArray(rooms)) return [];
+    
+    const roomImages = [];
+    
+    rooms.forEach((room, roomIndex) => {
+      if (room.room_image) {
+        roomImages.push({
+          url: room.room_image,
+          label: `Room ${room.room_number || roomIndex + 1} - Room Image`,
+          type: 'room',
+          roomNumber: room.room_number || roomIndex + 1
+        });
+      }
+      if (room.toilet_image && room.amenities?.attachedBathroom) {
+        roomImages.push({
+          url: room.toilet_image,
+          label: `Room ${room.room_number || roomIndex + 1} - Toilet Image`,
+          type: 'toilet',
+          roomNumber: room.room_number || roomIndex + 1
+        });
+      }
+    });
+    
+    return roomImages;
+  };
+
+
   const goToNextImage = () => {
-    if (property?.images && property.images.length > 1) {
-      setCurrentImageIndex(prev => (prev + 1) % property.images.length);
+    if (allImages && allImages.length > 1) {
+      setCurrentImageIndex(prev => (prev + 1) % allImages.length);
     }
   };
 
   const goToPrevImage = () => {
-    if (property?.images && property.images.length > 1) {
-      setCurrentImageIndex(prev => (prev - 1 + property.images.length) % property.images.length);
+    if (allImages && allImages.length > 1) {
+      setCurrentImageIndex(prev => (prev - 1 + allImages.length) % allImages.length);
     }
   };
 
@@ -250,8 +809,24 @@ const PropertyDetails = () => {
     );
   }
 
-  // Process images
-  const processedImages = processImages(property.images);
+  // Process all images
+  const propertyImages = processPropertyImages(property.images);
+  const roomImages = processRoomImages(property.rooms);
+  
+  // Add outside toilet image if it exists
+  const outsideToiletImage = property.outside_toilet_image ? [{
+    url: property.outside_toilet_image,
+    label: 'Outside Toilet',
+    type: 'property'
+  }] : [];
+  
+  console.log('Outside toilet image processing:', {
+    toilet_outside: property.toilet_outside,
+    outside_toilet_image: property.outside_toilet_image,
+    outsideToiletImage: outsideToiletImage
+  });
+  
+  const allImages = [...propertyImages, ...roomImages, ...outsideToiletImage];
 
   return (
     <OwnerLayout>
@@ -276,11 +851,13 @@ const PropertyDetails = () => {
                     </div>
                     <div className="flex items-center space-x-1">
                       <Building className="w-4 h-4" />
-                      <span>{property.property_type}</span>
+                      <span className="capitalize">{property.property_mode || 'Room'}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Users className="w-4 h-4" />
-                      <span>Max {property.max_occupancy || 'N/A'} people</span>
+                      <span>
+                        {property.rooms?.length || 0} Rooms
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -290,7 +867,7 @@ const PropertyDetails = () => {
                   <Share2 className="w-5 h-5 text-gray-600" />
                 </button>
                 <button 
-                  onClick={() => navigate(`/owner-edit-property/${property._id || property.id}`)}
+                  onClick={openEditProperty}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <Edit className="w-5 h-5 text-gray-600" />
@@ -305,13 +882,13 @@ const PropertyDetails = () => {
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-8">
               {/* Image Gallery */}
-              {processedImages.length > 0 ? (
+              {allImages.length > 0 ? (
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                   <div className="relative">
                   <div className="aspect-w-16 aspect-h-9 bg-gray-200">
                     <img
-                      src={processedImages[currentImageIndex]?.url}
-                      alt={processedImages[currentImageIndex]?.label}
+                        src={allImages[currentImageIndex]?.url}
+                        alt={allImages[currentImageIndex]?.label}
                       className="w-full h-96 object-cover"
                       onError={(e) => {
                         e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=800&h=600&fit=crop&crop=center';
@@ -320,7 +897,7 @@ const PropertyDetails = () => {
                   </div>
                     
                     {/* Navigation arrows */}
-                    {processedImages.length > 1 && (
+                    {allImages.length > 1 && (
                       <>
                         <button
                           onClick={goToPrevImage}
@@ -340,10 +917,10 @@ const PropertyDetails = () => {
                     {/* Image counter and label */}
                     <div className="absolute top-4 right-4 flex space-x-2">
                       <span className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-                        {currentImageIndex + 1} / {processedImages.length}
+                        {currentImageIndex + 1} / {allImages.length}
                       </span>
                       <span className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-                        {processedImages[currentImageIndex]?.label}
+                        {allImages[currentImageIndex]?.label}
                       </span>
                     </div>
 
@@ -357,10 +934,10 @@ const PropertyDetails = () => {
                   </div>
 
                   {/* Thumbnail strip */}
-                  {processedImages.length > 1 && (
+                  {allImages.length > 1 && (
                     <div className="p-4 bg-gray-50">
                       <div className="flex space-x-2 overflow-x-auto">
-                        {processedImages.map((image, index) => (
+                        {allImages.map((image, index) => (
                           <button
                             key={index}
                             onClick={() => setCurrentImageIndex(index)}
@@ -400,42 +977,147 @@ const PropertyDetails = () => {
                 <p className="text-gray-700 leading-relaxed">{property.description}</p>
               </div>
 
-              {/* Pricing Details */}
-              {property.pricing && (
+              {/* Room Details */}
+              {property.property_mode === 'room' && property.rooms && property.rooms.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Pricing Details</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {property.pricing.monthly_rent && (
-                      <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                        <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600 mb-1">Monthly Rent</p>
-                        <p className="text-2xl font-bold text-green-600">{formatPrice(property.pricing.monthly_rent)}</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Room Details</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {property.rooms.map((room, index) => {
+                      const StatusIcon = getStatusIcon(room.status || 'active');
+                      return (
+                        <div key={index} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all cursor-pointer group" onClick={() => openRoomDetails(room)}>
+                          {/* Room Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <span className="text-red-600 font-bold text-lg">{room.room_number || index + 1}</span>
+                      </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">Room {room.room_number || index + 1}</h3>
+                              <p className="text-sm text-gray-500">{room.room_type} • {room.room_size} sq ft</p>
+                            </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-green-600">{formatPrice(room.rent)}</p>
+                              <p className="text-sm text-gray-500">per month</p>
+                            </div>
+                          </div>
+
+                          {/* Room Status */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(room.status || 'active')}`}>
+                              <StatusIcon className="w-4 h-4" />
+                              <span className="capitalize">{room.status || 'Active'}</span>
+                            </div>
+                            <div className="text-sm text-gray-500 group-hover:text-gray-700">
+                              Click to view details →
+                            </div>
+                          </div>
+
+                        {/* Room Images */}
+                        <div className={`grid gap-4 mb-4 ${room.room_image && room.toilet_image && room.amenities?.attachedBathroom ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                          {room.room_image && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-2">Room Image</p>
+                              <img
+                                src={room.room_image}
+                                alt={`Room ${room.room_number || index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/300x200?text=Room+Image';
+                                }}
+                              />
                       </div>
                     )}
-                    {property.pricing.security_deposit && (
-                      <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <Shield className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600 mb-1">Security Deposit</p>
-                        <p className="text-2xl font-bold text-blue-600">{formatPrice(property.pricing.security_deposit)}</p>
-                      </div>
-                    )}
-                    {property.pricing.maintenance_charges > 0 && (
-                      <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-                        <Home className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600 mb-1">Maintenance</p>
-                        <p className="text-2xl font-bold text-purple-600">{formatPrice(property.pricing.maintenance_charges)}</p>
-                      </div>
-                    )}
-                    {property.pricing.utility_charges > 0 && (
-                      <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
-                        <Wifi className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600 mb-1">Utilities</p>
-                        <p className="text-2xl font-bold text-orange-600">{formatPrice(property.pricing.utility_charges)}</p>
-                      </div>
-                    )}
+                          {room.toilet_image && room.amenities?.attachedBathroom && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-2">Toilet Image</p>
+                              <img
+                                src={room.toilet_image}
+                                alt={`Room ${room.room_number || index + 1} Toilet`}
+                                className="w-full h-32 object-cover rounded-lg border"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/300x200?text=Toilet+Image';
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Room Details */}
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Bed Type:</span>
+                              <span className="ml-2 font-medium">{room.bed_type}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Occupancy:</span>
+                              <span className="ml-2 font-medium">{room.occupancy} people</span>
+                            </div>
+                          </div>
+                          
+                          {room.description && (
+                            <div>
+                              <span className="text-gray-500 text-sm">Description:</span>
+                              <p className="text-sm text-gray-700 mt-1">{room.description}</p>
+                            </div>
+                          )}
+
+                          {/* Room Amenities */}
+                          {room.amenities && Object.keys(room.amenities).length > 0 && (
+                            <div>
+                              <span className="text-gray-500 text-sm">Amenities:</span>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {Object.entries(room.amenities).map(([amenity, available]) => {
+                                  if (available) {
+                                    const IconComponent = getAmenityIcon(amenity);
+                                    return (
+                                      <div key={amenity} className="flex items-center space-x-1 px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs">
+                                        <IconComponent className="w-3 h-3" />
+                                        <span className="capitalize">{amenity.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
+
+              {/* Pricing Details */}
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Pricing Details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {property.security_deposit && (
+                      <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <Shield className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Security Deposit</p>
+                      <p className="text-2xl font-bold text-blue-600">{formatPrice(property.security_deposit)}</p>
+                      </div>
+                    )}
+                  
+                  {property.property_mode === 'room' && property.rooms && property.rooms.length > 0 && (
+                    <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                      <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 mb-1">Starting from</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatPrice(Math.min(...property.rooms.map(room => room.rent)))}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">per room/month</p>
+                      </div>
+                    )}
+                  
+                  </div>
+                </div>
 
               {/* Amenities */}
               {property.amenities && Object.keys(property.amenities).length > 0 && (() => {
@@ -458,6 +1140,32 @@ const PropertyDetails = () => {
                 ) : null;
               })()}
 
+              {/* Outside Toilet Information */}
+              {property.toilet_outside && property.outside_toilet_image && (
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Outside Toilet</h2>
+                  <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Outside Toilet Available</p>
+                      <p className="text-xs text-blue-600">Shared toilet facility for all residents</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <img
+                      src={property.outside_toilet_image}
+                      alt="Outside Toilet"
+                      className="w-full max-w-md h-64 object-cover rounded-lg border"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/400x300?text=Outside+Toilet+Image';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* House Rules */}
               {property.rules && Object.keys(property.rules).length > 0 && (() => {
                 const activeRules = Object.entries(property.rules).filter(([rule, value]) => value === true);
@@ -477,11 +1185,44 @@ const PropertyDetails = () => {
               })()}
 
               {/* Property Documents */}
-              {property.documents && property.documents.length > 0 && (
+              {(property.land_tax_receipt || (property.documents && property.documents.length > 0)) && (
                 <div className="bg-white rounded-xl shadow-sm p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Property Documents</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {property.documents.map((docUrl, index) => {
+                    {/* Land Tax Receipt */}
+                    {property.land_tax_receipt && (
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FileText className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Land Tax Receipt</p>
+                            <p className="text-xs text-gray-500">PDF Document</p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => openDocumentPreview(property.land_tax_receipt, 'Land Tax Receipt.pdf')}
+                            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Preview"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <a
+                            href={property.land_tax_receipt}
+                            download="Land Tax Receipt.pdf"
+                            className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Other Documents */}
+                    {property.documents && property.documents.map((docUrl, index) => {
                       const fileName = docUrl.split('/').pop() || `Document ${index + 1}`;
                       const isPdf = fileName.toLowerCase().endsWith('.pdf');
                       return (
@@ -546,15 +1287,15 @@ const PropertyDetails = () => {
                   <div className="flex items-center space-x-3">
                     <Building className="w-5 h-5 text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Property Type</p>
-                      <p className="font-medium">{property.property_type}</p>
+                      <p className="text-sm text-gray-500">Property Mode</p>
+                      <p className="font-medium capitalize">{property.property_mode || 'Room'}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Users className="w-5 h-5 text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Maximum Occupancy</p>
-                      <p className="font-medium">{property.max_occupancy || 'Not specified'}</p>
+                      <p className="text-sm text-gray-500">Number of Rooms</p>
+                      <p className="font-medium">{property.rooms?.length || 0}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -652,7 +1393,7 @@ const PropertyDetails = () => {
         </div>
 
         {/* Image Modal */}
-        {isImageModalOpen && processedImages.length > 0 && (
+        {isImageModalOpen && allImages.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
             <div className="relative max-w-4xl max-h-full">
               <button
@@ -662,11 +1403,11 @@ const PropertyDetails = () => {
                 <XCircle className="w-6 h-6" />
               </button>
               <img
-                src={processedImages[currentImageIndex]?.url}
-                alt={processedImages[currentImageIndex]?.label}
+                src={allImages[currentImageIndex]?.url}
+                alt={allImages[currentImageIndex]?.label}
                 className="max-w-full max-h-full object-contain rounded-lg"
               />
-              {processedImages.length > 1 && (
+              {allImages.length > 1 && (
                 <>
                   <button
                     onClick={goToPrevImage}
@@ -773,6 +1514,711 @@ const PropertyDetails = () => {
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Room Detail Modal */}
+        {isRoomModalOpen && selectedRoom && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <span className="text-red-600 font-bold text-lg">{selectedRoom.room_number}</span>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Room {selectedRoom.room_number}</h2>
+                    <p className="text-sm text-gray-500">{selectedRoom.room_type} • {selectedRoom.room_size} sq ft</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedRoom.status || 'active')}`}>
+                    {(() => {
+                      const StatusIcon = getStatusIcon(selectedRoom.status || 'active');
+                      return <StatusIcon className="w-4 h-4" />;
+                    })()}
+                    <span className="capitalize">{selectedRoom.status || 'Active'}</span>
+                  </div>
+                  <button
+                    onClick={() => openEditRoom(selectedRoom)}
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Edit Room"
+                  >
+                    <Edit className="w-5 h-5 text-blue-600" />
+                  </button>
+                  <button
+                    onClick={() => setIsRoomModalOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <XCircle className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Room Images */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Room Images</h3>
+                    
+                    {selectedRoom.room_image && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Room Image</p>
+                        <img
+                          src={selectedRoom.room_image}
+                          alt={`Room ${selectedRoom.room_number}`}
+                          className="w-full h-64 object-cover rounded-lg border"
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/400x300?text=Room+Image';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {selectedRoom.toilet_image && selectedRoom.amenities?.attachedBathroom && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Toilet Image</p>
+                        <img
+                          src={selectedRoom.toilet_image}
+                          alt={`Room ${selectedRoom.room_number} Toilet`}
+                          className="w-full h-64 object-cover rounded-lg border"
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/400x300?text=Toilet+Image';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Room Details */}
+                  <div className="space-y-6">
+                    {/* Pricing */}
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">Pricing</h4>
+                      <div className="text-3xl font-bold text-green-600">{formatPrice(selectedRoom.rent)}</div>
+                      <p className="text-sm text-gray-500">per month</p>
+                    </div>
+
+                    {/* Room Specifications */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Specifications</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Room Type:</span>
+                          <span className="ml-2 font-medium">{selectedRoom.room_type}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Room Size:</span>
+                          <span className="ml-2 font-medium">{selectedRoom.room_size} sq ft</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Bed Type:</span>
+                          <span className="ml-2 font-medium">{selectedRoom.bed_type}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Occupancy:</span>
+                          <span className="ml-2 font-medium">{selectedRoom.occupancy} people</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    {selectedRoom.description && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Description</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed">{selectedRoom.description}</p>
+                      </div>
+                    )}
+
+                    {/* Amenities */}
+                    {selectedRoom.amenities && Object.keys(selectedRoom.amenities).length > 0 && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Amenities</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(selectedRoom.amenities).map(([amenity, available]) => {
+                            if (available) {
+                              const IconComponent = getAmenityIcon(amenity);
+                              return (
+                                <div key={amenity} className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
+                                  <IconComponent className="w-4 h-4" />
+                                  <span className="capitalize">{amenity.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Room Status Management */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Room Status Management</h4>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => updateRoomStatus(selectedRoom._id, 'active')}
+                          disabled={roomStatusLoading[selectedRoom._id] || selectedRoom.status === 'active'}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedRoom.status === 'active'
+                              ? 'bg-green-100 text-green-800 cursor-not-allowed'
+                              : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          }`}
+                        >
+                          {roomStatusLoading[selectedRoom._id] ? (
+                            <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <CheckCircle className="w-4 h-4" />
+                          )}
+                          <span>Active</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => updateRoomStatus(selectedRoom._id, 'inactive')}
+                          disabled={roomStatusLoading[selectedRoom._id] || selectedRoom.status === 'inactive'}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedRoom.status === 'inactive'
+                              ? 'bg-gray-100 text-gray-800 cursor-not-allowed'
+                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {roomStatusLoading[selectedRoom._id] ? (
+                            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          <span>Inactive</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => updateRoomStatus(selectedRoom._id, 'maintenance')}
+                          disabled={roomStatusLoading[selectedRoom._id] || selectedRoom.status === 'maintenance'}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedRoom.status === 'maintenance'
+                              ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed'
+                              : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+                          }`}
+                        >
+                          {roomStatusLoading[selectedRoom._id] ? (
+                            <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Clock className="w-4 h-4" />
+                          )}
+                          <span>Maintenance</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Room Modal */}
+        {isEditRoomModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Edit Room {editRoomData.room_number}</h2>
+                <button
+                  onClick={() => setIsEditRoomModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <XCircle className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Room Images */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Room Images</h3>
+                    
+                    {/* Room Image */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Room Image</label>
+                      {editRoomData.room_image ? (
+                        <div className="relative">
+                          <img
+                            src={editRoomData.room_image}
+                            alt="Room"
+                            className="w-full h-48 object-cover rounded-lg border"
+                          />
+                          <button
+                            onClick={removeRoomImage}
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleRoomImageUpload}
+                            className="hidden"
+                            id="room-image-upload"
+                          />
+                          <label
+                            htmlFor="room-image-upload"
+                            className="cursor-pointer text-gray-500 hover:text-gray-700"
+                          >
+                            <Camera className="w-8 h-8 mx-auto mb-2" />
+                            <p>Click to upload room image</p>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Toilet Image */}
+                    {editRoomData.amenities?.attachedBathroom && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Toilet Image</label>
+                        {editRoomData.toilet_image ? (
+                          <div className="relative">
+                            <img
+                              src={editRoomData.toilet_image}
+                              alt="Toilet"
+                              className="w-full h-48 object-cover rounded-lg border"
+                            />
+                            <button
+                              onClick={removeToiletImage}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleToiletImageUpload}
+                              className="hidden"
+                              id="toilet-image-upload"
+                            />
+                            <label
+                              htmlFor="toilet-image-upload"
+                              className="cursor-pointer text-gray-500 hover:text-gray-700"
+                            >
+                              <Camera className="w-8 h-8 mx-auto mb-2" />
+                              <p>Click to upload toilet image</p>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Room Details Form */}
+                  <div className="space-y-6">
+                    {/* Basic Information */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                          <select
+                            value={editRoomData.room_type}
+                            onChange={(e) => handleEditRoomChange('room_type', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          >
+                            <option value="Single">Single</option>
+                            <option value="Double">Double</option>
+                            <option value="Triple">Triple</option>
+                            <option value="Quad">Quad</option>
+                            <option value="Master">Master</option>
+                            <option value="Studio">Studio</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Size (sq ft)</label>
+                          <input
+                            type="number"
+                            value={editRoomData.room_size}
+                            onChange={(e) => handleEditRoomChange('room_size', parseInt(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Bed Type</label>
+                          <select
+                            value={editRoomData.bed_type}
+                            onChange={(e) => handleEditRoomChange('bed_type', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          >
+                            <option value="Single Bed">Single Bed</option>
+                            <option value="Double Bed">Double Bed</option>
+                            <option value="Queen Bed">Queen Bed</option>
+                            <option value="King Bed">King Bed</option>
+                            <option value="Bunk Bed">Bunk Bed</option>
+                            <option value="No Bed">No Bed</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Occupancy</label>
+                          <input
+                            type="number"
+                            value={editRoomData.occupancy}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Auto-set based on room type</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Rent (₹)</label>
+                          <input
+                            type="number"
+                            value={editRoomData.rent}
+                            onChange={(e) => handleEditRoomChange('rent', parseInt(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Attached Bathroom</label>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Has attached bathroom?</span>
+                            <div className="flex items-center space-x-3">
+                              <span className={`text-sm font-medium ${!editRoomData.amenities?.attachedBathroom ? 'text-gray-900' : 'text-gray-500'}`}>
+                                NO
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleAmenityChange('attachedBathroom', !editRoomData.amenities?.attachedBathroom)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+                                  editRoomData.amenities?.attachedBathroom ? 'bg-red-600' : 'bg-gray-200'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    editRoomData.amenities?.attachedBathroom ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                              <span className={`text-sm font-medium ${editRoomData.amenities?.attachedBathroom ? 'text-gray-900' : 'text-gray-500'}`}>
+                                YES
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <textarea
+                        value={editRoomData.description}
+                        onChange={(e) => handleEditRoomChange('description', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="Describe this room's features..."
+                      />
+                    </div>
+
+                    {/* Amenities */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Room Amenities</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(editRoomData.amenities || {}).map(([amenity, value]) => (
+                          <div key={amenity} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={value}
+                              onChange={(e) => handleAmenityChange(amenity, e.target.checked)}
+                              className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                            />
+                            <label className="text-sm text-gray-700 capitalize">
+                              {amenity.replace(/([A-Z])/g, ' $1').trim()}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditRoomModalOpen(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={updateRoom}
+                        disabled={roomEditLoading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {roomEditLoading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Updating...</span>
+                          </div>
+                        ) : (
+                          'Update Room'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  {successMessage.includes('successfully') ? (
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  ) : (
+                    <XCircle className="w-8 h-8 text-red-600" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {successMessage.includes('successfully') ? 'Success!' : 'Error'}
+                </h3>
+                <p className="text-gray-600 mb-6">{successMessage}</p>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                    successMessage.includes('successfully')
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Property Modal */}
+        {isEditPropertyModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Edit Property</h2>
+                  <button
+                    onClick={() => setIsEditPropertyModalOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <XCircle className="w-6 h-6 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Basic Information */}
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Property Name</label>
+                      <input
+                        type="text"
+                        value={editPropertyData.property_name || ''}
+                        onChange={(e) => handlePropertyEditChange('property_name', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter property name"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                      <textarea
+                        value={editPropertyData.address || ''}
+                        onChange={(e) => handlePropertyEditChange('address', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        rows="3"
+                        placeholder="Enter full address"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                      <input
+                        type="text"
+                        value={editPropertyData.city || ''}
+                        onChange={(e) => handlePropertyEditChange('city', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter city"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                      <input
+                        type="text"
+                        value={editPropertyData.state || ''}
+                        onChange={(e) => handlePropertyEditChange('state', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter state"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
+                      <input
+                        type="text"
+                        value={editPropertyData.pincode || ''}
+                        onChange={(e) => handlePropertyEditChange('pincode', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter pincode"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Landmark</label>
+                      <input
+                        type="text"
+                        value={editPropertyData.landmark || ''}
+                        onChange={(e) => handlePropertyEditChange('landmark', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter landmark"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                      <input
+                        type="tel"
+                        value={editPropertyData.contact_number || ''}
+                        onChange={(e) => handlePropertyEditChange('contact_number', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter contact number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Owner Email</label>
+                      <input
+                        type="email"
+                        value={editPropertyData.contact_email || ''}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                        placeholder="Owner email will be loaded automatically"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This is your registered email address</p>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Security Deposit</label>
+                      <input
+                        type="number"
+                        value={editPropertyData.security_deposit || ''}
+                        onChange={(e) => handlePropertyEditChange('security_deposit', parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter security deposit"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Maintenance Fee</label>
+                      <input
+                        type="number"
+                        value={editPropertyData.maintenance_fee || ''}
+                        onChange={(e) => handlePropertyEditChange('maintenance_fee', parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Enter maintenance fee"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={editPropertyData.description || ''}
+                      onChange={(e) => handlePropertyEditChange('description', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      rows="4"
+                      placeholder="Enter property description"
+                    />
+                  </div>
+
+                  {/* Rules */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-4">Rules and Policies</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(editPropertyData.rules || {}).map(([rule, allowed]) => (
+                        <div key={rule} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={allowed}
+                            onChange={(e) => handlePropertyRuleChange(rule, e.target.checked)}
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                          />
+                          <label className="text-sm text-gray-700 capitalize">
+                            {rule.replace(/([A-Z])/g, ' $1').trim()} Allowed
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Property Amenities */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-4">Property Amenities</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {Object.entries(editPropertyData.amenities || {}).map(([amenity, value]) => (
+                        <div key={amenity} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={(e) => handlePropertyAmenityChange(amenity, e.target.checked)}
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                          />
+                          <label className="text-sm text-gray-700 capitalize">
+                            {amenity.replace(/([A-Z])/g, ' $1').trim()}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => setIsEditPropertyModalOpen(false)}
+                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={updateProperty}
+                      disabled={propertyEditLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      {propertyEditLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="w-4 h-4" />
+                          <span>Update Property</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
