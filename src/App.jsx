@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Chatbot from "./components/Chatbot";
+import { Toaster } from "./components/ui/toaster";
 import Home from "./pages/Home";
 
 import Profile from "./pages/Profile";
@@ -27,6 +28,10 @@ import SeekerSearch from "./pages/seeker/SeekerSearch";
 import SeekerFavorites from "./pages/seeker/SeekerFavorites";
 import SeekerOnboarding from "./pages/seeker/SeekerOnboarding";
 import SeekerProfile from "./pages/seeker/SeekerProfile";
+import SeekerPropertyDetails from "./pages/seeker/SeekerPropertyDetails";
+import SeekerDashboardDetails from "./pages/seeker/SeekerDashboardDetails";
+import RoomDetailsView from "./pages/seeker/RoomDetailsView";
+import RoomDebug from "./pages/seeker/RoomDebug";
 // Import owner pages and components
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/Properties";
@@ -39,9 +44,12 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminOwners from "./pages/admin/Owners";
 import AdminSeekers from "./pages/admin/Seekers";
 import AdminProperties from "./pages/admin/Properties";
+import AdminPropertyDetails from "./pages/admin/AdminPropertyDetails";
 import AdminSettings from "./pages/admin/Settings";
 import AdminNotFound from "./pages/admin/NotFound";
 import OwnerSettings from "./pages/owner/Settings";
+import OwnerBookings from "./pages/owner/Bookings";
+import BookingDetails from "./pages/owner/BookingDetails";
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -422,6 +430,26 @@ function AppRoutesWithLoader() {
               <SeekerProfile />
             </ProtectedSeekerRoute>
           } />
+          <Route path="/seeker/property/:id" element={
+            <ProtectedSeekerRoute>
+              <SeekerPropertyDetails />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-dashboard/:propertyId" element={
+            <ProtectedSeekerRoute>
+              <SeekerDashboardDetails />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/room/:roomId" element={
+            <ProtectedSeekerRoute>
+              <RoomDetailsView />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/debug/rooms" element={
+            <ProtectedSeekerRoute>
+              <RoomDebug />
+            </ProtectedSeekerRoute>
+          } />
           <Route path="/profile" element={
             <ProtectedUserRoute>
               <Profile />
@@ -474,6 +502,16 @@ function AppRoutesWithLoader() {
               <Messages />
             </ProtectedOwnerRoute>
           } />
+          <Route path="/owner-bookings" element={
+            <ProtectedOwnerRoute>
+              <OwnerBookings />
+            </ProtectedOwnerRoute>
+          } />
+          <Route path="/owner-bookings/:bookingId" element={
+            <ProtectedOwnerRoute>
+              <BookingDetails />
+            </ProtectedOwnerRoute>
+          } />
           {/* Owner profile alias -> use settings page */}
           <Route path="/owner-profile" element={
             <ProtectedOwnerRoute>
@@ -507,6 +545,11 @@ function AppRoutesWithLoader() {
               <AdminProperties />
             </ProtectedAdminRoute>
           } />
+          <Route path="/admin-property-details/:propertyId" element={
+            <ProtectedAdminRoute>
+              <AdminPropertyDetails />
+            </ProtectedAdminRoute>
+          } />
           <Route path="/admin-settings" element={
             <ProtectedAdminRoute>
               <AdminSettings />
@@ -530,7 +573,7 @@ function AppContent() {
   // Check if current route is an admin, owner, or seeker route
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isOwnerRoute = location.pathname.startsWith('/owner');
-  const isSeekerRoute = location.pathname.startsWith('/seeker') || location.pathname === '/dashboard';
+  const isSeekerRoute = location.pathname.startsWith('/seeker') || location.pathname === '/dashboard' || location.pathname.startsWith('/room/');
 
   // Global authentication check
   useEffect(() => {
@@ -596,6 +639,7 @@ function AppContent() {
       {!isAdminRoute && !isOwnerRoute && !isSeekerRoute && <Footer />}
       {/* Only render Chatbot for non-admin, non-owner, and non-seeker routes */}
       {!isAdminRoute && !isOwnerRoute && !isSeekerRoute && <Chatbot />}
+      <Toaster />
     </div>
   );
 }

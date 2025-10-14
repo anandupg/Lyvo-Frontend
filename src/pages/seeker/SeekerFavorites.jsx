@@ -21,59 +21,8 @@ const SeekerFavorites = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data for favorites
-    const mockFavorites = [
-      {
-        id: 1,
-        name: 'Student PG Koramangala',
-        location: 'Koramangala, Bangalore',
-        price: 15000,
-        rating: 4.5,
-        reviews: 128,
-        distance: '1.2 km',
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'laundry'],
-        description: 'Perfect for students with modern amenities and great location',
-        owner: 'Rahul Kumar',
-        verified: true,
-        available: true,
-        addedDate: '2024-01-10'
-      },
-      {
-        id: 2,
-        name: 'Professional PG Indiranagar',
-        location: 'Indiranagar, Bangalore',
-        price: 18000,
-        rating: 4.3,
-        reviews: 95,
-        distance: '2.8 km',
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'parking', 'gym'],
-        description: 'Premium accommodation for working professionals',
-        owner: 'Priya Sharma',
-        verified: true,
-        available: true,
-        addedDate: '2024-01-08'
-      },
-      {
-        id: 3,
-        name: 'Co-living Space HSR Layout',
-        location: 'HSR Layout, Bangalore',
-        price: 12000,
-        rating: 4.7,
-        reviews: 156,
-        distance: '3.5 km',
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'laundry', 'security'],
-        description: 'Community living with shared spaces and activities',
-        owner: 'Vikram Singh',
-        verified: true,
-        available: true,
-        addedDate: '2024-01-05'
-      }
-    ];
-
-    setFavorites(mockFavorites);
+    // No favorites API yet: show empty
+    setFavorites([]);
     setLoading(false);
   }, []);
 

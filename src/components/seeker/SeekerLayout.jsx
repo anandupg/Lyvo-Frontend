@@ -4,7 +4,7 @@ import SeekerNavbar from './SeekerNavbar';
 import SeekerSidebar from './SeekerSidebar';
 import SeekerFooter from './SeekerFooter';
 
-const SeekerLayout = ({ children, hideFooter = false }) => {
+const SeekerLayout = ({ children, hideFooter = false, hideNavbar = false }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
 
@@ -90,9 +90,11 @@ const SeekerLayout = ({ children, hideFooter = false }) => {
       {/* Main Content */}
       <div className="lg:ml-64">
         {/* Navbar */}
-        <div className="sticky top-0 z-30 bg-white shadow-sm">
-          <SeekerNavbar onMenuToggle={toggleSidebar} />
-        </div>
+        {!hideNavbar && (
+          <div className="sticky top-0 z-30 bg-white shadow-sm">
+            <SeekerNavbar onMenuToggle={toggleSidebar} />
+          </div>
+        )}
 
         {/* Profile completion prompt (top-right) */}
         {showProfilePrompt && (

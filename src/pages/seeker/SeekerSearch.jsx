@@ -51,72 +51,38 @@ const SeekerSearch = () => {
   ];
 
   useEffect(() => {
-    // Mock data for PGs
-    const mockPGs = [
-      {
-        id: 1,
-        name: 'Student PG Koramangala',
-        location: 'Koramangala, Bangalore',
-        price: 15000,
-        rating: 4.5,
-        reviews: 128,
-        distance: '1.2 km',
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'laundry'],
-        description: 'Perfect for students with modern amenities and great location',
-        owner: 'Rahul Kumar',
-        verified: true,
-        available: true
-      },
-      {
-        id: 2,
-        name: 'Professional PG Indiranagar',
-        location: 'Indiranagar, Bangalore',
-        price: 18000,
-        rating: 4.3,
-        reviews: 95,
-        distance: '2.8 km',
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'parking', 'gym'],
-        description: 'Premium accommodation for working professionals',
-        owner: 'Priya Sharma',
-        verified: true,
-        available: true
-      },
-      {
-        id: 3,
-        name: 'Co-living Space HSR Layout',
-        location: 'HSR Layout, Bangalore',
-        price: 12000,
-        rating: 4.7,
-        reviews: 156,
-        distance: '3.5 km',
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'laundry', 'security'],
-        description: 'Community living with shared spaces and activities',
-        owner: 'Vikram Singh',
-        verified: true,
-        available: true
-      },
-      {
-        id: 4,
-        name: 'Premium PG Whitefield',
-        location: 'Whitefield, Bangalore',
-        price: 22000,
-        rating: 4.8,
-        reviews: 89,
-        distance: '5.2 km',
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        amenities: ['wifi', 'ac', 'food', 'parking', 'gym', 'security'],
-        description: 'Luxury accommodation with premium facilities',
-        owner: 'Anita Patel',
-        verified: true,
-        available: true
+    const load = async () => {
+      try {
+        setLoading(true);
+        const base = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+        const resp = await fetch(`${base}/api/public/properties`);
+        if (!resp.ok) throw new Error(`Failed ${resp.status}`);
+        const data = await resp.json();
+        const items = (data.properties || []).map(p => ({
+          id: p._id,
+          name: p.propertyName || 'Unnamed Property',
+          location: p.address || 'Address not available',
+          price: Number(p.rent) || 0,
+          rating: 4.5,
+          reviews: 0,
+          distance: '',
+          image: Array.isArray(p.images) ? (p.images[0] || '') : (p.images?.images?.[0] || ''),
+          amenities: Object.entries(p.amenities || {}).filter(([,v]) => v === true).map(([k]) => k.toLowerCase()),
+          description: p.description || '',
+          owner: p.ownerName || 'Owner',
+          verified: true,
+          available: true
+        }));
+        setPgs(items);
+        setFilteredPGs(items);
+      } catch (e) {
+        setPgs([]);
+        setFilteredPGs([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-
-    setPgs(mockPGs);
-    setFilteredPGs(mockPGs);
+    };
+    load();
   }, []);
 
   useEffect(() => {

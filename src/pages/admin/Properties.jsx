@@ -1,112 +1,119 @@
-import React, { useState } from 'react';
-import { Home, Search, Filter, MoreVertical, Edit, Trash2, Eye, MapPin, DollarSign, Users, Star, Calendar } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Home, Search, Filter, MoreVertical, Edit, Trash2, Eye, MapPin, DollarSign, Users, Star, Calendar, CheckCircle2, XCircle, User, Building, ArrowRight } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { motion } from 'framer-motion';
 
 const PropertiesPage = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedProperties, setSelectedProperties] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [properties, setProperties] = useState([]);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // Mock property data
-  const properties = [
-    {
-      id: 1,
-      title: 'Modern 2BHK Apartment',
-      location: 'Koramangala, Bangalore',
-      price: 25000,
-      type: 'apartment',
-      status: 'active',
-      owner: 'Jane Smith',
-      rooms: 2,
-      rating: 4.5,
-      bookings: 12,
-      listedDate: '2024-01-10',
-      image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400'
-    },
-    {
-      id: 2,
-      title: 'Cozy Studio in HSR Layout',
-      location: 'HSR Layout, Bangalore',
-      price: 18000,
-      type: 'studio',
-      status: 'active',
-      owner: 'John Doe',
-      rooms: 1,
-      rating: 4.2,
-      bookings: 8,
-      listedDate: '2024-01-15',
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400'
-    },
-    {
-      id: 3,
-      title: 'Luxury Villa with Pool',
-      location: 'Whitefield, Bangalore',
-      price: 45000,
-      type: 'villa',
-      status: 'pending',
-      owner: 'Sarah Wilson',
-      rooms: 4,
-      rating: 4.8,
-      bookings: 3,
-      listedDate: '2024-01-08',
-      image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=400'
-    },
-    {
-      id: 4,
-      title: 'Student PG Accommodation',
-      location: 'Electronic City, Bangalore',
-      price: 12000,
-      type: 'pg',
-      status: 'active',
-      owner: 'Mike Johnson',
-      rooms: 1,
-      rating: 4.0,
-      bookings: 15,
-      listedDate: '2024-01-12',
-      image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400'
-    },
-    {
-      id: 5,
-      title: 'Premium 3BHK Flat',
-      location: 'Indiranagar, Bangalore',
-      price: 35000,
-      type: 'apartment',
-      status: 'inactive',
-      owner: 'David Brown',
-      rooms: 3,
-      rating: 4.6,
-      bookings: 6,
-      listedDate: '2024-01-05',
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400'
-    }
-  ];
+  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
 
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || property.status === filterStatus;
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const authToken = localStorage.getItem('authToken');
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+        const userId = user._id || user.id || '';
+
+        const resp = await fetch(`${propertyServiceUrl}/api/admin/properties?page=1&limit=200`, {
+          headers: {
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+            'x-user-id': userId
+          }
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.success !== true) {
+          throw new Error(data.message || 'Failed to fetch properties');
+        }
+        const propertiesData = Array.isArray(data.data) ? data.data : [];
+        setProperties(propertiesData);
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  const filteredProperties = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return (properties || []).filter(p => {
+      const title = (p.property_name || '').toLowerCase();
+      const location = `${p.address?.street || ''} ${p.address?.city || ''} ${p.address?.state || ''}`.toLowerCase();
+      const matchesSearch = !term || title.includes(term) || location.includes(term) || (p.owner?.name || '').toLowerCase().includes(term);
+      const matchesStatus = filterStatus === 'all' || (p.approval_status || 'pending') === filterStatus || (p.status || 'active') === filterStatus;
     return matchesSearch && matchesStatus;
   });
+  }, [properties, searchTerm, filterStatus]);
+
+  const groupedByOwner = useMemo(() => {
+    const groups = {};
+    filteredProperties.forEach(p => {
+      const key = p.owner?.name || p.owner?.email || p.owner_id || 'Unknown Owner';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    });
+    return groups;
+  }, [filteredProperties]);
 
   const getStatusBadge = (status) => {
     const badges = {
       active: { text: 'Active', color: 'bg-green-100 text-green-800' },
       pending: { text: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+      approved: { text: 'Approved', color: 'bg-green-100 text-green-800' },
+      rejected: { text: 'Rejected', color: 'bg-red-100 text-red-800' },
       inactive: { text: 'Inactive', color: 'bg-gray-100 text-gray-800' },
       suspended: { text: 'Suspended', color: 'bg-red-100 text-red-800' }
     };
     return badges[status] || badges.inactive;
   };
 
-  const getTypeBadge = (type) => {
-    const badges = {
-      apartment: { text: 'Apartment', color: 'bg-blue-100 text-blue-800' },
-      studio: { text: 'Studio', color: 'bg-purple-100 text-purple-800' },
-      villa: { text: 'Villa', color: 'bg-orange-100 text-orange-800' },
-      pg: { text: 'PG', color: 'bg-indigo-100 text-indigo-800' }
-    };
-    return badges[type] || badges.apartment;
+  const approveRoom = async (roomId, action) => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+      const userId = user._id || user.id || '';
+      const resp = await fetch(`${propertyServiceUrl}/api/admin/rooms/${roomId}/approval`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'x-user-id': userId
+        },
+        body: JSON.stringify({ action })
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.success !== true) {
+        throw new Error(data.message || 'Failed to update room');
+      }
+      setProperties(prev => prev.map(p => ({
+        ...p,
+        rooms: (p.rooms || []).map(r => r._id === roomId ? { ...r, ...data.data } : r)
+      })));
+      
+      // Show success modal
+      setSuccessMessage(`Room ${action === 'approve' ? 'approved' : 'rejected'} successfully!`);
+      setShowSuccessModal(true);
+      
+      // Auto-close success modal after 3 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 3000);
+    } catch (e) {
+      setError(e.message);
+    }
   };
 
   const handleSelectProperty = (propertyId) => {
@@ -132,8 +139,16 @@ const PropertiesPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Property Management</h1>
-            <p className="text-gray-600 mt-1">Manage all property listings and verify new submissions</p>
+            <p className="text-gray-600 mt-1">Manage all owner properties, view details, and approve or reject rooms</p>
           </div>
+        {error && (
+          <div className="p-3 rounded-md bg-red-50 text-red-700 border border-red-200">{error}</div>
+        )}
+
+        {loading && (
+          <div className="p-3 rounded-md bg-gray-50 text-gray-700 border border-gray-200">Loading properties…</div>
+        )}
+
           <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2">
             <Home className="w-4 h-4" />
             <span>Add New Property</span>
@@ -261,102 +276,117 @@ const PropertiesPage = () => {
           </div>
         </motion.div>
 
-        {/* Properties Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {filteredProperties.map((property, index) => {
-            const statusBadge = getStatusBadge(property.status);
-            const typeBadge = getTypeBadge(property.type);
+        {/* Grouped by Owner */}
+        <div className="space-y-8">
+          {Object.entries(groupedByOwner).map(([ownerName, list]) => (
+            <div key={ownerName} className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                  <User className="w-5 h-5 text-gray-700" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">{ownerName}</h2>
+                  <p className="text-gray-500 text-sm">{list[0]?.owner?.email || ''}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {list.map((property, index) => {
+                  const statusBadge = getStatusBadge(property.approval_status || 'pending');
+                  const rooms = property.rooms || [];
+                  const firstRoomImage = rooms.find(r => r.room_image)?.room_image;
+                  const pendingRooms = rooms.filter(r => (r.approval_status || 'pending') === 'pending').length;
+                  const approvedRooms = rooms.filter(r => (r.approval_status || 'pending') === 'approved').length;
             
             return (
               <motion.div
-                key={property.id}
-                initial={{ opacity: 0, scale: 0.9 }}
+                      key={property._id}
+                      initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                      onClick={() => {
+                        console.log('Property clicked:', property._id, property.property_name);
+                        console.log('Navigating to:', `/admin-property-details/${property._id}`);
+                        navigate(`/admin-property-details/${property._id}`);
+                      }}
               >
                 {/* Property Image */}
                 <div className="relative h-48 bg-gray-200">
-                  <img
-                    src={property.image}
-                    alt={property.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedProperties.includes(property.id)}
-                      onChange={() => handleSelectProperty(property.id)}
-                      className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                    />
+                        {firstRoomImage ? (
+                          <img
+                            src={firstRoomImage}
+                            alt={property.property_name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                            <Building className="w-12 h-12 text-gray-400" />
                   </div>
-                  <div className="absolute top-3 right-3 flex space-x-1">
+                        )}
+                        <div className="absolute top-3 right-3">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.color}`}>
                       {statusBadge.text}
                     </span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${typeBadge.color}`}>
-                      {typeBadge.text}
-                    </span>
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <Eye className="w-8 h-8 text-white" />
+                          </div>
                   </div>
                 </div>
 
                 {/* Property Details */}
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{property.title}</h3>
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{property.property_name}</h3>
+                        </div>
                   
                   <div className="flex items-center text-sm text-gray-500 mb-3">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    <span>{property.location}</span>
+                          <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <span className="truncate">{`${property.address?.city || ''}, ${property.address?.state || ''}`}</span>
                   </div>
 
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4 text-sm">
-                      <div className="flex items-center space-x-1">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <span>{property.rooms} rooms</span>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Total Rooms</span>
+                            <span className="font-semibold text-gray-900">{rooms.length}</span>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400" />
-                        <span>{property.rating}</span>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Approved</span>
+                            <span className="font-semibold text-green-600">{approvedRooms}</span>
                       </div>
-                    </div>
-                    <div className="text-lg font-bold text-gray-900">
-                      ₹{property.price.toLocaleString()}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Pending</span>
+                            <span className="font-semibold text-yellow-600">{pendingRooms}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                    <span>Owner: {property.owner}</span>
-                    <span>{property.bookings} bookings</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between">
+                        {/* Quick Actions */}
+                        <div className="flex items-center justify-between pt-3 border-t">
                     <div className="flex items-center space-x-2">
-                      <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors duration-200">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-green-600 transition-colors duration-200">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-red-600 transition-colors duration-200">
-                        <Trash2 className="w-4 h-4" />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('View Details clicked:', property._id, property.property_name);
+                                console.log('Navigating to:', `/admin-property-details/${property._id}`);
+                                navigate(`/admin-property-details/${property._id}`);
+                              }}
+                              className="flex items-center px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View Details
                       </button>
                     </div>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                          <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
                   </div>
                 </div>
               </motion.div>
             );
           })}
-        </motion.div>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Pagination */}
         <motion.div
@@ -367,8 +397,7 @@ const PropertiesPage = () => {
         >
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of{' '}
-              <span className="font-medium">{filteredProperties.length}</span> results
+              Showing <span className="font-medium">{Object.keys(groupedByOwner).length}</span> owner groups • <span className="font-medium">{filteredProperties.length}</span> properties
             </div>
             <div className="flex items-center space-x-2">
               <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
@@ -383,6 +412,31 @@ const PropertiesPage = () => {
             </div>
           </div>
         </motion.div>
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-xl max-w-md w-full p-6"
+            >
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Success!</h3>
+                <p className="text-sm text-gray-600 mb-4">{successMessage}</p>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
 import { 
@@ -35,6 +35,7 @@ const SeekerDashboard = () => {
   const [radius, setRadius] = useState(5); // in kilometers
   const [isSearching, setIsSearching] = useState(false);
   const [nearbyPGs, setNearbyPGs] = useState([]);
+  const navigate = useNavigate();
   const [locationError, setLocationError] = useState(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   
@@ -362,7 +363,7 @@ const SeekerDashboard = () => {
   const searchNearbyPGs = async (lat, lng, radiusKm = radius) => {
     try {
       // Fetch real properties from the database
-      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/public/properties`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -398,11 +399,11 @@ const SeekerDashboard = () => {
             rating: 4.5, // Default rating since we don't have ratings yet
             distance: `${dKm.toFixed(1)} km`,
             _distanceKm: dKm,
-            amenities: property.amenities || [],
+            amenities: property.amenities ? Object.entries(property.amenities).filter(([key, value]) => value === true).map(([key]) => key) : [],
             propertyType: property.propertyType || 'PG',
             maxOccupancy: property.maxOccupancy || 1,
             images: property.images || [],
-            ownerName: property.ownerName || 'Unknown Owner'
+            ownerName: property.ownerName || 'Unknown Owner',
           };
         })
         .filter(pg => pg._distanceKm <= radiusKm)
@@ -412,53 +413,8 @@ const SeekerDashboard = () => {
       addMarkersToMap(nearbyProperties);
     } catch (error) {
       console.error('Error fetching properties:', error);
-      
-      // Fallback to mock data if API fails
-      const mockPGs = [
-        {
-          id: 1,
-          name: 'Student PG Koramangala',
-          address: 'Koramangala, Bangalore',
-          lat: lat + 0.01,
-          lng: lng + 0.01,
-          price: '₹15,000',
-          rating: 4.5,
-          distance: '0.8 km',
-          amenities: ['AC', 'Food', 'WiFi']
-        },
-        {
-          id: 2,
-          name: 'Professional PG Indiranagar',
-          address: 'Indiranagar, Bangalore',
-          lat: lat - 0.02,
-          lng: lng + 0.015,
-          price: '₹18,000',
-          rating: 4.3,
-          distance: '1.2 km',
-          amenities: ['AC', 'Food', 'WiFi', 'Gym']
-        },
-        {
-          id: 3,
-          name: 'Co-living Space HSR',
-          address: 'HSR Layout, Bangalore',
-          lat: lat + 0.025,
-          lng: lng - 0.01,
-          price: '₹12,000',
-          rating: 4.7,
-          distance: '2.1 km',
-          amenities: ['WiFi', 'Laundry', 'Gym']
-        }
-      ];
-
-      const filteredPGs = mockPGs
-        .map((pg) => {
-          const dKm = getDistanceKm(lat, lng, pg.lat, pg.lng);
-          return { ...pg, distance: `${dKm.toFixed(1)} km`, _distanceKm: dKm };
-        })
-        .filter(pg => pg._distanceKm <= radiusKm);
-
-      setNearbyPGs(filteredPGs);
-      addMarkersToMap(filteredPGs);
+      setNearbyPGs([]);
+      addMarkersToMap([]);
     }
   };
 
@@ -477,7 +433,7 @@ const SeekerDashboard = () => {
   // Load all properties on map initialization
   const loadAllPropertiesOnMap = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/public/properties`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -512,7 +468,7 @@ const SeekerDashboard = () => {
             rating: 4.5, // Default rating since we don't have ratings yet
             distance: '0 km', // Will be calculated when user searches
             _distanceKm: 0,
-            amenities: property.amenities || [],
+            amenities: property.amenities ? Object.entries(property.amenities).filter(([key, value]) => value === true).map(([key]) => key) : [],
             propertyType: property.propertyType || 'PG',
             maxOccupancy: property.maxOccupancy || 1,
             images: property.images || [],
@@ -573,6 +529,7 @@ const SeekerDashboard = () => {
               <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">${pg.propertyType || 'PG'}</span>
             </div>
             <p class="text-xs text-gray-600 mb-2">${pg.address}</p>
+            <p class="text-[10px] text-gray-500 mb-1">Lat: ${pg.lat?.toFixed(6) || ''}, Lng: ${pg.lng?.toFixed(6) || ''}</p>
             <div class="flex items-center justify-between mb-2">
               <p class="text-lg font-bold text-red-600">${pg.price}</p>
               ${pg.distance !== '0 km' ? `<p class="text-xs text-gray-500">${pg.distance} away</p>` : ''}
@@ -610,6 +567,11 @@ const SeekerDashboard = () => {
 
       markersRef.current.push(marker);
     });
+  };
+
+  // Open property modal and fetch full details
+  const openPropertyDetails = (propertyId) => {
+    navigate(`/seeker/property/${propertyId}`);
   };
 
   // Handle search input
@@ -665,52 +627,10 @@ const SeekerDashboard = () => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     setUser(userData);
 
-    // Mock data for recent searches and bookings (these would come from user's history)
-    setRecentSearches([
-      { id: 1, location: 'Koramangala, Bangalore', date: '2 hours ago' },
-      { id: 2, location: 'Indiranagar, Bangalore', date: '1 day ago' },
-      { id: 3, location: 'HSR Layout, Bangalore', date: '3 days ago' }
-    ]);
-
-    setFavoritePGs([
-      {
-        id: 1,
-        name: 'Student PG Koramangala',
-        location: 'Koramangala, Bangalore',
-        price: '₹15,000',
-        rating: 4.5,
-        image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        amenities: ['AC', 'Food', 'WiFi', 'Laundry']
-      },
-      {
-        id: 2,
-        name: 'Professional PG Indiranagar',
-        location: 'Indiranagar, Bangalore',
-        price: '₹18,000',
-        rating: 4.3,
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        amenities: ['AC', 'Food', 'WiFi', 'Gym']
-      }
-    ]);
-
-    setUpcomingBookings([
-      {
-        id: 1,
-        pgName: 'Student PG Koramangala',
-        checkIn: '2024-01-15',
-        checkOut: '2024-02-15',
-        status: 'confirmed',
-        amount: '₹15,000'
-      },
-      {
-        id: 2,
-        pgName: 'Professional PG Indiranagar',
-        checkIn: '2024-01-20',
-        checkOut: '2024-02-20',
-        status: 'pending',
-        amount: '₹18,000'
-      }
-    ]);
+    // Clear mock sections until real endpoints exist
+    setRecentSearches([]);
+    setFavoritePGs([]);
+    setUpcomingBookings([]);
 
     // Fetch real property recommendations
     fetchPropertyRecommendations();
@@ -719,7 +639,7 @@ const SeekerDashboard = () => {
   // Fetch property recommendations from the database
   const fetchPropertyRecommendations = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/public/properties`, {
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/public/properties`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -763,29 +683,7 @@ const SeekerDashboard = () => {
     } catch (error) {
       console.error('Error fetching property recommendations:', error);
       
-      // Fallback to mock data if API fails
-      setRecommendations([
-        {
-          id: 1,
-          name: 'New PG Near Tech Park',
-          location: 'Electronic City, Bangalore',
-          price: '₹12,000',
-          rating: 4.7,
-          image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-          distance: '2.5 km',
-          matchScore: 95
-        },
-        {
-          id: 2,
-          name: 'Premium Co-living Space',
-          location: 'Whitefield, Bangalore',
-          price: '₹22,000',
-          rating: 4.8,
-          image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-          distance: '5.2 km',
-          matchScore: 88
-        }
-      ]);
+      setRecommendations([]);
     }
   };
 
@@ -854,6 +752,7 @@ const SeekerDashboard = () => {
           </p>
         </motion.div>
 
+      
         {/* Location Search Area */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -996,28 +895,7 @@ const SeekerDashboard = () => {
               style={{ minHeight: '320px' }}
             />
             
-            {/* Property Type Legend */}
-            <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-sm font-medium text-gray-900 mb-2">Property Types:</div>
-              <div className="flex flex-wrap gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-red-500"></div>
-                  <span>PG</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-                  <span>Co-living</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-green-500"></div>
-                  <span>Apartment</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-                  <span>House</span>
-                </div>
-              </div>
-            </div>
+            
             {/* Debug info and manual initialization */}
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
               <div>
@@ -1057,6 +935,7 @@ const SeekerDashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1, duration: 0.5 }}
                     className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => openPropertyDetails(pg.id)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-semibold text-gray-900 text-sm">{pg.name}</h4>
