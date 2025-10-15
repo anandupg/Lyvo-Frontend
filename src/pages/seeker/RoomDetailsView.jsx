@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../../hooks/use-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Heart } from 'lucide-react';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
 
 const RoomDetailsView = () => {
@@ -17,6 +17,10 @@ const RoomDetailsView = () => {
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [bookingStatus, setBookingStatus] = useState(null);
+  const [checkingBookingStatus, setCheckingBookingStatus] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   
   // Refs for Google Maps
   const mapRef = useRef(null);
@@ -36,6 +40,115 @@ const RoomDetailsView = () => {
       }
     }
     return null;
+  };
+
+  // Check if user has existing booking for this room
+  const checkBookingStatus = async () => {
+    const userId = getUserId();
+    if (!userId || !roomId) return;
+
+    setCheckingBookingStatus(true);
+    try {
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/bookings/check-status?userId=${userId}&roomId=${roomId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBookingStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking booking status:', error);
+    } finally {
+      setCheckingBookingStatus(false);
+    }
+  };
+
+  // Check if room is favorited
+  const checkFavoriteStatus = async () => {
+    const userId = getUserId();
+    if (!userId || !roomId || !property) return;
+
+    try {
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/favorites/check-status?userId=${userId}&propertyId=${property._id}&roomId=${roomId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsFavorited(data.isFavorited);
+      }
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+    }
+  };
+
+  // Toggle favorite status
+  const toggleFavorite = async () => {
+    const userId = getUserId();
+    if (!userId || !roomId || !property) return;
+
+    setFavoriteLoading(true);
+    try {
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      
+      if (isFavorited) {
+        // Remove from favorites
+        const response = await fetch(`${baseUrl}/api/favorites/remove`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            propertyId: property._id,
+            roomId: roomId
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setIsFavorited(false);
+            toast({
+              title: "Removed from Favorites",
+              description: "Room has been removed from your favorites",
+            });
+          }
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch(`${baseUrl}/api/favorites/add`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            propertyId: property._id,
+            roomId: roomId
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setIsFavorited(true);
+            toast({
+              title: "Added to Favorites",
+              description: "Room has been added to your favorites",
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorites",
+        variant: "destructive",
+      });
+    } finally {
+      setFavoriteLoading(false);
+    }
   };
 
   // Back navigation with graceful fallback
@@ -126,7 +239,7 @@ const RoomDetailsView = () => {
   const fetchRoomDetails = async () => {
     try {
       setLoading(true);
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
       
       console.log('=== FETCHING ROOM DETAILS ===');
       console.log('Room ID:', roomId);
@@ -136,7 +249,7 @@ const RoomDetailsView = () => {
       // Test API connectivity first
       const isApiConnected = await testApiConnectivity();
       if (!isApiConnected) {
-        throw new Error('Property service is not accessible. Please ensure the service is running on port 3002.');
+        throw new Error('Property service is not accessible. Please ensure the service is running on port 3003.');
       }
       
       const response = await fetch(
@@ -216,7 +329,7 @@ const RoomDetailsView = () => {
     setBookingLoading(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
       
       // Step 1: Create payment order
       const orderResponse = await fetch(`${baseUrl}/api/payments/create-order`, {
@@ -275,7 +388,7 @@ const RoomDetailsView = () => {
 
             toast({
               title: "Payment Successful!",
-              description: "Your room has been booked successfully.",
+              description: "Your payment has been processed. Waiting for owner approval.",
               variant: "default",
             });
 
@@ -436,8 +549,15 @@ const RoomDetailsView = () => {
   useEffect(() => {
     if (roomId) {
       fetchRoomDetails();
+      checkBookingStatus();
     }
   }, [roomId]);
+
+  useEffect(() => {
+    if (property && roomId) {
+      checkFavoriteStatus();
+    }
+  }, [property, roomId]);
 
   if (loading) {
     return (
@@ -459,7 +579,7 @@ const RoomDetailsView = () => {
           <p className="text-gray-600 mb-6">The room you're looking for doesn't exist or is no longer available.</p>
           <div className="space-y-2 text-sm text-gray-500 mb-6">
             <p>Room ID: {roomId}</p>
-            <p>Please check if the property service is running on port 3002</p>
+            <p>Please check if the property service is running on port 3003</p>
           </div>
           <div className="space-x-4">
             <button
@@ -734,25 +854,101 @@ const RoomDetailsView = () => {
                     ₹{property?.security_deposit?.toLocaleString() || 'Not specified'}
                   </span>
                 </div>
-                <button
-                  onClick={handleBookRoom}
-                  disabled={!room.isAvailable || bookingLoading}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    room.isAvailable && !bookingLoading
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {bookingLoading ? (
+                
+                {/* Favorite Button */}
+                <div className="mt-4">
+                  <button
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className={`w-full py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                      isFavorited
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+                    }`}
+                  >
+                    {favoriteLoading ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Heart className={`w-4 h-4 ${isFavorited ? 'fill-current' : ''}`} />
+                        {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Booking Status Display */}
+                {checkingBookingStatus ? (
+                  <div className="w-full py-3 px-4 rounded-lg bg-gray-100 text-gray-600 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                      Checking booking status...
                     </div>
-                  ) : (
-                    'Book Now'
-                  )}
-                </button>
-                {!room.isAvailable && (
+                  </div>
+                ) : bookingStatus?.hasBooking ? (
+                  <div className="w-full py-3 px-4 rounded-lg text-center">
+                    {bookingStatus.status === 'pending_approval' && (
+                      <div className="bg-yellow-100 text-yellow-800 rounded-lg p-3">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="font-medium">Approval Pending</span>
+                        </div>
+                        <p className="text-sm">Your booking is waiting for owner approval</p>
+                      </div>
+                    )}
+                    {bookingStatus.status === 'confirmed' && (
+                      <div className="bg-green-100 text-green-800 rounded-lg p-3">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <span className="font-medium">Booking Confirmed</span>
+                        </div>
+                        <p className="text-sm">Your booking has been approved</p>
+                      </div>
+                    )}
+                    {bookingStatus.status === 'payment_pending' && (
+                      <div className="bg-orange-100 text-orange-800 rounded-lg p-3">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="font-medium">Payment Pending</span>
+                        </div>
+                        <p className="text-sm">Complete your payment to proceed</p>
+                      </div>
+                    )}
+                    {bookingStatus.status === 'rejected' && (
+                      <div className="bg-red-100 text-red-800 rounded-lg p-3">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          <span className="font-medium">Booking Rejected</span>
+                        </div>
+                        <p className="text-sm">Your booking was not approved</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleBookRoom}
+                    disabled={!room.isAvailable || bookingLoading}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                      room.isAvailable && !bookingLoading
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {bookingLoading ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Processing...
+                      </div>
+                    ) : (
+                      'Book Now'
+                    )}
+                  </button>
+                )}
+                {!room.isAvailable && !bookingStatus?.hasBooking && (
                   <p className="text-sm text-red-600 text-center">This room is currently not available</p>
                 )}
               </div>

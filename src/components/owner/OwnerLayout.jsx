@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import OwnerNavbar from './OwnerNavbar';
 import OwnerSidebar from './OwnerSidebar';
 import OwnerFooter from './OwnerFooter';
+import { Toaster } from '../ui/toaster';
 
 const OwnerLayout = ({ children, hideFooter = false }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -184,6 +185,9 @@ const OwnerLayout = ({ children, hideFooter = false }) => {
           </div>
         )}
       </AnimatePresence>
+      
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   );
 };

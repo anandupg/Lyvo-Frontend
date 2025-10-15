@@ -629,11 +629,11 @@ const SeekerDashboard = () => {
 
     // Clear mock sections until real endpoints exist
     setRecentSearches([]);
-    setFavoritePGs([]);
-    setUpcomingBookings([]);
 
-    // Fetch real property recommendations
+    // Fetch real data
     fetchPropertyRecommendations();
+    fetchFavoritesCount();
+    fetchBookingsCount();
   }, []);
 
   // Fetch property recommendations from the database
@@ -684,6 +684,86 @@ const SeekerDashboard = () => {
       console.error('Error fetching property recommendations:', error);
       
       setRecommendations([]);
+    }
+  };
+
+  // Fetch favorites count
+  const fetchFavoritesCount = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.userId || user._id;
+      console.log('Fetching favorites for userId:', userId);
+      
+      if (!userId) {
+        console.log('No userId found in localStorage');
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const url = `${baseUrl}/api/favorites/user?userId=${userId}`;
+      console.log('Favorites API URL:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Favorites API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Favorites data received:', data);
+        setFavoritePGs(data.favorites || []);
+        console.log('Favorites count:', (data.favorites || []).length);
+      } else {
+        const errorText = await response.text();
+        console.error('Favorites API error:', response.status, response.statusText, errorText);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites count:', error);
+      setFavoritePGs([]);
+    }
+  };
+
+  // Fetch bookings count
+  const fetchBookingsCount = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.userId || user._id;
+      console.log('Fetching bookings for userId:', userId);
+      
+      if (!userId) {
+        console.log('No userId found in localStorage');
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const url = `${baseUrl}/api/bookings/user?userId=${userId}`;
+      console.log('Bookings API URL:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Bookings API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Bookings data received:', data);
+        setUpcomingBookings(data.bookings || []);
+        console.log('Bookings count:', (data.bookings || []).length);
+      } else {
+        const errorText = await response.text();
+        console.error('Bookings API error:', response.status, response.statusText, errorText);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings count:', error);
+      setUpcomingBookings([]);
     }
   };
 
@@ -965,53 +1045,6 @@ const SeekerDashboard = () => {
           )}
         </motion.div>
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
-        >
-          <Link
-            to="/seeker-search"
-            className="group bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Search PGs</h3>
-                <p className="text-blue-100 text-sm">Find your perfect accommodation</p>
-              </div>
-              <Search className="w-8 h-8 text-blue-200 group-hover:scale-110 transition-transform duration-300" />
-            </div>
-          </Link>
-
-          <Link
-            to="/seeker-favorites"
-            className="group bg-gradient-to-r from-pink-500 to-red-500 rounded-xl p-6 text-white hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Favorites</h3>
-                <p className="text-pink-100 text-sm">View your saved PGs</p>
-              </div>
-              <Heart className="w-8 h-8 text-pink-200 group-hover:scale-110 transition-transform duration-300" />
-            </div>
-          </Link>
-
-          <Link
-            to="/seeker-bookings"
-            className="group bg-gradient-to-r from-green-500 to-teal-500 rounded-xl p-6 text-white hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">My Bookings</h3>
-                <p className="text-green-100 text-sm">Manage your reservations</p>
-              </div>
-              <Calendar className="w-8 h-8 text-green-200 group-hover:scale-110 transition-transform duration-300" />
-            </div>
-          </Link>
-        </motion.div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
@@ -1024,13 +1057,6 @@ const SeekerDashboard = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Recent Searches</h2>
-                <Link
-                  to="/seeker-search"
-                  className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center space-x-1"
-                >
-                  <span>View All</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
               </div>
               <div className="space-y-3">
                 {recentSearches.map((search, index) => (
@@ -1063,13 +1089,6 @@ const SeekerDashboard = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Recommended for You</h2>
-                <Link
-                  to="/seeker-search"
-                  className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center space-x-1"
-                >
-                  <span>View All</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {recommendations.map((pg, index) => (
@@ -1124,32 +1143,32 @@ const SeekerDashboard = () => {
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Stats</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 bg-pink-50 rounded-lg border border-pink-100">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Heart className="w-4 h-4 text-blue-600" />
+                    <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                      <Heart className="w-5 h-5 text-pink-600" />
                     </div>
-                    <span className="text-sm text-gray-600">Favorites</span>
+                    <span className="text-sm font-medium text-gray-700">Favorites</span>
                   </div>
-                  <span className="font-semibold text-gray-900">{favoritePGs.length}</span>
+                  <span className="text-2xl font-bold text-pink-600">{favoritePGs.length}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-green-600" />
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-green-600" />
                     </div>
-                    <span className="text-sm text-gray-600">Bookings</span>
+                    <span className="text-sm font-medium text-gray-700">Bookings</span>
                   </div>
-                  <span className="font-semibold text-gray-900">{upcomingBookings.length}</span>
+                  <span className="text-2xl font-bold text-green-600">{upcomingBookings.length}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Building className="w-4 h-4 text-purple-600" />
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Building className="w-5 h-5 text-purple-600" />
                     </div>
-                    <span className="text-sm text-gray-600">Searches</span>
+                    <span className="text-sm font-medium text-gray-700">Searches</span>
                   </div>
-                  <span className="font-semibold text-gray-900">{recentSearches.length}</span>
+                  <span className="text-2xl font-bold text-purple-600">{recentSearches.length}</span>
                 </div>
               </div>
             </motion.div>

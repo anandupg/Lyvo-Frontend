@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Home,
-  Search,
   Heart,
   Calendar,
   MessageCircle,
@@ -22,6 +21,10 @@ const SeekerSidebar = ({ onClose }) => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
+  
+  // State for counts
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [bookingsCount, setBookingsCount] = useState(0);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -30,9 +33,56 @@ const SeekerSidebar = ({ onClose }) => {
     navigate('/login');
   };
 
+  // Fetch favorites count
+  const fetchFavoritesCount = async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = userData.userId || userData._id;
+      
+      if (!userId) return;
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/favorites/user?userId=${userId}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        setFavoritesCount((data.favorites || []).length);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites count:', error);
+      setFavoritesCount(0);
+    }
+  };
+
+  // Fetch bookings count
+  const fetchBookingsCount = async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = userData.userId || userData._id;
+      
+      if (!userId) return;
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/bookings/user?userId=${userId}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        setBookingsCount((data.bookings || []).length);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings count:', error);
+      setBookingsCount(0);
+    }
+  };
+
+  // Fetch counts on component mount
+  useEffect(() => {
+    fetchFavoritesCount();
+    fetchBookingsCount();
+  }, []);
+
   const navigation = [
     { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
-    { name: 'Search PGs', href: '/seeker-search', icon: Search },
     { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
     { name: 'My Bookings', href: '/seeker-bookings', icon: Calendar },
     { name: 'Messages', href: '/seeker-messages', icon: MessageCircle },
@@ -336,7 +386,7 @@ const SeekerSidebar = ({ onClose }) => {
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-              >12</motion.span>
+              >{favoritesCount}</motion.span>
             </motion.div>
             
             <motion.div 
@@ -360,7 +410,7 @@ const SeekerSidebar = ({ onClose }) => {
                   ease: "easeInOut",
                   delay: 0.5
                 }}
-              >3</motion.span>
+              >{bookingsCount}</motion.span>
             </motion.div>
           </div>
         </motion.div>

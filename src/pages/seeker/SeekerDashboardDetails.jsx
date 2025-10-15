@@ -12,6 +12,8 @@ const SeekerDashboardDetails = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState({});
+  const [bookingStatuses, setBookingStatuses] = useState({});
+  const [checkingBookingStatus, setCheckingBookingStatus] = useState({});
   const [mapCenter, setMapCenter] = useState({ lat: 12.9716, lng: 77.5946 }); // Default to Bangalore
   const [mapZoom, setMapZoom] = useState(15);
   
@@ -33,6 +35,27 @@ const SeekerDashboardDetails = () => {
       }
     }
     return null;
+  };
+
+  // Check if user has existing booking for a specific room
+  const checkBookingStatus = async (roomId) => {
+    const userId = getUserId();
+    if (!userId || !roomId) return;
+
+    setCheckingBookingStatus(prev => ({ ...prev, [roomId]: true }));
+    try {
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/bookings/check-status?userId=${userId}&roomId=${roomId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBookingStatuses(prev => ({ ...prev, [roomId]: data }));
+      }
+    } catch (error) {
+      console.error('Error checking booking status:', error);
+    } finally {
+      setCheckingBookingStatus(prev => ({ ...prev, [roomId]: false }));
+    }
   };
 
   // Initialize Google Maps
@@ -104,7 +127,7 @@ const SeekerDashboardDetails = () => {
   const fetchPropertyDetails = async () => {
     try {
       setLoading(true);
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
       
       console.log('=== FETCHING PROPERTY DETAILS ===');
       console.log('Property ID:', propertyId);
@@ -148,7 +171,15 @@ const SeekerDashboardDetails = () => {
       
       if (data.success && data.data) {
         setProperty(data.data);
-        setRooms(data.data.rooms || []);
+        const roomsData = data.data.rooms || [];
+        setRooms(roomsData);
+        
+        // Check booking status for each room
+        roomsData.forEach(room => {
+          if (room._id) {
+            checkBookingStatus(room._id);
+          }
+        });
         
         // Set map center if coordinates are available
         if (data.data.latitude && data.data.longitude) {
@@ -188,7 +219,7 @@ const SeekerDashboardDetails = () => {
     setBookingLoading(prev => ({ ...prev, [roomId]: true }));
 
     try {
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
       
       // Step 1: Create payment order
       const orderResponse = await fetch(`${baseUrl}/api/payments/create-order`, {
@@ -247,7 +278,7 @@ const SeekerDashboardDetails = () => {
 
             toast({
               title: "Payment Successful!",
-              description: "Your room has been booked successfully.",
+              description: "Your payment has been processed. Waiting for owner approval.",
               variant: "default",
             });
 
@@ -596,24 +627,77 @@ const SeekerDashboardDetails = () => {
                             </span>
                             <span className="text-sm text-gray-600">/month</span>
                           </div>
-                          <button
-                            onClick={() => handleBookRoom(room._id)}
-                            disabled={!room.isAvailable || bookingLoading[room._id]}
-                            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                              room.isAvailable && !bookingLoading[room._id]
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
-                          >
-                            {bookingLoading[room._id] ? (
+                          {/* Booking Status Display */}
+                          {checkingBookingStatus[room._id] ? (
+                            <div className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 text-center">
                               <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Booking...
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                Checking...
                               </div>
-                            ) : (
-                              'Book Now'
-                            )}
-                          </button>
+                            </div>
+                          ) : bookingStatuses[room._id]?.hasBooking ? (
+                            <div className="px-6 py-2 rounded-lg text-center">
+                              {bookingStatuses[room._id].status === 'pending_approval' && (
+                                <div className="bg-yellow-100 text-yellow-800 rounded-lg p-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="font-medium text-sm">Approval Pending</span>
+                                  </div>
+                                  <p className="text-xs">Waiting for owner approval</p>
+                                </div>
+                              )}
+                              {bookingStatuses[room._id].status === 'confirmed' && (
+                                <div className="bg-green-100 text-green-800 rounded-lg p-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="font-medium text-sm">Confirmed</span>
+                                  </div>
+                                  <p className="text-xs">Booking approved</p>
+                                </div>
+                              )}
+                              {bookingStatuses[room._id].status === 'payment_pending' && (
+                                <div className="bg-orange-100 text-orange-800 rounded-lg p-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="font-medium text-sm">Payment Pending</span>
+                                  </div>
+                                  <p className="text-xs">Complete payment</p>
+                                </div>
+                              )}
+                              {bookingStatuses[room._id].status === 'rejected' && (
+                                <div className="bg-red-100 text-red-800 rounded-lg p-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="font-medium text-sm">Rejected</span>
+                                  </div>
+                                  <p className="text-xs">Booking not approved</p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleBookRoom(room._id)}
+                              disabled={!room.isAvailable || bookingLoading[room._id]}
+                              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                                room.isAvailable && !bookingLoading[room._id]
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              }`}
+                            >
+                              {bookingLoading[room._id] ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  Booking...
+                                </div>
+                              ) : (
+                                'Book Now'
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

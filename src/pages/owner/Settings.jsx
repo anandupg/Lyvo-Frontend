@@ -17,14 +17,19 @@ import {
 import axios from 'axios';
 import ProfilePictureUpload from '../../components/ProfilePictureUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.jsx';
+import { useToast } from '../../hooks/use-toast';
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profileUpdating, setProfileUpdating] = useState(false);
+  const [passwordUpdating, setPasswordUpdating] = useState(false);
   const [kycDocs, setKycDocs] = useState([{ type: '', number: '', file: null }]);
   const [kycSubmitting, setKycSubmitting] = useState(false);
   const [kycMessage, setKycMessage] = useState('');
@@ -148,11 +153,141 @@ const Settings = () => {
       const updated = { ...user, profilePicture: null };
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
+      
+      toast({
+        title: "Success",
+        description: "Profile picture removed successfully",
+      });
     } catch (e) {
       console.error('Remove profile picture error:', e);
-      alert('Failed to remove picture.');
+      toast({
+        title: "Error",
+        description: "Failed to remove picture. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setProfileUpdating(false);
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    if (!user?._id) return;
+    
+    try {
+      setProfileUpdating(true);
+      const token = localStorage.getItem('authToken');
+      
+      // Get form values
+      const name = document.getElementById('profile-name').value.trim();
+      const phone = document.getElementById('profile-phone').value.trim();
+      
+      // Prepare update data
+      const updateData = {
+        name,
+        phone: phone || undefined, // Only include if provided
+      };
+      
+      // Call update API
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      const { data } = await axios.put(
+        `${base}/user/profile/${user._id}`,
+        updateData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update local storage and state
+      if (data?.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+        
+        // Notify other components
+        window.dispatchEvent(new Event('lyvo-user-updated'));
+        
+        toast({
+          title: "Success",
+          description: "Profile updated successfully!",
+        });
+      }
+    } catch (e) {
+      console.error('Profile update error:', e);
+      toast({
+        title: "Error",
+        description: e?.response?.data?.message || 'Failed to update profile. Please try again.',
+        variant: "destructive",
+      });
+    } finally {
+      setProfileUpdating(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (!user?._id) return;
+    
+    try {
+      setPasswordUpdating(true);
+      const token = localStorage.getItem('authToken');
+      
+      // Get form values
+      const currentPassword = document.getElementById('current-password').value;
+      const newPassword = document.getElementById('new-password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+      
+      // Validation
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all password fields",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        toast({
+          title: "Validation Error",
+          description: "New password and confirm password do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (newPassword.length < 6) {
+        toast({
+          title: "Validation Error",
+          description: "New password must be at least 6 characters long",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Call change password API
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+      await axios.post(
+        `${base}/user/change-password`,
+        { currentPassword, newPassword },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Reset form
+      document.getElementById('current-password').value = '';
+      document.getElementById('new-password').value = '';
+      document.getElementById('confirm-password').value = '';
+      
+      toast({
+        title: "Success",
+        description: "Password updated successfully!",
+      });
+    } catch (e) {
+      console.error('Password change error:', e);
+      toast({
+        title: "Error",
+        description: e?.response?.data?.message || 'Failed to update password. Please try again.',
+        variant: "destructive",
+      });
+    } finally {
+      setPasswordUpdating(false);
     }
   };
 
@@ -406,52 +541,55 @@ const Settings = () => {
                 </div>
 
                 <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue={user?.name || ''}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
+                <form onSubmit={handleProfileUpdate} className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        id="profile-name"
+                        defaultValue={user?.name || ''}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={user?.email || ''}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                        disabled
+                        readOnly
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        id="profile-phone"
+                        defaultValue={user?.phone || user?.phoneNumber || ''}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="+91 98765 43210"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      defaultValue={user?.email || ''}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      defaultValue="+91 98765 43210"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue="Lyvo+ Property Management"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                <button className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </button>
+                  <button 
+                    type="submit"
+                    disabled={profileUpdating}
+                    className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {profileUpdating ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </form>
               </motion.div>
             )}
 
@@ -549,52 +687,118 @@ const Settings = () => {
                 className="space-y-6"
               >
                 <h2 className="text-lg font-semibold text-gray-900">Security Settings</h2>
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <Eye className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
+                
+                {/* Check if user logged in with Google */}
+                {user?.googleId ? (
+                  <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <h3 className="font-medium text-blue-900 mb-1">Google Account</h3>
+                        <p className="text-sm text-blue-700">
+                          You signed in using Google. Your password is managed by Google and cannot be changed here.
+                        </p>
+                        <p className="text-sm text-blue-600 mt-2">
+                          To change your password, please visit your{' '}
+                          <a 
+                            href="https://myaccount.google.com/security" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="underline font-medium hover:text-blue-800"
+                          >
+                            Google Account Security Settings
+                          </a>
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                  <button className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Update Password
-                  </button>
-                </div>
+                ) : (
+                  <form onSubmit={handlePasswordChange} className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Current Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          id="current-password"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showNewPassword ? "text" : "password"}
+                          id="new-password"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters long</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          id="confirm-password"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <button 
+                      type="submit"
+                      disabled={passwordUpdating}
+                      className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      {passwordUpdating ? 'Updating...' : 'Update Password'}
+                    </button>
+                  </form>
+                )}
               </motion.div>
             )}
 

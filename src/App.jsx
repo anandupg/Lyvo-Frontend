@@ -24,8 +24,8 @@ import Loader from "./components/Loader";
 import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
 // Import seeker pages and components
 import SeekerDashboard from "./pages/seeker/SeekerDashboard";
-import SeekerSearch from "./pages/seeker/SeekerSearch";
 import SeekerFavorites from "./pages/seeker/SeekerFavorites";
+import SeekerBookings from "./pages/seeker/SeekerBookings";
 import SeekerOnboarding from "./pages/seeker/SeekerOnboarding";
 import SeekerProfile from "./pages/seeker/SeekerProfile";
 import SeekerPropertyDetails from "./pages/seeker/SeekerPropertyDetails";
@@ -410,14 +410,14 @@ function AppRoutesWithLoader() {
               <SeekerDashboard />
             </ProtectedSeekerRoute>
           } />
-          <Route path="/seeker-search" element={
-            <ProtectedSeekerRoute>
-              <SeekerSearch />
-            </ProtectedSeekerRoute>
-          } />
           <Route path="/seeker-favorites" element={
             <ProtectedSeekerRoute>
               <SeekerFavorites />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-bookings" element={
+            <ProtectedSeekerRoute>
+              <SeekerBookings />
             </ProtectedSeekerRoute>
           } />
           <Route path="/seeker-onboarding" element={

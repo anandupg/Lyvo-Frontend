@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
 import { 
@@ -13,52 +14,201 @@ import {
   Snowflake,
   Utensils,
   Car,
-  Shield
+  Shield,
+  Bed,
+  Users,
+  Camera,
+  Search,
+  Filter,
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
+import ContactOwnerModal from '../../components/ContactOwnerModal';
 
 const SeekerFavorites = () => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredFavorites, setFilteredFavorites] = useState([]);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // Get user ID from localStorage
+  const getUserId = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        return userData.id || userData._id;
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Fetch user favorites
+  const fetchFavorites = async () => {
+    const userId = getUserId();
+    if (!userId) {
+      console.error('User ID not found');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/favorites/user?userId=${userId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Favorites data received:', data);
+        setFavorites(data.favorites || []);
+        setFilteredFavorites(data.favorites || []);
+      } else {
+        console.error('Failed to fetch favorites');
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Remove from favorites
+  const removeFromFavorites = async (favoriteId, propertyId, roomId) => {
+    const userId = getUserId();
+    if (!userId) return;
+
+    try {
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/favorites/remove`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          propertyId: propertyId,
+          roomId: roomId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Remove from local state
+          setFavorites(prev => prev.filter(fav => fav._id !== favoriteId));
+          setFilteredFavorites(prev => prev.filter(fav => fav._id !== favoriteId));
+          
+          toast({
+            title: "Removed from Favorites",
+            description: "Property has been removed from your favorites",
+          });
+        }
+      } else {
+        console.error('Failed to remove from favorites');
+        toast({
+          title: "Error",
+          description: "Failed to remove from favorites",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error removing from favorites:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove from favorites",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filter favorites based on search query
   useEffect(() => {
-    // No favorites API yet: show empty
-    setFavorites([]);
-    setLoading(false);
+    if (searchQuery) {
+      const filtered = favorites.filter(favorite => {
+        const propertyName = favorite.property?.propertyName?.toLowerCase() || '';
+        const address = favorite.property?.address 
+          ? (typeof favorite.property.address === 'string' 
+              ? favorite.property.address.toLowerCase()
+              : `${favorite.property.address.street || ''} ${favorite.property.address.city || ''} ${favorite.property.address.state || ''}`.toLowerCase())
+          : '';
+        const roomNumber = favorite.room?.roomNumber?.toLowerCase() || '';
+        
+        const query = searchQuery.toLowerCase();
+        return propertyName.includes(query) || address.includes(query) || roomNumber.includes(query);
+      });
+      setFilteredFavorites(filtered);
+    } else {
+      setFilteredFavorites(favorites);
+    }
+  }, [favorites, searchQuery]);
+
+  // Load favorites on component mount
+  useEffect(() => {
+    fetchFavorites();
   }, []);
 
-  const removeFromFavorites = (id) => {
-    setFavorites(prev => prev.filter(pg => pg.id !== id));
+  // Get amenity icon
+  const getAmenityIcon = (amenity) => {
+    switch (amenity.toLowerCase()) {
+      case 'wifi':
+        return <Wifi className="w-4 h-4" />;
+      case 'ac':
+        return <Snowflake className="w-4 h-4" />;
+      case 'food':
+        return <Utensils className="w-4 h-4" />;
+      case 'parking':
+        return <Car className="w-4 h-4" />;
+      case 'security':
+        return <Shield className="w-4 h-4" />;
+      default:
+        return <Building className="w-4 h-4" />;
+    }
   };
 
-  const amenitiesList = [
-    { id: 'wifi', name: 'WiFi', icon: Wifi },
-    { id: 'ac', name: 'AC', icon: Snowflake },
-    { id: 'food', name: 'Food', icon: Utensils },
-    { id: 'parking', name: 'Parking', icon: Car },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'laundry', name: 'Laundry', icon: Building }
-  ];
-
-  const formatPrice = (price) => {
-    return `₹${price.toLocaleString()}`;
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
+  // Format date
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
+  };
+
+  // Open contact modal
+  const openContactModal = (favorite) => {
+    setSelectedOwner({
+      name: favorite.property?.ownerName,
+      phone: favorite.property?.ownerPhone,
+      email: favorite.property?.ownerEmail,
+      ownerName: favorite.property?.ownerName
+    });
+    setContactModalOpen(true);
   };
 
   if (loading) {
     return (
       <SeekerLayout>
-        <div className="p-6">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading favorites...</p>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading your favorites...</p>
           </div>
         </div>
       </SeekerLayout>
@@ -75,214 +225,268 @@ const SeekerFavorites = () => {
           transition={{ duration: 0.6 }}
           className="mb-8"
         >
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <Heart className="w-6 h-6 text-red-600" />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Favorites</h1>
+          <p className="text-gray-600">
+            Properties and rooms you've saved for later.
+          </p>
+        </motion.div>
+
+        {/* Search and Filter */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8"
+        >
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search your favorites..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Favorites</h1>
-              <p className="text-gray-600">
-                {favorites.length} PG{favorites.length !== 1 ? 's' : ''} saved for later
-              </p>
-            </div>
+          </div>
+
+          {/* Results Count */}
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Showing {filteredFavorites.length} of {favorites.length} favorites
+            </p>
+            <button
+              onClick={fetchFavorites}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Refresh
+            </button>
           </div>
         </motion.div>
 
-        {favorites.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {favorites.map((pg, index) => (
+        {/* Favorites List */}
+        {filteredFavorites.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
+          >
+            <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Favorites Yet</h3>
+            <p className="text-gray-600 mb-6">
+              {favorites.length === 0 
+                ? "Start exploring properties and add them to your favorites to see them here!"
+                : "No favorites match your current search. Try adjusting your search criteria."
+              }
+            </p>
+            {favorites.length === 0 && (
+              <button
+                onClick={() => navigate('/seeker-dashboard')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Browse Properties
+              </button>
+            )}
+          </motion.div>
+        ) : (
+          <div className="space-y-6">
+            {filteredFavorites.map((favorite, index) => (
               <motion.div
-                key={pg.id}
+                key={favorite._id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group"
+                transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
               >
-                {/* Image and Favorite Button */}
-                <div className="relative">
-                  <img
-                    src={pg.image}
-                    alt={pg.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute top-3 right-3 flex space-x-2">
-                    <button className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-red-50 transition-colors">
-                      <Heart className="w-4 h-4 text-red-500 fill-current" />
-                    </button>
-                    <button 
-                      onClick={() => removeFromFavorites(pg.id)}
-                      className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
-                  </div>
-                  {!pg.available && (
-                    <div className="absolute top-3 left-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                      Not Available
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
-                      {pg.name}
-                    </h3>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 mb-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{pg.location}</span>
-                    <span className="text-xs text-gray-400">• {pg.distance}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium">{pg.rating}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">({pg.reviews} reviews)</span>
-                  </div>
-
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">{pg.description}</p>
-
-                  {/* Amenities */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {pg.amenities.slice(0, 4).map(amenity => {
-                      const amenityInfo = amenitiesList.find(a => a.id === amenity);
-                      return amenityInfo ? (
-                        <span
-                          key={amenity}
-                          className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
-                        >
-                          <amenityInfo.icon className="w-3 h-3" />
-                          <span>{amenityInfo.name}</span>
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-
-                  {/* Owner Info */}
-                  <div className="flex items-center justify-between mb-3 p-2 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-blue-600">
-                          {pg.owner.charAt(0)}
-                        </span>
+                <div className="p-6">
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Property/Room Image */}
+                    <div className="lg:w-80 flex-shrink-0">
+                      <div className="relative">
+                        <img
+                          src={favorite.room?.roomImage || favorite.property?.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop'}
+                          alt={favorite.property?.propertyName || 'Property'}
+                          className="w-full h-48 object-cover rounded-lg"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop';
+                          }}
+                        />
+                        <div className="absolute top-3 right-3">
+                          <button
+                            onClick={() => removeFromFavorites(favorite._id, favorite.propertyId, favorite.roomId)}
+                            className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {favorite.room && (
+                          <div className="absolute bottom-3 left-3">
+                            <span className="px-3 py-1 bg-black bg-opacity-70 text-white text-sm font-medium rounded-lg">
+                              Room {favorite.room.roomNumber}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <span className="text-sm text-gray-700">{pg.owner}</span>
                     </div>
-                    {pg.verified && (
-                      <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
-                        Verified
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Price and Actions */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold text-gray-900">{formatPrice(pg.price)}</span>
-                      <span className="text-sm text-gray-500">/month</span>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm">
-                        <Eye className="w-4 h-4 inline mr-1" />
-                        View
-                      </button>
-                      <button className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                        <MessageCircle className="w-4 h-4 inline mr-1" />
-                        Contact
-                      </button>
-                    </div>
-                  </div>
+                    {/* Property/Room Details */}
+                    <div className="flex-1">
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
+                        <div>
+                          {/* Property Name */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building className="w-5 h-5 text-blue-600" />
+                            <h3 className="text-2xl font-bold text-gray-900">
+                              {favorite.property?.propertyName || 'Unnamed Property'}
+                            </h3>
+                          </div>
+                          
+                          {/* Address */}
+                          <div className="flex items-center text-gray-600 mb-3">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            <span className="text-sm">
+                              {favorite.property?.address 
+                                ? (typeof favorite.property.address === 'string' 
+                                    ? favorite.property.address 
+                                    : `${favorite.property.address.street || ''}, ${favorite.property.address.city || ''}, ${favorite.property.address.state || ''}`.trim().replace(/^,\s*|,\s*$/g, ''))
+                                : 'Address not available'
+                              }
+                            </span>
+                          </div>
 
-                  {/* Added Date */}
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500">
-                      Added to favorites on {formatDate(pg.addedDate)}
-                    </p>
+                          {/* Room Details (if specific room is favorited) */}
+                          {favorite.room && (
+                            <div className="flex items-center text-gray-600 mb-2">
+                              <Bed className="w-4 h-4 mr-1" />
+                              <span className="text-sm font-medium">Room {favorite.room.roomNumber}</span>
+                              <span className="mx-2">•</span>
+                              <span className="text-sm">{favorite.room.roomType}</span>
+                              {favorite.room.bedType && (
+                                <>
+                                  <span className="mx-2">•</span>
+                                  <span className="text-sm">{favorite.room.bedType}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Property Type Badge */}
+                          {favorite.property?.propertyType && (
+                            <div className="inline-block mb-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                {favorite.property.propertyType}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Added Date */}
+                          <div className="flex items-center text-xs text-gray-500">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            <span>Added on {formatDate(favorite.addedAt)}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Price */}
+                        <div className="mt-4 lg:mt-0 lg:text-right">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {favorite.room?.rent ? formatCurrency(favorite.room.rent) : 'Contact for Price'}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {favorite.room ? 'per month' : 'Property'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Amenities */}
+                      {favorite.property?.amenities && Object.keys(favorite.property.amenities).length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="font-medium text-gray-900 mb-2">Property Amenities</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(favorite.property.amenities)
+                              .filter(([key, value]) => value === true)
+                              .slice(0, 6)
+                              .map(([amenity, value]) => (
+                                <span
+                                  key={amenity}
+                                  className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                                >
+                                  {getAmenityIcon(amenity)}
+                                  {amenity}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Room Amenities (if specific room) */}
+                      {favorite.room?.amenities && Object.keys(favorite.room.amenities).length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="font-medium text-gray-900 mb-2">Room Amenities</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(favorite.room.amenities)
+                              .filter(([key, value]) => value === true)
+                              .slice(0, 6)
+                              .map(([amenity, value]) => (
+                                <span
+                                  key={amenity}
+                                  className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                                >
+                                  {getAmenityIcon(amenity)}
+                                  {amenity}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={() => navigate(`/seeker/property/${favorite.property?._id}`)}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Property
+                        </button>
+                        
+                        {favorite.room && (
+                          <button
+                            onClick={() => navigate(`/room/${favorite.room?._id}`)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                          >
+                            <Bed className="w-4 h-4" />
+                            View Room
+                          </button>
+                        )}
+
+                        <button 
+                          onClick={() => openContactModal(favorite)}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          Contact Owner
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
             ))}
           </div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center py-16"
-          >
-            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Heart className="w-12 h-12 text-red-400" />
-            </div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-4">No favorites yet</h3>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
-              Start exploring PGs and save your favorites to easily access them later. 
-              Your saved PGs will appear here for quick reference.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                Search PGs
-              </button>
-              <button className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                View Recommendations
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Quick Actions */}
-        {favorites.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-12 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all text-left">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <MessageCircle className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Contact All</h4>
-                    <p className="text-sm text-gray-600">Send inquiries to multiple PGs</p>
-                  </div>
-                </div>
-              </button>
-              
-              <button className="p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all text-left">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Building className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Compare PGs</h4>
-                    <p className="text-sm text-gray-600">Side-by-side comparison</p>
-                  </div>
-                </div>
-              </button>
-              
-              <button className="p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all text-left">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Star className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Share List</h4>
-                    <p className="text-sm text-gray-600">Share with friends/family</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </motion.div>
         )}
       </div>
+
+      {/* Contact Owner Modal */}
+      <ContactOwnerModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+        owner={selectedOwner}
+      />
     </SeekerLayout>
   );
 };

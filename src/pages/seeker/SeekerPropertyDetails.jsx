@@ -15,7 +15,7 @@ const SeekerPropertyDetails = () => {
       try {
         setLoading(true);
         setError('');
-        const base = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+        const base = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
         const resp = await fetch(`${base}/api/public/properties/${id}`);
         const data = await resp.json();
         if (!resp.ok || data?.success !== true) {

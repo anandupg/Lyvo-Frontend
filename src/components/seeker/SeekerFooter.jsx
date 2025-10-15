@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Home,
-  Search,
   Heart,
   Calendar,
   MessageCircle,
@@ -18,7 +17,6 @@ const SeekerFooter = () => {
   const footerLinks = {
     'Quick Links': [
       { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
-      { name: 'Search PGs', href: '/seeker-search', icon: Search },
       { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
       { name: 'Bookings', href: '/seeker-bookings', icon: Calendar },
     ],
@@ -150,18 +148,18 @@ const SeekerFooter = () => {
                <span className="text-xs">Home</span>
              </Link>
              <Link
-               to="/seeker-search"
-               className="flex flex-col items-center space-y-1 text-gray-600 hover:text-red-600 transition-colors duration-200"
-             >
-               <Search className="w-5 h-5" />
-               <span className="text-xs">Search</span>
-             </Link>
-             <Link
                to="/seeker-favorites"
                className="flex flex-col items-center space-y-1 text-gray-600 hover:text-red-600 transition-colors duration-200"
              >
                <Heart className="w-5 h-5" />
                <span className="text-xs">Favorites</span>
+             </Link>
+             <Link
+               to="/seeker-bookings"
+               className="flex flex-col items-center space-y-1 text-gray-600 hover:text-red-600 transition-colors duration-200"
+             >
+               <Calendar className="w-5 h-5" />
+               <span className="text-xs">Bookings</span>
              </Link>
              <Link
                to="/seeker-profile"
