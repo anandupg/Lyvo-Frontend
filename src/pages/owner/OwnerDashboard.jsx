@@ -22,6 +22,7 @@ const OwnerDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tenantCount, setTenantCount] = useState(0);
 
   // Check authentication
   useEffect(() => {
@@ -53,10 +54,41 @@ const OwnerDashboard = () => {
     checkAuth();
   }, [navigate]);
 
+  // Fetch tenant count
+  const fetchTenantCount = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const response = await fetch(`${baseUrl}/api/tenants/owner`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTenantCount(data.count || 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tenant count:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchTenantCount();
+    }
+  }, [user]);
+
   // Mock data for owner dashboard
   const stats = {
     totalProperties: 8,
-    activeTenants: 24,
+    activeTenants: tenantCount,
     monthlyRevenue: 125000,
     averageRating: 4.6,
     occupancyRate: 87,

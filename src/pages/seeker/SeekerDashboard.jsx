@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
+import Chatbot from '../../components/Chatbot';
 import { 
   Search, 
   Heart, 
@@ -1231,6 +1232,9 @@ const SeekerDashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Chatbot */}
+      <Chatbot />
     </SeekerLayout>
   );
 };

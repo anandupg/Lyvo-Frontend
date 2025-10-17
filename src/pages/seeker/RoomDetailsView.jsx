@@ -21,11 +21,19 @@ const RoomDetailsView = () => {
   const [checkingBookingStatus, setCheckingBookingStatus] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [statusPolling, setStatusPolling] = useState(false);
+  const [pollingStartTime, setPollingStartTime] = useState(null);
+  const [justPaid, setJustPaid] = useState(false);
+  const [aadharStatus, setAadharStatus] = useState(null);
+  const [checkingAadharStatus, setCheckingAadharStatus] = useState(false);
+  const [tenants, setTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
   
   // Refs for Google Maps
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
+  const pollIntervalRef = useRef(null);
   
   // Get user ID from localStorage
   const getUserId = () => {
@@ -55,11 +63,47 @@ const RoomDetailsView = () => {
       if (response.ok) {
         const data = await response.json();
         setBookingStatus(data);
+        
+        // Stop polling if booking is confirmed or rejected
+        if (data?.status === 'confirmed' || data?.status === 'rejected') {
+          setStatusPolling(false);
+        }
       }
     } catch (error) {
       console.error('Error checking booking status:', error);
     } finally {
       setCheckingBookingStatus(false);
+    }
+  };
+
+  // Start polling for status updates
+  const startStatusPolling = () => {
+    if (statusPolling || pollIntervalRef.current) return; // Already polling
+    
+    setStatusPolling(true);
+    setPollingStartTime(Date.now());
+    
+    pollIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      const pollingDuration = now - pollingStartTime;
+      
+      // Stop polling after 5 minutes (300000ms) or if status changed
+      if (pollingDuration > 300000) {
+        stopStatusPolling();
+        return;
+      }
+      
+      checkBookingStatus();
+    }, 10000); // Check every 10 seconds (less frequent)
+  };
+
+  // Stop polling
+  const stopStatusPolling = () => {
+    setStatusPolling(false);
+    setPollingStartTime(null);
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
   };
 
@@ -313,6 +357,68 @@ const RoomDetailsView = () => {
     }
   };
 
+  // Fetch tenant details for the room
+  const fetchTenantDetails = async () => {
+    if (!roomId) return;
+    
+    try {
+      setLoadingTenants(true);
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      
+      const response = await fetch(`${baseUrl}/api/rooms/${roomId}/tenants`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTenants(data.tenants || []);
+        console.log('Tenant details:', data.tenants);
+      } else {
+        console.error('Failed to fetch tenant details');
+        setTenants([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tenant details:', error);
+      setTenants([]);
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  // Check Aadhar verification status
+  const checkAadharStatus = async () => {
+    try {
+      setCheckingAadharStatus(true);
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        console.error('No auth token found');
+        return { isApproved: false, status: 'not_verified' };
+      }
+      
+      const response = await fetch('http://localhost:4002/api/user/aadhar-status', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAadharStatus(data.aadharStatus);
+        return data.aadharStatus;
+      }
+      return { isApproved: false, status: 'not_verified' };
+    } catch (error) {
+      console.error('Error checking Aadhar status:', error);
+      return { isApproved: false, status: 'error' };
+    } finally {
+      setCheckingAadharStatus(false);
+    }
+  };
+
   // Handle room booking with Razorpay payment
   const handleBookRoom = async () => {
     const userId = getUserId();
@@ -323,6 +429,18 @@ const RoomDetailsView = () => {
         variant: "destructive",
       });
       navigate('/login');
+      return;
+    }
+
+    // Check Aadhar status before allowing booking
+    const aadharStatus = await checkAadharStatus();
+    if (!aadharStatus.isApproved) {
+      toast({
+        title: "Identity Verification Required",
+        description: aadharStatus.message || "Please verify your identity before booking a room",
+        variant: "destructive",
+      });
+      navigate('/seeker-kyc');
       return;
     }
 
@@ -391,6 +509,15 @@ const RoomDetailsView = () => {
               description: "Your payment has been processed. Waiting for owner approval.",
               variant: "default",
             });
+
+            // Update booking status in real-time
+            setJustPaid(true);
+            await checkBookingStatus();
+            
+            // Reset justPaid flag after 30 seconds
+            setTimeout(() => {
+              setJustPaid(false);
+            }, 30000);
 
             // Optionally redirect to booking confirmation page
             // navigate('/booking-confirmation');
@@ -550,6 +677,7 @@ const RoomDetailsView = () => {
     if (roomId) {
       fetchRoomDetails();
       checkBookingStatus();
+      fetchTenantDetails();
     }
   }, [roomId]);
 
@@ -558,6 +686,27 @@ const RoomDetailsView = () => {
       checkFavoriteStatus();
     }
   }, [property, roomId]);
+
+  // Check Aadhar status when component loads
+  useEffect(() => {
+    checkAadharStatus();
+  }, []);
+
+  // Start/stop polling based on booking status
+  useEffect(() => {
+    if (bookingStatus?.hasBooking && bookingStatus?.status === 'pending_approval' && justPaid) {
+      // Only start polling if user just paid and status is pending
+      startStatusPolling();
+    } else {
+      // Stop polling for other statuses
+      stopStatusPolling();
+    }
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      stopStatusPolling();
+    };
+  }, [bookingStatus?.hasBooking, bookingStatus?.status, justPaid]);
 
   if (loading) {
     return (
@@ -789,6 +938,76 @@ const RoomDetailsView = () => {
                 </div>
               </div>
             )}
+
+            {/* Tenant Details */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Tenants</h2>
+              {loadingTenants ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading tenant details...</span>
+                </div>
+              ) : tenants.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    {tenants.length} {tenants.length === 1 ? 'person' : 'people'} currently living in this room
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {tenants.map((tenant, index) => (
+                      <div key={tenant._id || index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-blue-600 font-semibold text-sm">
+                                {tenant.name ? tenant.name.charAt(0).toUpperCase() : 'T'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {tenant.name || 'Anonymous Tenant'}
+                              </h3>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Verified
+                              </span>
+                            </div>
+                            <div className="mt-1 space-y-1">
+                              <p className="text-xs text-gray-500">
+                                Age: {tenant.age || 'Not specified'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Occupation: {tenant.occupation || 'Not specified'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Living since: {tenant.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : 'Not specified'}
+                              </p>
+                            </div>
+                            {tenant.bio && (
+                              <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                                "{tenant.bio}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">No tenants yet</h3>
+                  <p className="text-sm text-gray-500">
+                    This room is available and waiting for tenants.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -892,6 +1111,11 @@ const RoomDetailsView = () => {
                         <div className="flex items-center justify-center gap-2 mb-1">
                           <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
                           <span className="font-medium">Approval Pending</span>
+                          {statusPolling && justPaid && (
+                            <span className="text-xs bg-yellow-200 px-2 py-1 rounded-full animate-pulse">
+                              Checking...
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm">Your booking is waiting for owner approval</p>
                       </div>
@@ -929,24 +1153,69 @@ const RoomDetailsView = () => {
                     )}
                   </div>
                 ) : (
-                  <button
-                    onClick={handleBookRoom}
-                    disabled={!room.isAvailable || bookingLoading}
-                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                      room.isAvailable && !bookingLoading
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {bookingLoading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Processing...
+                  <>
+                    {/* Aadhar Status Warning */}
+                    {aadharStatus && !aadharStatus.isApproved && (
+                      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center">
+                          <svg className="w-5 h-5 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-yellow-800">Identity Verification Required</p>
+                            <p className="text-xs text-yellow-700">{aadharStatus.message || 'Please verify your identity before booking'}</p>
+                            <button 
+                              onClick={() => navigate('/seeker-kyc')}
+                              className="text-xs text-yellow-600 hover:text-yellow-800 underline mt-1"
+                            >
+                              Verify Now →
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      'Book Now'
                     )}
-                  </button>
+                    
+                    {/* Aadhar Status Success */}
+                    {aadharStatus && aadharStatus.isApproved && (
+                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center">
+                          <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-green-800">Identity Verified</p>
+                            <p className="text-xs text-green-700">Your Aadhar verification is approved</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={handleBookRoom}
+                      disabled={!room.isAvailable || bookingLoading || checkingAadharStatus || (aadharStatus && !aadharStatus.isApproved)}
+                      className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                        room.isAvailable && !bookingLoading && !checkingAadharStatus && (!aadharStatus || aadharStatus.isApproved)
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {bookingLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Processing...
+                        </div>
+                      ) : checkingAadharStatus ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Checking Verification...
+                        </div>
+                      ) : aadharStatus && aadharStatus.isApproved ? (
+                        'Book This Room'
+                      ) : (
+                        'Verify Identity to Book'
+                      )}
+                    </button>
+                  </>
                 )}
                 {!room.isAvailable && !bookingStatus?.hasBooking && (
                   <p className="text-sm text-red-600 text-center">This room is currently not available</p>

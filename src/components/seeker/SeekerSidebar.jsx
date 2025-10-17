@@ -6,15 +6,15 @@ import {
   Heart,
   Calendar,
   MessageCircle,
-  Bell,
   User,
-  Settings,
   LogOut,
   MapPin,
   Star,
   BookOpen,
-  X
+  X,
+  Shield
 } from 'lucide-react';
+import { useBookingStatus } from '../../hooks/useBookingStatus';
 
 const SeekerSidebar = ({ onClose }) => {
   const location = useLocation();
@@ -25,6 +25,9 @@ const SeekerSidebar = ({ onClose }) => {
   // State for counts
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [bookingsCount, setBookingsCount] = useState(0);
+  
+  // Get booking status
+  const { hasConfirmedBooking, loading: bookingLoading, refreshBookingStatus } = useBookingStatus();
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -81,15 +84,40 @@ const SeekerSidebar = ({ onClose }) => {
     fetchBookingsCount();
   }, []);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
+  // Listen for booking status changes
+  useEffect(() => {
+    const handleBookingStatusChange = () => {
+      refreshBookingStatus();
+    };
+
+    // Listen for custom events that indicate booking status changes
+    window.addEventListener('booking-status-changed', handleBookingStatusChange);
+    window.addEventListener('booking-approved', handleBookingStatusChange);
+    window.addEventListener('booking-cancelled', handleBookingStatusChange);
+
+    return () => {
+      window.removeEventListener('booking-status-changed', handleBookingStatusChange);
+      window.removeEventListener('booking-approved', handleBookingStatusChange);
+      window.removeEventListener('booking-cancelled', handleBookingStatusChange);
+    };
+  }, [refreshBookingStatus]);
+
+  // Base navigation items
+  const baseNavigation = [
     { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
-    { name: 'My Bookings', href: '/seeker-bookings', icon: Calendar },
     { name: 'Messages', href: '/seeker-messages', icon: MessageCircle },
-    { name: 'Notifications', href: '/seeker-notifications', icon: Bell },
     { name: 'Profile', href: '/seeker-profile', icon: User },
-    { name: 'Settings', href: '/seeker-settings', icon: Settings },
   ];
+
+  // Items to show only when user has NO confirmed booking
+  const conditionalNavigation = [
+    { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
+    { name: 'My Bookings', href: '/seeker-bookings', icon: Calendar },
+    { name: 'Identity Verification', href: '/seeker-kyc', icon: Shield },
+  ];
+
+  // Build navigation based on booking status
+  const navigation = hasConfirmedBooking ? baseNavigation : [...conditionalNavigation, ...baseNavigation];
 
   const isActive = (path) => location.pathname === path;
 
@@ -244,6 +272,20 @@ const SeekerSidebar = ({ onClose }) => {
             >
               {user.email || 'user@example.com'}
             </motion.p>
+            {/* Booking Status Indicator */}
+            {!bookingLoading && (
+              <motion.div 
+                className="mt-1 flex items-center space-x-1"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.3 }}
+              >
+                <div className={`w-2 h-2 rounded-full ${hasConfirmedBooking ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                <span className="text-xs font-medium text-gray-600">
+                  {hasConfirmedBooking ? 'Confirmed Tenant' : 'Looking for Room'}
+                </span>
+              </motion.div>
+            )}
           </div>
           {/* Status indicator */}
           <motion.div

@@ -32,6 +32,8 @@ import SeekerPropertyDetails from "./pages/seeker/SeekerPropertyDetails";
 import SeekerDashboardDetails from "./pages/seeker/SeekerDashboardDetails";
 import RoomDetailsView from "./pages/seeker/RoomDetailsView";
 import RoomDebug from "./pages/seeker/RoomDebug";
+import KycUpload from "./pages/seeker/KycUpload";
+import SeekerMessages from "./pages/seeker/SeekerMessages";
 // Import owner pages and components
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/Properties";
@@ -50,6 +52,7 @@ import AdminNotFound from "./pages/admin/NotFound";
 import OwnerSettings from "./pages/owner/Settings";
 import OwnerBookings from "./pages/owner/Bookings";
 import BookingDetails from "./pages/owner/BookingDetails";
+import Tenants from "./pages/owner/Tenants";
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -445,6 +448,16 @@ function AppRoutesWithLoader() {
               <RoomDetailsView />
             </ProtectedSeekerRoute>
           } />
+          <Route path="/seeker-kyc" element={
+            <ProtectedSeekerRoute>
+              <KycUpload />
+            </ProtectedSeekerRoute>
+          } />
+          <Route path="/seeker-messages" element={
+            <ProtectedSeekerRoute>
+              <SeekerMessages />
+            </ProtectedSeekerRoute>
+          } />
           <Route path="/debug/rooms" element={
             <ProtectedSeekerRoute>
               <RoomDebug />
@@ -521,6 +534,11 @@ function AppRoutesWithLoader() {
           <Route path="/owner-settings" element={
             <ProtectedOwnerRoute>
               <OwnerSettings />
+            </ProtectedOwnerRoute>
+          } />
+          <Route path="/owner-tenants" element={
+            <ProtectedOwnerRoute>
+              <Tenants />
             </ProtectedOwnerRoute>
           } />
 

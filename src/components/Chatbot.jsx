@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Note: The jsx warning from Framer Motion is a known issue and doesn't affect functionality
+// It occurs when Framer Motion passes internal props to DOM elements
 import { 
   MessageCircle, 
   X, 
@@ -14,8 +17,10 @@ import {
   Clock,
   HelpCircle,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  AlertCircle
 } from 'lucide-react';
+import aiService from '../services/aiService';
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +36,8 @@ const Chatbot = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [aiServiceStatus, setAiServiceStatus] = useState('initializing'); // 'initializing', 'ready', 'error'
+  const [errorMessage, setErrorMessage] = useState('');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -40,6 +47,22 @@ const Chatbot = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Initialize AI service
+  useEffect(() => {
+    const initializeAI = async () => {
+      try {
+        await aiService.initialize();
+        setAiServiceStatus('ready');
+      } catch (error) {
+        console.error('Failed to initialize AI service:', error);
+        setAiServiceStatus('error');
+        setErrorMessage('AI service unavailable. Using fallback responses.');
+      }
+    };
+
+    initializeAI();
+  }, []);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -53,8 +76,8 @@ const Chatbot = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showMenu]);
 
-  // Dummy responses for Lyvo+ co-living platform
-  const botResponses = {
+  // Fallback responses for when AI service is unavailable
+  const fallbackResponses = {
     greeting: [
       "Hello! Welcome to Lyvo+. I'm here to help you find your perfect co-living space!",
       "Hi there! Ready to discover amazing co-living opportunities?",
@@ -108,39 +131,39 @@ const Chatbot = () => {
   };
 
   const quickReplies = [
-    { text: "Pricing", category: "pricing" },
-    { text: "Locations", category: "locations" },
-    { text: "Amenities", category: "amenities" },
-    { text: "How to Book", category: "booking" },
-    { text: "Roommate Matching", category: "roommate" },
-    { text: "Security", category: "security" },
-    { text: "Payment Options", category: "payment" },
-    { text: "Contact Support", category: "support" }
+    { text: "What are your room prices?", category: "pricing" },
+    { text: "Where are your properties located?", category: "locations" },
+    { text: "What amenities do you provide?", category: "amenities" },
+    { text: "How do I book a room?", category: "booking" },
+    { text: "How do you match roommates?", category: "roommate" },
+    { text: "What security measures do you have?", category: "security" },
+    { text: "What payment methods do you accept?", category: "payment" },
+    { text: "How can I contact support?", category: "support" }
   ];
 
-  const getBotResponse = (userMessage) => {
+  const getFallbackResponse = (userMessage) => {
     const message = userMessage.toLowerCase();
     
     if (message.includes('price') || message.includes('cost') || message.includes('rent') || message.includes('fee')) {
-      return botResponses.pricing[Math.floor(Math.random() * botResponses.pricing.length)];
+      return fallbackResponses.pricing[Math.floor(Math.random() * fallbackResponses.pricing.length)];
     } else if (message.includes('location') || message.includes('area') || message.includes('where') || message.includes('place')) {
-      return botResponses.locations[Math.floor(Math.random() * botResponses.locations.length)];
+      return fallbackResponses.locations[Math.floor(Math.random() * fallbackResponses.locations.length)];
     } else if (message.includes('amenity') || message.includes('facility') || message.includes('wifi') || message.includes('gym')) {
-      return botResponses.amenities[Math.floor(Math.random() * botResponses.amenities.length)];
+      return fallbackResponses.amenities[Math.floor(Math.random() * fallbackResponses.amenities.length)];
     } else if (message.includes('book') || message.includes('apply') || message.includes('reserve') || message.includes('process')) {
-      return botResponses.booking[Math.floor(Math.random() * botResponses.booking.length)];
+      return fallbackResponses.booking[Math.floor(Math.random() * fallbackResponses.booking.length)];
     } else if (message.includes('roommate') || message.includes('flatmate') || message.includes('match') || message.includes('compatibility')) {
-      return botResponses.roommate[Math.floor(Math.random() * botResponses.roommate.length)];
+      return fallbackResponses.roommate[Math.floor(Math.random() * fallbackResponses.roommate.length)];
     } else if (message.includes('security') || message.includes('safe') || message.includes('guard') || message.includes('cctv')) {
-      return botResponses.security[Math.floor(Math.random() * botResponses.security.length)];
+      return fallbackResponses.security[Math.floor(Math.random() * fallbackResponses.security.length)];
     } else if (message.includes('payment') || message.includes('pay') || message.includes('upi') || message.includes('card')) {
-      return botResponses.payment[Math.floor(Math.random() * botResponses.payment.length)];
+      return fallbackResponses.payment[Math.floor(Math.random() * fallbackResponses.payment.length)];
     } else if (message.includes('support') || message.includes('help') || message.includes('contact') || message.includes('call')) {
-      return botResponses.support[Math.floor(Math.random() * botResponses.support.length)];
+      return fallbackResponses.support[Math.floor(Math.random() * fallbackResponses.support.length)];
     } else if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return botResponses.greeting[Math.floor(Math.random() * botResponses.greeting.length)];
+      return fallbackResponses.greeting[Math.floor(Math.random() * fallbackResponses.greeting.length)];
     } else {
-      return botResponses.default[Math.floor(Math.random() * botResponses.default.length)];
+      return fallbackResponses.default[Math.floor(Math.random() * fallbackResponses.default.length)];
     }
   };
 
@@ -159,23 +182,53 @@ const Chatbot = () => {
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate typing delay
-    setTimeout(() => {
-      const botResponse = getBotResponse(message);
-      const botMessage = {
-        id: Date.now() + 1,
-        type: 'bot',
-        content: botResponse,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botMessage]);
-      setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    try {
+      let botResponse;
+      
+      // Try to get AI response if service is ready
+      if (aiServiceStatus === 'ready') {
+        try {
+          botResponse = await aiService.getLyvoAssistantResponse(message);
+        } catch (aiError) {
+          console.error('AI service error:', aiError);
+          // Fall back to dummy response if AI fails
+          botResponse = getFallbackResponse(message);
+        }
+      } else {
+        // Use fallback response if AI service is not ready
+        botResponse = getFallbackResponse(message);
+      }
+
+      // Simulate typing delay
+      setTimeout(() => {
+        const botMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          content: botResponse,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMessage]);
+        setIsTyping(false);
+      }, 1000 + Math.random() * 1000);
+
+    } catch (error) {
+      console.error('Error handling message:', error);
+      // Fallback response in case of any error
+      setTimeout(() => {
+        const botMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          content: "I'm sorry, I'm having trouble right now. Please try again or contact our support team at support@lyvoplus.com.",
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMessage]);
+        setIsTyping(false);
+      }, 1000);
+    }
   };
 
-  const handleQuickReply = (category) => {
-    const response = getBotResponse(category);
-    handleSendMessage(category);
+  const handleQuickReply = (text) => {
+    handleSendMessage(text);
   };
 
   const handleClearChat = () => {
@@ -199,22 +252,22 @@ const Chatbot = () => {
   return (
     <>
              {/* Chatbot Toggle Button */}
-      <motion.div
-         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[80]"
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 260, 
-          damping: 20,
-          delay: 2 
-        }}
-      >
+          <motion.div
+            className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[80]"
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 260, 
+              damping: 20,
+              delay: 2 
+            }}
+          >
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
-           className="relative w-16 h-16 sm:w-16 sm:h-16 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-white border-2 border-white/20"
-           whileHover={{ scale: 1.1, rotate: 5 }}
-           whileTap={{ scale: 0.9, rotate: -5 }}
+          className="relative w-16 h-16 sm:w-16 sm:h-16 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-white border-2 border-white/20"
+          whileHover={{ scale: 1.1, rotate: 5 }}
+          whileTap={{ scale: 0.9, rotate: -5 }}
         >
           <AnimatePresence mode="wait">
             {isOpen ? (
@@ -225,7 +278,7 @@ const Chatbot = () => {
                 exit={{ rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                                 <X className="w-7 h-7 sm:w-7 sm:h-7" />
+                <X className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.div>
             ) : (
               <motion.div
@@ -233,42 +286,42 @@ const Chatbot = () => {
                 initial={{ rotate: 90, opacity: 0 }}
                 animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: -90, opacity: 0 }}
-                 transition={{ duration: 0.3 }}
+                transition={{ duration: 0.3 }}
               >
-                 <MessageCircle className="w-7 h-7 sm:w-7 sm:h-7" />
+                <MessageCircle className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.div>
             )}
           </AnimatePresence>
           
           {/* Pulse animation to attract attention */}
           <motion.div
-             className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-500 via-red-600 to-red-700 opacity-30"
-             animate={{ scale: [1, 1.3, 1] }}
+            className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-500 via-red-600 to-red-700 opacity-30"
+            animate={{ scale: [1, 1.3, 1] }}
             transition={{ duration: 2, repeat: Infinity, delay: 3 }}
           />
            
-           {/* Notification dot */}
-           <motion.div
-             className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full border-2 border-white shadow-lg"
-             animate={{ scale: [1, 1.2, 1] }}
-             transition={{ duration: 1.5, repeat: Infinity }}
-           />
+          {/* Notification dot */}
+          <motion.div
+            className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full border-2 border-white shadow-lg"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
         </motion.button>
       </motion.div>
 
-             {/* Chatbot Window */}
+      {/* Chatbot Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-             initial={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
-             animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
-             exit={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
-             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                           className="fixed bottom-24 right-4 z-[75] w-[320px] h-[500px] sm:bottom-32 sm:right-20 bg-gradient-to-br from-white to-gray-50 rounded-[2rem] shadow-2xl border border-gray-200/50 backdrop-blur-sm flex flex-col"
-             style={{
-               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-             }}
-           >
+            initial={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
+            animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20, rotateX: -15 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed bottom-24 right-4 z-[75] w-[320px] h-[500px] sm:bottom-32 sm:right-20 bg-gradient-to-br from-white to-gray-50 rounded-[2rem] shadow-2xl border border-gray-200/50 backdrop-blur-sm flex flex-col"
+            style={{
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            }}
+          >
                          {/* Header */}
              <div className="relative bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white p-3 rounded-t-[2rem]">
                {/* Background pattern */}
@@ -291,8 +344,15 @@ const Chatbot = () => {
                  <div className="flex-1">
                    <h3 className="font-bold text-base sm:text-sm"><span className="text-black">Lyvo</span><span className="text-black">+</span> Assistant</h3>
                    <p className="text-sm sm:text-xs text-red-100 flex items-center space-x-1">
-                     <div className="w-2 h-2 sm:w-1.5 sm:h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-                     <span>Online • Ready to help</span>
+                     <div className={`w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full ${
+                       aiServiceStatus === 'ready' ? 'bg-green-400 animate-pulse' : 
+                       aiServiceStatus === 'error' ? 'bg-yellow-400' : 'bg-gray-400'
+                     }`}></div>
+                     <span>
+                       {aiServiceStatus === 'ready' ? 'AI Online • Ready to help' :
+                        aiServiceStatus === 'error' ? 'Fallback Mode • Still helping' :
+                        'Initializing...'}
+                     </span>
                    </p>
                  </div>
                                    <div className="relative chatbot-menu">

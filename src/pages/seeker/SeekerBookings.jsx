@@ -607,15 +607,13 @@ const SeekerBookings = () => {
                             View Room
                           </button>
 
-                          {booking.status === 'confirmed' && (
-                            <button 
-                              onClick={() => openContactModal(booking)}
-                              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              <Phone className="w-4 h-4" />
-                              Contact Owner
-                            </button>
-                          )}
+                          <button 
+                            onClick={() => openContactModal(booking)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            <Phone className="w-4 h-4" />
+                            Contact Owner
+                          </button>
                         </div>
                       </div>
                     </div>
