@@ -25,6 +25,20 @@ const OwnerDashboard = () => {
   const [tenantCount, setTenantCount] = useState(0);
   const [tenantLoading, setTenantLoading] = useState(false);
   const [tenantError, setTenantError] = useState(null);
+  
+  // Real data states
+  const [properties, setProperties] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    activeTenants: 0,
+    monthlyRevenue: 0,
+    averageRating: 0,
+    occupancyRate: 0,
+    pendingApplications: 0
+  });
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState(null);
 
   // Check authentication
   useEffect(() => {
@@ -136,9 +150,16 @@ const OwnerDashboard = () => {
 
   useEffect(() => {
     if (user) {
-      fetchTenantCount();
+      fetchDashboardData();
     }
   }, [user]);
+
+  // Calculate stats whenever data changes
+  useEffect(() => {
+    if (properties.length > 0 || bookings.length > 0) {
+      calculateDashboardStats();
+    }
+  }, [properties, bookings, tenantCount]);
 
   // Retry function for failed tenant fetch
   const retryTenantFetch = () => {
@@ -146,51 +167,174 @@ const OwnerDashboard = () => {
     fetchTenantCount();
   };
 
-  // Mock data for owner dashboard
-  const stats = {
-    totalProperties: 8,
-    activeTenants: tenantCount,
-    monthlyRevenue: 125000,
-    averageRating: 4.6,
-    occupancyRate: 87,
-    pendingApplications: 5
+  // Fetch owner's properties
+  const fetchProperties = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token found for properties fetch');
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/properties`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setProperties(data.data);
+          console.log(`Successfully fetched ${data.data.length} properties`);
+        }
+      } else {
+        console.error('Failed to fetch properties:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
   };
 
-  const recentProperties = [
-    {
-      id: 1,
-      name: "Sunset Apartments",
-      location: "Koramangala, Bangalore",
-      type: "Apartment Complex",
-      tenants: 12,
-      occupancy: "92%",
-      revenue: "₹45,000",
-      status: "Active",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 2,
-      name: "Green Valley Residences",
-      location: "Indiranagar, Bangalore",
-      type: "Independent Houses",
-      tenants: 8,
-      occupancy: "100%",
-      revenue: "₹38,000",
-      status: "Active",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
-    },
-    {
-      id: 3,
-      name: "City Center Flats",
-      location: "MG Road, Bangalore",
-      type: "Studio Apartments",
-      tenants: 4,
-      occupancy: "75%",
-      revenue: "₹22,000",
-      status: "Active",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center"
+  // Fetch owner's bookings
+  const fetchBookings = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token found for bookings fetch');
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/owner/bookings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.bookings) {
+          setBookings(data.bookings);
+          console.log(`Successfully fetched ${data.bookings.length} bookings`);
+        }
+      } else {
+        console.error('Failed to fetch bookings:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
     }
-  ];
+  };
+
+  // Calculate dashboard stats from real data
+  const calculateDashboardStats = () => {
+    try {
+      // Total Properties
+      const totalProperties = properties.length;
+
+      // Active Tenants (already fetched)
+      const activeTenants = tenantCount;
+
+      // Monthly Revenue - sum of confirmed bookings' rent
+      const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+      const monthlyRevenue = confirmedBookings.reduce((sum, booking) => {
+        return sum + (booking.rent || 0);
+      }, 0);
+
+      // Average Rating - average of all property ratings
+      const propertiesWithRatings = properties.filter(p => p.rating && p.rating > 0);
+      const averageRating = propertiesWithRatings.length > 0
+        ? (propertiesWithRatings.reduce((sum, p) => sum + p.rating, 0) / propertiesWithRatings.length)
+        : 0;
+
+      // Occupancy Rate - occupied rooms / total rooms
+      let totalRooms = 0;
+      let occupiedRooms = 0;
+      properties.forEach(property => {
+        if (property.rooms && Array.isArray(property.rooms)) {
+          totalRooms += property.rooms.length;
+          occupiedRooms += property.rooms.filter(room => !room.isAvailable).length;
+        }
+      });
+      const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+
+      // Pending Applications
+      const pendingApplications = bookings.filter(b => b.status === 'pending').length;
+
+      setStats({
+        totalProperties,
+        activeTenants,
+        monthlyRevenue,
+        averageRating: Math.round(averageRating * 10) / 10,
+        occupancyRate,
+        pendingApplications
+      });
+
+      console.log('Dashboard stats calculated:', {
+        totalProperties,
+        activeTenants,
+        monthlyRevenue,
+        averageRating,
+        occupancyRate,
+        pendingApplications
+      });
+    } catch (error) {
+      console.error('Error calculating dashboard stats:', error);
+    }
+  };
+
+  // Fetch all dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setDataLoading(true);
+      setDataError(null);
+      
+      await Promise.all([
+        fetchProperties(),
+        fetchBookings(),
+        fetchTenantCount()
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setDataError('Failed to load dashboard data');
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  // Format properties for display
+  const recentProperties = properties.slice(0, 3).map(property => {
+    const rooms = property.rooms || [];
+    const totalRooms = rooms.length;
+    const occupiedRooms = rooms.filter(room => !room.isAvailable).length;
+    const occupancyPercentage = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+    
+    // Calculate revenue from confirmed bookings for this property
+    const propertyBookings = bookings.filter(b => 
+      String(b.propertyId) === String(property._id) && b.status === 'confirmed'
+    );
+    const propertyRevenue = propertyBookings.reduce((sum, b) => sum + (b.rent || 0), 0);
+    
+    // Get first image from property images
+    const propertyImage = property.images && property.images[0] 
+      ? property.images[0] 
+      : property.frontImage || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center";
+    
+    return {
+      id: property._id,
+      name: property.propertyName || property.property_name || 'Unnamed Property',
+      location: property.address || 'Location not available',
+      type: property.propertyType || property.property_type || 'Property',
+      tenants: occupiedRooms,
+      occupancy: `${occupancyPercentage}%`,
+      revenue: `₹${propertyRevenue.toLocaleString('en-IN')}`,
+      status: property.status === 'approved' ? 'Active' : property.status || 'Pending',
+      image: propertyImage
+    };
+  });
 
   const recentActivities = [
     {
@@ -339,7 +483,7 @@ const OwnerDashboard = () => {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeTenants}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeTenants}</p>
                 )}
               </div>
               <div className={`p-2 sm:p-3 rounded-lg ${
@@ -351,8 +495,8 @@ const OwnerDashboard = () => {
               </div>
             </div>
             {!tenantLoading && !tenantError && (
-              <div className="mt-3 sm:mt-4 flex items-center text-xs sm:text-sm text-green-600">
-                <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <div className="mt-3 sm:mt-4 flex items-center text-xs sm:text-sm text-green-600">
+              <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                 <span>{stats.activeTenants > 0 ? '+3 this week' : 'No tenants yet'}</span>
               </div>
             )}
@@ -364,7 +508,7 @@ const OwnerDashboard = () => {
                     : 'Check your connection and try again'
                   }
                 </p>
-              </div>
+            </div>
             )}
           </motion.div>
 
@@ -466,7 +610,25 @@ const OwnerDashboard = () => {
               <p className="text-xs sm:text-sm text-gray-600">Your latest property listings and their performance</p>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
-              {recentProperties.map((property) => (
+              {dataLoading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 mb-4"></div>
+                  <p className="text-sm text-gray-500">Loading properties...</p>
+                </div>
+              ) : recentProperties.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Building className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-sm font-medium text-gray-900 mb-1">No properties yet</p>
+                  <p className="text-xs text-gray-500 mb-4">Add your first property to get started</p>
+                  <button
+                    onClick={() => navigate('/owner-add-property')}
+                    className="px-4 py-2 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"
+                  >
+                    Add Property
+                  </button>
+                </div>
+              ) : (
+                recentProperties.map((property) => (
                 <div key={property.id} className="flex items-center space-x-3 sm:space-x-4">
                   <img
                     src={property.image}
@@ -490,7 +652,8 @@ const OwnerDashboard = () => {
                     <MoreVertical className="w-3 h-3 sm:w-4 sm:h-4" />
                   </button>
                 </div>
-              ))}
+                ))
+              )}
             </div>
             <div className="p-4 sm:p-6 border-t border-gray-200">
               <button

@@ -249,17 +249,6 @@ const OwnerNavbar = ({ onMenuToggle }) => {
                       whileHover={{ backgroundColor: "#f3f4f6" }}
                       transition={{ duration: 0.2 }}
                     >
-                      <Link
-                        to="/owner-account"
-                        className="block px-4 py-2 text-sm text-gray-700"
-                      >
-                        Account Settings
-                      </Link>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ backgroundColor: "#f3f4f6" }}
-                      transition={{ duration: 0.2 }}
-                    >
                       <button
                         onClick={handleLogout}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 flex items-center space-x-2"

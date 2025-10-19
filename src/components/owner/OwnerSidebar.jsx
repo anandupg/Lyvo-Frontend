@@ -34,7 +34,7 @@ const OwnerSidebar = ({ onClose }) => {
     { name: 'Bookings', href: '/owner-bookings', icon: Calendar },
     { name: 'Analytics', href: '/owner-analytics', icon: BarChart3 },
     { name: 'Messages', href: '/owner-messages', icon: MessageCircle },
-    { name: 'Settings', href: '/owner-settings', icon: Settings },
+    { name: 'Profile Settings', href: '/owner-settings', icon: Settings },
   ];
 
   const isActive = (path) => location.pathname === path;

@@ -4,10 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import OwnerLayout from '../../components/owner/OwnerLayout';
 import { 
   User, 
-  Building, 
-  Bell, 
   Shield, 
-  CreditCard,
   Save,
   Eye,
   EyeOff,
@@ -55,6 +52,17 @@ const Settings = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profileUpdating, setProfileUpdating] = useState(false);
   const [passwordUpdating, setPasswordUpdating] = useState(false);
+  
+  // Password validation states
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
   
   // OCR KYC states
   const [kycStatus, setKycStatus] = useState(null);
@@ -671,6 +679,82 @@ const Settings = () => {
     }
   };
 
+  // Password validation functions
+  const validatePassword = (password) => {
+    const requirements = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+    
+    setPasswordRequirements(requirements);
+    
+    // Calculate strength (0-100)
+    const strength = Object.values(requirements).filter(Boolean).length * 20;
+    setPasswordStrength(strength);
+    
+    return requirements;
+  };
+
+  const validatePasswordChange = (currentPassword, newPassword, confirmPassword) => {
+    const errors = {};
+    
+    // Current password validation
+    if (!currentPassword.trim()) {
+      errors.currentPassword = 'Current password is required';
+    }
+    
+    // New password validation
+    if (!newPassword.trim()) {
+      errors.newPassword = 'New password is required';
+    } else {
+      const requirements = validatePassword(newPassword);
+      
+      if (!requirements.length) {
+        errors.newPassword = 'Password must be at least 8 characters long';
+      } else if (!requirements.uppercase) {
+        errors.newPassword = 'Password must contain at least one uppercase letter';
+      } else if (!requirements.lowercase) {
+        errors.newPassword = 'Password must contain at least one lowercase letter';
+      } else if (!requirements.number) {
+        errors.newPassword = 'Password must contain at least one number';
+      } else if (!requirements.special) {
+        errors.newPassword = 'Password must contain at least one special character';
+      }
+    }
+    
+    // Confirm password validation
+    if (!confirmPassword.trim()) {
+      errors.confirmPassword = 'Please confirm your new password';
+    } else if (newPassword !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    
+    // Additional validations
+    if (currentPassword && newPassword && currentPassword === newPassword) {
+      errors.newPassword = 'New password must be different from current password';
+    }
+    
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const getPasswordStrengthColor = (strength) => {
+    if (strength < 40) return 'bg-red-500';
+    if (strength < 60) return 'bg-orange-500';
+    if (strength < 80) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const getPasswordStrengthText = (strength) => {
+    if (strength < 40) return 'Weak';
+    if (strength < 60) return 'Fair';
+    if (strength < 80) return 'Good';
+    return 'Strong';
+  };
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (!user?._id) return;
@@ -684,29 +768,11 @@ const Settings = () => {
       const newPassword = document.getElementById('new-password').value;
       const confirmPassword = document.getElementById('confirm-password').value;
       
-      // Validation
-      if (!currentPassword || !newPassword || !confirmPassword) {
+      // Enhanced validation
+      if (!validatePasswordChange(currentPassword, newPassword, confirmPassword)) {
         toast({
           title: "Validation Error",
-          description: "Please fill in all password fields",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (newPassword !== confirmPassword) {
-        toast({
-          title: "Validation Error",
-          description: "New password and confirm password do not match",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (newPassword.length < 6) {
-        toast({
-          title: "Validation Error",
-          description: "New password must be at least 6 characters long",
+          description: "Please fix the errors below before proceeding",
           variant: "destructive",
         });
         return;
@@ -720,10 +786,19 @@ const Settings = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Reset form
+      // Reset form and validation states
       document.getElementById('current-password').value = '';
       document.getElementById('new-password').value = '';
       document.getElementById('confirm-password').value = '';
+      setPasswordErrors({});
+      setPasswordStrength(0);
+      setPasswordRequirements({
+        length: false,
+        uppercase: false,
+        lowercase: false,
+        number: false,
+        special: false
+      });
       
       toast({
         title: "Success",
@@ -743,11 +818,8 @@ const Settings = () => {
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
-    { id: 'properties', name: 'Properties', icon: Building },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'kyc', name: 'Govt ID (KYC)', icon: Shield },
-    { id: 'billing', name: 'Billing', icon: CreditCard },
   ];
 
   useEffect(() => {
@@ -977,7 +1049,7 @@ const Settings = () => {
                           {/* Aadhar Card Info */}
                           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <div className="flex items-center mb-2">
-                              <CreditCard className="w-6 h-6 text-blue-600 mr-3" />
+                              <Shield className="w-6 h-6 text-blue-600 mr-3" />
                               <h3 className="font-semibold text-blue-900">Aadhar Card Verification</h3>
                             </div>
                             <p className="text-blue-700 text-sm">
@@ -1306,92 +1378,6 @@ const Settings = () => {
               </motion.div>
             )}
 
-            {activeTab === 'properties' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900">Property Settings</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Auto-approve applications</h3>
-                      <p className="text-sm text-gray-500">Automatically approve tenant applications that meet criteria</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Maintenance notifications</h3>
-                      <p className="text-sm text-gray-500">Receive notifications for maintenance requests</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Financial reports</h3>
-                      <p className="text-sm text-gray-500">Generate monthly financial reports automatically</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'notifications' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Email notifications</h3>
-                      <p className="text-sm text-gray-500">Receive notifications via email</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">SMS notifications</h3>
-                      <p className="text-sm text-gray-500">Receive urgent notifications via SMS</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Push notifications</h3>
-                      <p className="text-sm text-gray-500">Receive notifications in the app</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
             {activeTab === 'security' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -1435,7 +1421,11 @@ const Settings = () => {
                         <input
                           type={showPassword ? "text" : "password"}
                           id="current-password"
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            passwordErrors.currentPassword 
+                              ? 'border-red-500 bg-red-50' 
+                              : 'border-gray-300'
+                          }`}
                           required
                         />
                         <button
@@ -1450,6 +1440,9 @@ const Settings = () => {
                           )}
                         </button>
                       </div>
+                      {passwordErrors.currentPassword && (
+                        <p className="mt-1 text-sm text-red-600">{passwordErrors.currentPassword}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1459,9 +1452,23 @@ const Settings = () => {
                         <input
                           type={showNewPassword ? "text" : "password"}
                           id="new-password"
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            passwordErrors.newPassword 
+                              ? 'border-red-500 bg-red-50' 
+                              : 'border-gray-300'
+                          }`}
                           required
-                          minLength={6}
+                          onChange={(e) => {
+                            validatePassword(e.target.value);
+                            // Clear new password error when user starts typing
+                            if (passwordErrors.newPassword) {
+                              setPasswordErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.newPassword;
+                                return newErrors;
+                              });
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -1475,7 +1482,88 @@ const Settings = () => {
                           )}
                         </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters long</p>
+                      
+                      {/* Password Strength Indicator */}
+                      {document.getElementById('new-password')?.value && (
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-gray-600">Password Strength:</span>
+                            <span className={`text-xs font-medium ${
+                              passwordStrength < 40 ? 'text-red-600' :
+                              passwordStrength < 60 ? 'text-orange-600' :
+                              passwordStrength < 80 ? 'text-yellow-600' : 'text-green-600'
+                            }`}>
+                              {getPasswordStrengthText(passwordStrength)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor(passwordStrength)}`}
+                              style={{ width: `${passwordStrength}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Password Requirements Checklist - Only show when not all requirements are met */}
+                      {!Object.values(passwordRequirements).every(Boolean) && (
+                        <div className="mt-3 space-y-1">
+                          <div className={`flex items-center text-xs ${
+                            passwordRequirements.length ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            <div className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center ${
+                              passwordRequirements.length ? 'bg-green-500' : 'bg-gray-300'
+                            }`}>
+                              {passwordRequirements.length && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                            </div>
+                            At least 8 characters
+                          </div>
+                          <div className={`flex items-center text-xs ${
+                            passwordRequirements.uppercase ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            <div className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center ${
+                              passwordRequirements.uppercase ? 'bg-green-500' : 'bg-gray-300'
+                            }`}>
+                              {passwordRequirements.uppercase && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                            </div>
+                            One uppercase letter
+                          </div>
+                          <div className={`flex items-center text-xs ${
+                            passwordRequirements.lowercase ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            <div className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center ${
+                              passwordRequirements.lowercase ? 'bg-green-500' : 'bg-gray-300'
+                            }`}>
+                              {passwordRequirements.lowercase && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                            </div>
+                            One lowercase letter
+                          </div>
+                          <div className={`flex items-center text-xs ${
+                            passwordRequirements.number ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            <div className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center ${
+                              passwordRequirements.number ? 'bg-green-500' : 'bg-gray-300'
+                            }`}>
+                              {passwordRequirements.number && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                            </div>
+                            One number
+                          </div>
+                          <div className={`flex items-center text-xs ${
+                            passwordRequirements.special ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            <div className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center ${
+                              passwordRequirements.special ? 'bg-green-500' : 'bg-gray-300'
+                            }`}>
+                              {passwordRequirements.special && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                            </div>
+                            One special character
+                          </div>
+                        </div>
+                      )}
+                      
+                      {passwordErrors.newPassword && (
+                        <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1485,9 +1573,26 @@ const Settings = () => {
                         <input
                           type={showConfirmPassword ? "text" : "password"}
                           id="confirm-password"
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                            passwordErrors.confirmPassword 
+                              ? 'border-red-500 bg-red-50' 
+                              : 'border-gray-300'
+                          }`}
                           required
-                          minLength={6}
+                          onChange={(e) => {
+                            const confirmPassword = e.target.value;
+                            const newPassword = document.getElementById('new-password').value;
+                            
+                            if (confirmPassword && newPassword && confirmPassword !== newPassword) {
+                              setPasswordErrors(prev => ({ ...prev, confirmPassword: 'Passwords do not match' }));
+                            } else if (passwordErrors.confirmPassword) {
+                              setPasswordErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.confirmPassword;
+                                return newErrors;
+                              });
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -1501,63 +1606,30 @@ const Settings = () => {
                           )}
                         </button>
                       </div>
+                      {passwordErrors.confirmPassword && (
+                        <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
+                      )}
                     </div>
                     <button 
                       type="submit"
-                      disabled={passwordUpdating}
+                      disabled={passwordUpdating || Object.values(passwordErrors).some(error => error && error.trim()) || !Object.values(passwordRequirements).every(Boolean)}
                       className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Shield className="w-4 h-4 mr-2" />
                       {passwordUpdating ? 'Updating...' : 'Update Password'}
                     </button>
+                    
+                    {/* Help text for button state */}
+                    {!passwordUpdating && (Object.values(passwordErrors).some(error => error && error.trim()) || !Object.values(passwordRequirements).every(Boolean)) && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Complete all password requirements above to enable the update button
+                      </p>
+                    )}
                   </form>
                 )}
               </motion.div>
             )}
 
-            {activeTab === 'billing' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900">Billing Information</h2>
-                <div className="space-y-6">
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-2">Current Plan</h3>
-                    <p className="text-sm text-gray-600">Professional Plan - ₹999/month</p>
-                    <p className="text-xs text-gray-500 mt-1">Next billing date: March 15, 2024</p>
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Billing Address
-                      </label>
-                      <textarea
-                        rows={3}
-                        defaultValue="123 Property Street, Bangalore, Karnataka 560001"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tax ID (GST)
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue="29ABCDE1234F1Z5"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                  <button className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200">
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Update Billing Info
-                  </button>
-                </div>
-              </motion.div>
-            )}
           </div>
         </div>
 
