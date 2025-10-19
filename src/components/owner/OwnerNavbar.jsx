@@ -5,7 +5,6 @@ import {
   Bell, 
   User, 
   Menu,
-  Search,
   LogOut,
   X
 } from 'lucide-react';
@@ -14,7 +13,6 @@ const OwnerNavbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
   // Keep navbar avatar in sync when profile changes
@@ -53,34 +51,6 @@ const OwnerNavbar = ({ onMenuToggle }) => {
   };
 
   // Animation variants
-  const mobileSearchVariants = {
-    hidden: { 
-      opacity: 0, 
-      height: 0, 
-      marginTop: 0,
-      scale: 0.95
-    },
-    visible: { 
-      opacity: 1, 
-      height: "auto", 
-      marginTop: 12,
-      scale: 1,
-      transition: {
-        duration: 0.3,
-        ease: "easeOut"
-      }
-    },
-    exit: { 
-      opacity: 0, 
-      height: 0, 
-      marginTop: 0,
-      scale: 0.95,
-      transition: {
-        duration: 0.2,
-        ease: "easeIn"
-      }
-    }
-  };
 
   const dropdownVariants = {
     hidden: { 
@@ -157,51 +127,6 @@ const OwnerNavbar = ({ onMenuToggle }) => {
           </Link>
         </div>
 
-        {/* Center - Search Bar */}
-        <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search properties, tenants..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-            />
-          </div>
-        </div>
-
-        {/* Mobile Search Toggle */}
-        <motion.button
-          onClick={() => setShowMobileSearch(!showMobileSearch)}
-          className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
-          aria-label="Toggle search"
-          variants={buttonHoverVariants}
-          whileHover="hover"
-          whileTap="tap"
-        >
-          <AnimatePresence mode="wait">
-            {showMobileSearch ? (
-              <motion.div
-                key="close"
-                initial={{ rotate: -90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: 90, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <X className="w-5 h-5" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="search"
-                initial={{ rotate: 90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: -90, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Search className="w-5 h-5" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.button>
 
         {/* Right side - Notifications and User Menu */}
         <div className="flex items-center space-x-2 sm:space-x-4">
@@ -351,31 +276,6 @@ const OwnerNavbar = ({ onMenuToggle }) => {
         </div>
       </div>
 
-      {/* Mobile Search Bar */}
-      <AnimatePresence>
-        {showMobileSearch && (
-          <motion.div 
-            className="md:hidden"
-            variants={mobileSearchVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <motion.input
-                type="text"
-                placeholder="Search properties, tenants..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                autoFocus
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.3 }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </nav>
   );
 };

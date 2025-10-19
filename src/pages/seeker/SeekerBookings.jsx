@@ -592,6 +592,14 @@ const SeekerBookings = () => {
                         {/* Actions */}
                         <div className="flex flex-col sm:flex-row gap-3">
                           <button
+                            onClick={() => navigate(`/booking-dashboard/${booking._id}`)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            View Booking Details
+                          </button>
+                          
+                          <button
                             onClick={() => navigate(`/seeker/property/${booking.property?._id}`)}
                             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                           >

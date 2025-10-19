@@ -332,8 +332,8 @@ const Settings = () => {
         description: "Please upload an image file (JPG, PNG, etc.)",
         variant: "destructive"
       });
-      return;
-    }
+        return;
+      }
 
     if (file.size > 5 * 1024 * 1024) {
       toast({
@@ -848,24 +848,24 @@ const Settings = () => {
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
                               <Shield className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div>
+                    </div>
+                        <div>
                               <h3 className="font-semibold text-gray-900">Aadhar Verification</h3>
                               <p className="text-sm text-gray-600">Status: Approved</p>
-                            </div>
-                          </div>
+                        </div>
+                        </div>
                           <div className="text-right">
                             <div className="flex items-center text-green-600 font-semibold">
                               <CheckCircle2 className="w-5 h-5 mr-1" />
                               Verified
-                            </div>
+                    </div>
                             <p className="text-xs text-gray-500">
                               {aadharApprovalStatus.details?.approvalDate ? 
                                 new Date(aadharApprovalStatus.details.approvalDate).toLocaleDateString() : 
                                 'Recently approved'
                               }
                             </p>
-                          </div>
+                  </div>
                         </div>
 
                         {aadharApprovalStatus.details && (
@@ -876,7 +876,7 @@ const Settings = () => {
                                 <div className="flex justify-between">
                                   <span className="text-gray-600">Aadhar Number:</span>
                                   <span className="font-medium">{aadharApprovalStatus.details.aadharNumber}</span>
-                                </div>
+                        </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-600">Name:</span>
                                   <span className="font-medium">{aadharApprovalStatus.details.name}</span>
@@ -923,8 +923,8 @@ const Settings = () => {
                               ) : (
                                 <Loader2 className="w-6 h-6 text-white animate-spin" />
                               )}
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               <h3 className="text-lg font-semibold text-gray-900">
                                 {verificationProgress === 100 ? 'Verification Complete!' : 'Verifying Your Identity'}
                               </h3>
@@ -943,8 +943,8 @@ const Settings = () => {
                               initial={{ width: 0 }}
                               animate={{ width: `${verificationProgress}%` }}
                               transition={{ duration: 0.3 }}
-                            />
-                          </div>
+                        />
+                      </div>
                           <p className="text-sm text-gray-500 mt-2">
                             {verificationProgress}% Complete
                           </p>
@@ -960,7 +960,7 @@ const Settings = () => {
                           <AlertDescription className="ml-2">
                             <strong>Current Status:</strong> {kycStatus.charAt(0).toUpperCase() + kycStatus.slice(1)}
                           </AlertDescription>
-                        </div>
+                    </div>
                       </Alert>
                     )}
 
@@ -986,7 +986,7 @@ const Settings = () => {
                           </div>
 
                           {/* Aadhar Card Upload */}
-                          <div>
+                    <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-3">
                               Aadhar Card Photo
                             </label>
@@ -1024,27 +1024,27 @@ const Settings = () => {
                                       Retake
                                     </Button>
                                   </div>
-                                </div>
-                              ) : (
+                        </div>
+                      ) : (
                                 <div>
                                   <div className="w-16 h-16 mx-auto bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
                                     <Upload className="w-8 h-8 text-blue-600" />
                                   </div>
                                   <p className="text-gray-600 mb-4 font-medium">Upload a clear photo of your Aadhar card</p>
                                   <div className="flex gap-3 justify-center">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
+                          <input
+                            type="file"
+                            accept="image/*"
                                       onChange={(e) => handleImageUpload(e.target.files[0], 'front')}
-                                      className="hidden"
+                            className="hidden"
                                       id="front-upload"
-                                    />
+                          />
                                     <label
                                       htmlFor="front-upload"
                                       className="cursor-pointer bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-semibold"
                                     >
                                       Choose File
-                                    </label>
+                        </label>
                                     <Button
                                       variant="outline"
                                       onClick={() => openCameraForCapture()}
@@ -1057,7 +1057,7 @@ const Settings = () => {
                                 </div>
                               )}
                             </div>
-                          </div>
+                    </div>
 
                           {/* Upload Button */}
                           <Button
@@ -1104,11 +1104,11 @@ const Settings = () => {
                                       ocrResults.validation?.is_aadhar_card ? 'text-green-600' : 'text-red-600'
                                     }`}>
                                       {ocrResults.validation?.is_aadhar_card ? '✓' : '✗'}
-                                    </div>
+                    </div>
                                     <div className="text-sm text-gray-600">Aadhar Card</div>
                                     <div className="text-xs text-gray-500">
                                       {ocrResults.validation?.is_aadhar_card ? 'Valid' : 'Invalid'}
-                                    </div>
+                  </div>
                                   </div>
                                   <div className="text-center">
                                     <div className={`text-2xl font-bold ${
@@ -1145,13 +1145,13 @@ const Settings = () => {
                                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                                       <span className="text-gray-600 font-medium">Name:</span>
                                       <span className="font-semibold text-gray-900">{ocrResults.extractedData.name}</span>
-                                    </div>
+                  </div>
                                   )}
                                   {ocrResults.extractedData?.number && (
                                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                                       <span className="text-gray-600 font-medium">ID Number:</span>
                                       <span className="font-semibold text-gray-900">{ocrResults.extractedData.number}</span>
-                                    </div>
+                </div>
                                   )}
                                   {ocrResults.extractedData?.dob && (
                                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">

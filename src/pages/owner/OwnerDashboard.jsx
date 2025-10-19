@@ -23,6 +23,8 @@ const OwnerDashboard = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tenantCount, setTenantCount] = useState(0);
+  const [tenantLoading, setTenantLoading] = useState(false);
+  const [tenantError, setTenantError] = useState(null);
 
   // Check authentication
   useEffect(() => {
@@ -54,28 +56,81 @@ const OwnerDashboard = () => {
     checkAuth();
   }, [navigate]);
 
-  // Fetch tenant count
+  // Fetch tenant count with comprehensive error handling
   const fetchTenantCount = async () => {
     try {
+      setTenantLoading(true);
+      setTenantError(null);
+      
       const token = localStorage.getItem('authToken');
-      if (!token) return;
+      if (!token) {
+        console.warn('No auth token found for tenant fetch');
+        setTenantError('Authentication required');
+        return;
+      }
 
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      console.log('Fetching tenants from:', `${baseUrl}/api/tenants/owner`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${baseUrl}/api/tenants/owner`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+
+      console.log('Tenant fetch response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Tenant fetch response data:', data);
+        
         if (data.success) {
-          setTenantCount(data.count || 0);
+          const count = data.count || 0;
+          setTenantCount(count);
+          console.log(`Successfully fetched ${count} tenants`);
+          
+          // Clear any previous errors
+          setTenantError(null);
+        } else {
+          console.warn('API returned success: false', data.message);
+          setTenantError(data.message || 'Failed to fetch tenant data');
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Tenant fetch failed:', response.status, errorText);
+        
+        if (response.status === 401) {
+          setTenantError('Authentication failed. Please log in again.');
+        } else if (response.status === 404) {
+          // No tenants found - this is not an error, just empty data
+          setTenantCount(0);
+          setTenantError(null);
+          console.log('No tenants found for this owner');
+        } else if (response.status >= 500) {
+          setTenantError('Server error. Please try again later.');
+        } else {
+          setTenantError(`Failed to fetch tenants (${response.status})`);
         }
       }
     } catch (error) {
-      console.error('Error fetching tenant count:', error);
+      console.error('Network error fetching tenant count:', error);
+      
+      if (error.name === 'AbortError') {
+        setTenantError('Request timed out. Please try again.');
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setTenantError('Network error. Please check your connection.');
+      } else {
+        setTenantError('Unexpected error occurred');
+      }
+    } finally {
+      setTenantLoading(false);
     }
   };
 
@@ -84,6 +139,12 @@ const OwnerDashboard = () => {
       fetchTenantCount();
     }
   }, [user]);
+
+  // Retry function for failed tenant fetch
+  const retryTenantFetch = () => {
+    console.log('Retrying tenant fetch...');
+    fetchTenantCount();
+  };
 
   // Mock data for owner dashboard
   const stats = {
@@ -262,16 +323,49 @@ const OwnerDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Active Tenants</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeTenants}</p>
+                {tenantLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                    <span className="text-sm text-gray-500">Loading...</span>
+                  </div>
+                ) : tenantError ? (
+                  <div className="space-y-1">
+                    <p className="text-sm text-red-600">Error loading tenants</p>
+                    <button
+                      onClick={retryTenantFetch}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeTenants}</p>
+                )}
               </div>
-              <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+              <div className={`p-2 sm:p-3 rounded-lg ${
+                tenantError ? 'bg-red-100' : 'bg-green-100'
+              }`}>
+                <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                  tenantError ? 'text-red-600' : 'text-green-600'
+                }`} />
               </div>
             </div>
-            <div className="mt-3 sm:mt-4 flex items-center text-xs sm:text-sm text-green-600">
-              <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              <span>+3 this week</span>
-            </div>
+            {!tenantLoading && !tenantError && (
+              <div className="mt-3 sm:mt-4 flex items-center text-xs sm:text-sm text-green-600">
+                <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <span>{stats.activeTenants > 0 ? '+3 this week' : 'No tenants yet'}</span>
+              </div>
+            )}
+            {tenantError && (
+              <div className="mt-3 sm:mt-4">
+                <p className="text-xs text-gray-500">
+                  {tenantError === 'No tenants found for this owner' 
+                    ? 'Start by adding properties and getting bookings' 
+                    : 'Check your connection and try again'
+                  }
+                </p>
+              </div>
+            )}
           </motion.div>
 
           <motion.div

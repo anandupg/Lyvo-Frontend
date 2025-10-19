@@ -53,7 +53,7 @@ const Tenants = () => {
     return null;
   };
 
-  // Fetch tenants data
+  // Fetch tenants data with comprehensive error handling
   const fetchTenants = async () => {
     try {
       setLoading(true);
@@ -61,47 +61,99 @@ const Tenants = () => {
       const userId = getUserId();
       
       if (!token || !userId) {
+        console.warn('Missing auth token or user ID');
         navigate('/login');
         return;
       }
 
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      console.log('Fetching tenants from:', `${baseUrl}/api/tenants/owner`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${baseUrl}/api/tenants/owner`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch tenants');
-      }
+      clearTimeout(timeoutId);
+      console.log('Tenants fetch response status:', response.status);
 
-      const data = await response.json();
-      console.log('Tenants data:', data);
-      
-      if (data.success) {
-        setTenants(data.tenants || []);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Tenants data:', data);
         
-        // Extract unique properties for filter
-        const uniqueProperties = [...new Set(data.tenants.map(tenant => ({
-          id: tenant.propertyId,
-          name: tenant.propertyName
-        })))];
-        setProperties(uniqueProperties);
+        if (data.success) {
+          setTenants(data.tenants || []);
+          
+          // Extract unique properties for filter
+          const uniqueProperties = [...new Set(data.tenants.map(tenant => ({
+            id: tenant.propertyId,
+            name: tenant.propertyName
+          })))];
+          setProperties(uniqueProperties);
+          
+          console.log(`Successfully fetched ${data.tenants?.length || 0} tenants`);
+        } else {
+          throw new Error(data.message || 'Failed to fetch tenants');
+        }
       } else {
-        throw new Error(data.message || 'Failed to fetch tenants');
+        const errorText = await response.text();
+        console.error('Tenants fetch failed:', response.status, errorText);
+        
+        if (response.status === 401) {
+          toast({
+            title: "Authentication Error",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          });
+          navigate('/login');
+        } else if (response.status === 404) {
+          // No tenants found - this is not an error, just empty data
+          setTenants([]);
+          setProperties([]);
+          console.log('No tenants found for this owner');
+        } else if (response.status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        } else {
+          throw new Error(`Failed to fetch tenants (${response.status})`);
+        }
       }
     } catch (error) {
       console.error('Error fetching tenants:', error);
+      
+      let errorMessage = "Failed to fetch tenants. Please try again.";
+      
+      if (error.name === 'AbortError') {
+        errorMessage = "Request timed out. Please try again.";
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to fetch tenants. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // Set empty state on error to prevent UI issues
+      setTenants([]);
+      setProperties([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Retry function for failed tenant fetch
+  const retryFetchTenants = () => {
+    console.log('Retrying tenant fetch...');
+    fetchTenants();
   };
 
   // Filter tenants based on search and filters
@@ -140,7 +192,7 @@ const Tenants = () => {
   const handleCheckIn = async (tenantId) => {
     try {
       const token = localStorage.getItem('authToken');
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
       
       const response = await fetch(`${baseUrl}/api/tenants/${tenantId}/check-in`, {
         method: 'POST',
@@ -172,7 +224,7 @@ const Tenants = () => {
   const handleCheckOut = async (tenantId) => {
     try {
       const token = localStorage.getItem('authToken');
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
       
       const response = await fetch(`${baseUrl}/api/tenants/${tenantId}/check-out`, {
         method: 'POST',
@@ -317,17 +369,31 @@ const Tenants = () => {
         </Card>
 
         {/* Tenants List */}
-        {filteredTenants.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading tenants...</h3>
+              <p className="text-gray-600">Please wait while we fetch your tenant data.</p>
+            </CardContent>
+          </Card>
+        ) : filteredTenants.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No tenants found</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 {tenants.length === 0 
                   ? "You don't have any tenants yet. Tenants will appear here when bookings are approved."
                   : "No tenants match your current filters."
                 }
               </p>
+              {tenants.length === 0 && (
+                <Button onClick={() => navigate('/owner-properties')} className="mt-2">
+                  <Building className="w-4 h-4 mr-2" />
+                  View Properties
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

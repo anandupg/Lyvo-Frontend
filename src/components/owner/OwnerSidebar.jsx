@@ -7,12 +7,9 @@ import {
   Users,
   User,
   Calendar,
-  DollarSign,
-  FileText,
   Settings,
   BarChart3,
   MessageCircle,
-  Bell,
   LogOut,
   Plus,
   X
@@ -35,11 +32,8 @@ const OwnerSidebar = ({ onClose }) => {
     { name: 'Properties', href: '/owner-properties', icon: Building },
     { name: 'Tenants', href: '/owner-tenants', icon: Users },
     { name: 'Bookings', href: '/owner-bookings', icon: Calendar },
-    { name: 'Finances', href: '/owner-finances', icon: DollarSign },
-    { name: 'Maintenance', href: '/owner-maintenance', icon: FileText },
     { name: 'Analytics', href: '/owner-analytics', icon: BarChart3 },
     { name: 'Messages', href: '/owner-messages', icon: MessageCircle },
-    { name: 'Notifications', href: '/owner-notifications', icon: Bell },
     { name: 'Settings', href: '/owner-settings', icon: Settings },
   ];
 

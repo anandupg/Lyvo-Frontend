@@ -550,11 +550,74 @@ const AdminPropertyDetails = () => {
                 className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
               >
                 <div className="p-6 border-b">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Building className="w-5 h-5 mr-2" />
-                    Rooms ({(property.rooms || []).length})
-                  </h2>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                      <Building className="w-5 h-5 mr-2" />
+                      Rooms ({(property.rooms || []).length})
+                    </h2>
+                    
+                    {/* Bulk Room Actions */}
+                    {(property.rooms || []).some(room => room.approval_status === 'pending') && (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            const pendingRooms = (property.rooms || []).filter(room => room.approval_status === 'pending');
+                            if (window.confirm(`Are you sure you want to approve all ${pendingRooms.length} pending rooms?`)) {
+                              pendingRooms.forEach(room => approveRoom(room._id, 'approve'));
+                            }
+                          }}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Approve All Pending
+                        </button>
+                        <button
+                          onClick={() => {
+                            const pendingRooms = (property.rooms || []).filter(room => room.approval_status === 'pending');
+                            if (window.confirm(`Are you sure you want to reject all ${pendingRooms.length} pending rooms?`)) {
+                              pendingRooms.forEach(room => approveRoom(room._id, 'reject'));
+                            }
+                          }}
+                          className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors flex items-center"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Reject All Pending
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                
+                {/* Room Status Summary */}
+                <div className="px-6 py-4 bg-gray-50 border-b">
+                  <div className="flex items-center space-x-6">
+                    {(property.rooms || []).filter(room => room.approval_status === 'pending').length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm text-gray-600">
+                          {(property.rooms || []).filter(room => room.approval_status === 'pending').length} Pending
+                        </span>
+                      </div>
+                    )}
+                    {(property.rooms || []).filter(room => room.approval_status === 'approved').length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-gray-600">
+                          {(property.rooms || []).filter(room => room.approval_status === 'approved').length} Approved
+                        </span>
+                      </div>
+                    )}
+                    {(property.rooms || []).filter(room => room.approval_status === 'rejected').length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span className="text-sm text-gray-600">
+                          {(property.rooms || []).filter(room => room.approval_status === 'rejected').length} Rejected
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {(property.rooms || []).map((room) => {
@@ -636,6 +699,47 @@ const AdminPropertyDetails = () => {
                               <Eye className="w-4 h-4 inline mr-1" />
                               View Details
                             </button>
+                            
+                            {/* Room Approval Buttons */}
+                            {room.approval_status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveRoom(room._id, 'approve');
+                                  }}
+                                  className="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
+                                >
+                                  <CheckCircle2 className="w-4 h-4 inline mr-1" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveRoom(room._id, 'reject');
+                                  }}
+                                  className="flex-1 bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors flex items-center justify-center"
+                                >
+                                  <XCircle className="w-4 h-4 inline mr-1" />
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Show status for approved/rejected rooms */}
+                            {room.approval_status === 'approved' && (
+                              <div className="flex-1 bg-green-100 text-green-800 px-3 py-2 rounded text-sm text-center font-medium">
+                                <CheckCircle2 className="w-4 h-4 inline mr-1" />
+                                Approved
+                              </div>
+                            )}
+                            
+                            {room.approval_status === 'rejected' && (
+                              <div className="flex-1 bg-red-100 text-red-800 px-3 py-2 rounded text-sm text-center font-medium">
+                                <XCircle className="w-4 h-4 inline mr-1" />
+                                Rejected
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

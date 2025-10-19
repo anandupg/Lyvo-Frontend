@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { 
   Edit, Save, X, User, Mail, Phone, MapPin, Calendar, Shield, Star,
-  Briefcase, Building, CreditCard, Lock, Eye, EyeOff, Bell, Clock
+  Lock, Eye, EyeOff
 } from "lucide-react";
 import ScrollReveal from "../components/ScrollReveal";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
@@ -32,19 +32,6 @@ const Profile = () => {
     location: "",
     joinDate: "",
     bio: "",
-    occupation: "",
-    company: "",
-    workSchedule: "",
-    preferredLocation: "",
-    budget: "",
-    roomType: "",
-    genderPreference: "",
-    lifestyle: "",
-    smoking: false,
-    pets: false,
-    cleanliness: "",
-    noiseLevel: "",
-    amenities: [],
     isVerified: false,
     trustScore: 0,
     profilePicture: ""
@@ -96,19 +83,6 @@ const Profile = () => {
           phone: parsedUser.phone || "",
           location: parsedUser.location || "",
           bio: parsedUser.bio || "",
-          occupation: parsedUser.occupation || "",
-          company: parsedUser.company || "",
-          workSchedule: parsedUser.workSchedule || "",
-          preferredLocation: parsedUser.preferredLocation || "",
-          budget: parsedUser.budget || "",
-          roomType: parsedUser.roomType || "",
-          genderPreference: parsedUser.genderPreference || "",
-          lifestyle: parsedUser.lifestyle || "",
-          cleanliness: parsedUser.cleanliness || "",
-          noiseLevel: parsedUser.noiseLevel || "",
-          smoking: parsedUser.smoking || false,
-          pets: parsedUser.pets || false,
-          amenities: parsedUser.amenities || [],
           isVerified: parsedUser.isVerified || false,
           trustScore: 95,
           joinDate: parsedUser.createdAt ? new Date(parsedUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "Recently"
@@ -151,19 +125,7 @@ const Profile = () => {
         name: profileData.name,
         phone: profileData.phone,
         location: profileData.location,
-        bio: profileData.bio,
-        occupation: profileData.occupation,
-        company: profileData.company,
-        workSchedule: profileData.workSchedule,
-        preferredLocation: profileData.preferredLocation,
-        budget: profileData.budget,
-        roomType: profileData.roomType,
-        genderPreference: profileData.genderPreference,
-        lifestyle: profileData.lifestyle,
-        cleanliness: profileData.cleanliness,
-        noiseLevel: profileData.noiseLevel,
-        smoking: profileData.smoking,
-        pets: profileData.pets
+        bio: profileData.bio
       };
 
       // Call the backend API
@@ -453,144 +415,6 @@ const Profile = () => {
               </div>
             </ScrollReveal>
 
-            {/* Professional Information */}
-            <ScrollReveal delay={0.2}>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Professional Information</h2>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Occupation</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.occupation}
-                        onChange={(e) => handleInputChange("occupation", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium flex items-center">
-                        <Briefcase className="w-4 h-4 mr-2 text-gray-400" />
-                        {profileData.occupation}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Company</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.company}
-                        onChange={(e) => handleInputChange("company", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium flex items-center">
-                        <Building className="w-4 h-4 mr-2 text-gray-400" />
-                        {profileData.company}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Work Schedule</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.workSchedule}
-                        onChange={(e) => handleInputChange("workSchedule", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium flex items-center">
-                        <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                        {profileData.workSchedule}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
-
-            {/* Co-living Preferences */}
-            <ScrollReveal delay={0.3}>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Co-living Preferences</h2>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Location</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.preferredLocation}
-                        onChange={(e) => handleInputChange("preferredLocation", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium">{profileData.preferredLocation}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Budget Range</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.budget}
-                        onChange={(e) => handleInputChange("budget", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium">{profileData.budget}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.roomType}
-                        onChange={(e) => handleInputChange("roomType", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium">{profileData.roomType}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Gender Preference</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={profileData.genderPreference}
-                        onChange={(e) => handleInputChange("genderPreference", e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3 font-medium">{profileData.genderPreference}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Preferred Amenities</label>
-                  <div className="flex flex-wrap gap-2">
-                    {profileData.amenities.map((amenity) => (
-                      <span
-                        key={amenity}
-                        className="px-3 py-1 bg-red-500/10 text-red-600 rounded-full text-sm font-medium"
-                      >
-                        {amenity}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
           </div>
 
           {/* Right Column - Stats & Settings */}
@@ -621,95 +445,10 @@ const Profile = () => {
                     <span>Change Password</span>
                   </button>
                   
-                  <button className="w-full px-4 py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2">
-                    <Bell className="w-4 h-4" />
-                    <span>Notification Settings</span>
-                  </button>
-                  
-                  <button className="w-full px-4 py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2">
-                    <CreditCard className="w-4 h-4" />
-                    <span>Payment Methods</span>
-                  </button>
                 </div>
               </div>
             </ScrollReveal>
 
-            {/* Lifestyle Preferences */}
-            <ScrollReveal delay={0.3}>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Lifestyle</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Cleanliness</span>
-                    {isEditing ? (
-                      <select
-                        value={profileData.cleanliness}
-                        onChange={(e) => handleInputChange("cleanliness", e.target.value)}
-                        className="text-sm font-medium text-gray-900 bg-transparent border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
-                      >
-                        <option value="">Select</option>
-                        <option value="Very Clean">Very Clean</option>
-                        <option value="Clean">Clean</option>
-                        <option value="Moderate">Moderate</option>
-                        <option value="Relaxed">Relaxed</option>
-                      </select>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-900">{profileData.cleanliness || "Not specified"}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Noise Level</span>
-                    {isEditing ? (
-                      <select
-                        value={profileData.noiseLevel}
-                        onChange={(e) => handleInputChange("noiseLevel", e.target.value)}
-                        className="text-sm font-medium text-gray-900 bg-transparent border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
-                      >
-                        <option value="">Select</option>
-                        <option value="Quiet">Quiet</option>
-                        <option value="Moderate">Moderate</option>
-                        <option value="Social">Social</option>
-                        <option value="Party">Party</option>
-                      </select>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-900">{profileData.noiseLevel || "Not specified"}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Smoking</span>
-                    {isEditing ? (
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={profileData.smoking}
-                          onChange={(e) => handleInputChange("smoking", e.target.checked)}
-                          className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                        />
-                        <span className="text-sm font-medium text-gray-900">{profileData.smoking ? "Yes" : "No"}</span>
-                      </label>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-900">{profileData.smoking ? "Yes" : "No"}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Pets</span>
-                    {isEditing ? (
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={profileData.pets}
-                          onChange={(e) => handleInputChange("pets", e.target.checked)}
-                          className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                        />
-                        <span className="text-sm font-medium text-gray-900">{profileData.pets ? "Yes" : "No"}</span>
-                      </label>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-900">{profileData.pets ? "Yes" : "No"}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
           </div>
         </div>
 

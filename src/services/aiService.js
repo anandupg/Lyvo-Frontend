@@ -75,14 +75,67 @@ class AIService {
         throw new Error("Google Gemini API key not found");
       }
 
-      // Test the API connection
-      await this.testConnection();
+      // Test the API connection with retry logic
+      await this.testConnectionWithRetry();
       
       this.isInitialized = true;
       console.log("Google Gemini Pro AI Service initialized successfully");
     } catch (error) {
       console.error("Failed to initialize Gemini AI Service:", error);
-      throw error;
+      // Don't throw error - allow fallback responses to work
+      console.log("🔄 AI Service will use fallback responses due to initialization failure");
+      this.isInitialized = false; // Mark as not initialized to use fallbacks
+    }
+  }
+
+  async testConnectionWithRetry() {
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Testing Gemini API connection (attempt ${attempt}/${maxRetries})`);
+        
+        const testResponse = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: "Hello, respond with 'Connection successful'"
+              }]
+            }]
+          })
+        });
+
+        if (testResponse.ok) {
+          console.log("✅ Gemini API connection test successful");
+          return;
+        } else if (testResponse.status === 429) {
+          console.warn(`⚠️ Rate limit hit (429). Attempt ${attempt}/${maxRetries}`);
+          if (attempt < maxRetries) {
+            console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            continue;
+          }
+        }
+        
+        throw new Error(`API test failed: ${testResponse.status}`);
+      } catch (error) {
+        console.error(`❌ Gemini API connection test failed (attempt ${attempt}):`, error);
+        
+        if (attempt === maxRetries) {
+          console.warn("🚫 All retry attempts failed. AI service will use fallback responses.");
+          throw error;
+        }
+        
+        if (error.message.includes('429')) {
+          console.log(`⏳ Rate limit detected. Waiting ${retryDelay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
     }
   }
 
@@ -114,9 +167,23 @@ class AIService {
   }
 
   async getChatResponse(messages, model = "gemini-2.5-flash") {
+    // If not initialized, try to initialize but don't fail if it doesn't work
     if (!this.isInitialized) {
       console.log("🔄 Initializing AI service...");
-      await this.initialize();
+      try {
+        await this.initialize();
+      } catch (error) {
+        console.log("⚠️ AI service initialization failed, using fallback responses");
+      }
+    }
+
+    // If still not initialized (due to API issues), use fallback responses
+    if (!this.isInitialized) {
+      console.log("🔄 Using fallback responses due to AI service unavailability");
+      const userMessage = messages[messages.length - 1]?.content || "";
+      const fallbackResponse = this.getFallbackResponse(userMessage);
+      console.log("📝 Fallback response:", fallbackResponse);
+      return fallbackResponse;
     }
 
     try {

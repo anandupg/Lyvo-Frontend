@@ -27,6 +27,7 @@ const SeekerDashboard = () => {
   const [favoritePGs, setFavoritePGs] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
   
   // Google Maps and Location Search States
   const [searchQuery, setSearchQuery] = useState('');
@@ -624,17 +625,108 @@ const SeekerDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocation]);
 
+  // Check if user has confirmed booking and redirect to PostBookingDashboard
+  const checkAndRedirectToBookingDashboard = async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = userData.id || userData._id || userData.userId;
+      
+      if (!userId) return;
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/bookings/user?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const bookings = data.bookings || [];
+        
+        // Find the most recent confirmed booking
+        const confirmedBookings = bookings.filter(booking => 
+          booking.status === 'confirmed' && 
+          booking.payment?.paymentStatus === 'completed'
+        );
+        
+        if (confirmedBookings.length > 0) {
+          // Get the most recent confirmed booking
+          const latestBooking = confirmedBookings.sort((a, b) => 
+            new Date(b.createdAt) - new Date(a.createdAt)
+          )[0];
+          
+          console.log('User has confirmed booking, redirecting to BasicRoomDashboard:', latestBooking._id);
+          navigate(`/my-room`);
+          return true; // Indicates redirect happened
+        }
+      }
+    } catch (error) {
+      console.error('Error checking booking status for redirect:', error);
+    }
+    return false; // No redirect happened
+  };
+
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     setUser(userData);
 
-    // Clear mock sections until real endpoints exist
-    setRecentSearches([]);
+    // Check if this is the user's first login
+    const checkFirstLogin = () => {
+      const userId = userData._id || userData.id;
+      const lastLoginKey = `lastLogin_${userId}`;
+      const lastLogin = localStorage.getItem(lastLoginKey);
+      
+      if (!lastLogin) {
+        // First time logging in
+        setIsFirstLogin(true);
+        // Set current timestamp as last login
+        localStorage.setItem(lastLoginKey, new Date().toISOString());
+      } else {
+        // Not first login
+        setIsFirstLogin(false);
+        // Update last login timestamp
+        localStorage.setItem(lastLoginKey, new Date().toISOString());
+      }
+    };
 
-    // Fetch real data
-    fetchPropertyRecommendations();
-    fetchFavoritesCount();
-    fetchBookingsCount();
+    checkFirstLogin();
+
+    // Check if user has confirmed booking and redirect
+    checkAndRedirectToBookingDashboard().then((redirected) => {
+      if (!redirected) {
+        // Only fetch data if no redirect happened
+        // Clear mock sections until real endpoints exist
+        setRecentSearches([]);
+
+        // Fetch real data
+        fetchPropertyRecommendations();
+        fetchFavoritesCount();
+        fetchBookingsCount();
+      }
+    });
+
+    // Listen for booking status changes
+    const handleBookingStatusChange = (event) => {
+      console.log('Booking status change detected:', event.detail);
+      if (event.detail.status === 'confirmed' || event.detail.status === 'approved') {
+        // Redirect to PostBookingDashboard when booking is confirmed
+        setTimeout(() => {
+          checkAndRedirectToBookingDashboard();
+        }, 1000); // Small delay to ensure booking is saved
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('booking-approved', handleBookingStatusChange);
+    window.addEventListener('booking-status-changed', handleBookingStatusChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('booking-approved', handleBookingStatusChange);
+      window.removeEventListener('booking-status-changed', handleBookingStatusChange);
+    };
   }, []);
 
   // Fetch property recommendations from the database
@@ -660,6 +752,24 @@ const SeekerDashboard = () => {
 
       const data = await response.json();
       const properties = data.properties || [];
+      
+      console.log('=== RAW PROPERTIES DATA ===');
+      console.log('Total properties from API:', properties.length);
+      properties.forEach((property, index) => {
+        console.log(`\nProperty ${index + 1}:`);
+        console.log('  _id:', property._id);
+        console.log('  propertyName:', property.propertyName);
+        console.log('  address:', property.address);
+        console.log('  rent:', property.rent);
+        console.log('  propertyType:', property.propertyType);
+        console.log('  maxOccupancy:', property.maxOccupancy);
+        console.log('  amenities:', property.amenities);
+        console.log('  images:', property.images);
+        console.log('  description:', property.description);
+        console.log('  latitude:', property.latitude);
+        console.log('  longitude:', property.longitude);
+      });
+      console.log('=== END RAW PROPERTIES ===');
 
       // Transform properties to recommendations format (limit to 4 for display)
       const recommendations = properties
@@ -681,6 +791,23 @@ const SeekerDashboard = () => {
         }));
 
       setRecommendations(recommendations);
+      console.log('=== RECOMMENDATIONS DATA ===');
+      console.log('Total recommendations:', recommendations.length);
+      recommendations.forEach((rec, index) => {
+        console.log(`\nRecommendation ${index + 1}:`);
+        console.log('  ID:', rec.id);
+        console.log('  Name:', rec.name);
+        console.log('  Location:', rec.location);
+        console.log('  Price:', rec.price);
+        console.log('  Rating:', rec.rating);
+        console.log('  Distance:', rec.distance);
+        console.log('  Match Score:', rec.matchScore + '%');
+        console.log('  Property Type:', rec.propertyType);
+        console.log('  Max Occupancy:', rec.maxOccupancy);
+        console.log('  Amenities:', rec.amenities);
+        console.log('  Image URL:', rec.image);
+      });
+      console.log('=== END RECOMMENDATIONS ===');
     } catch (error) {
       console.error('Error fetching property recommendations:', error);
       
@@ -826,10 +953,13 @@ const SeekerDashboard = () => {
           className="mb-8"
         >
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user.name || 'User'}! 👋
+            {isFirstLogin ? 'Welcome' : 'Welcome back'}, {user.name || 'User'}! 👋
           </h1>
           <p className="text-gray-600">
-            Ready to find your perfect PG? Here's what's happening with your account.
+            {isFirstLogin 
+              ? "Welcome to Lyvo+! Let's help you find your perfect co-living space." 
+              : "Ready to find your perfect PG? Here's what's happening with your account."
+            }
           </p>
         </motion.div>
 
@@ -1099,6 +1229,7 @@ const SeekerDashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 + index * 0.1, duration: 0.5 }}
                     className="group cursor-pointer"
+                    onClick={() => openPropertyDetails(pg.id)}
                   >
                     <div className="relative overflow-hidden rounded-lg">
                       <img

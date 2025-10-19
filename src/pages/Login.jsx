@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import axios from "axios";
+import { getUserFromStorage, getAuthToken, getUserRole, getRedirectUrl } from "../utils/authUtils";
 
 const API_URL = 'http://localhost:4002/api/user';
 
@@ -65,31 +66,15 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('user');
+    const token = getAuthToken();
+    const user = getUserFromStorage();
+    
     if (token && user) {
-      try {
-        const userData = JSON.parse(user);
-        console.log('Login: User already logged in with role:', userData.role);
-        
-        // Role-based redirect for already logged-in users
-        if (userData.role === 2) {
-          navigate('/admin-dashboard', { replace: true });
-        } else if (userData.role === 3) {
-          navigate('/owner-dashboard', { replace: true });
-        } else {
-          if ((userData.isNewUser !== false) && !userData.hasCompletedBehaviorQuestions) {
-            navigate('/seeker-onboarding', { replace: true });
-          } else {
-            navigate('/seeker-dashboard', { replace: true });
-          }
-        }
-      } catch (error) {
-        console.error('Login: Error parsing user data:', error);
-        // If there's an error parsing user data, clear localStorage and stay on login
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-      }
+      const userRole = getUserRole(user);
+      
+      // Role-based redirect for already logged-in users
+      const redirectUrl = getRedirectUrl(user);
+      navigate(redirectUrl, { replace: true });
     }
   }, [navigate]);
 
@@ -100,6 +85,7 @@ const Login = () => {
 
       const result = await axios.post(`${API_URL}/google-signin`, {
         credential: response.credential,
+        // Don't pass role for login - let backend use existing user's role
       });
 
       // Store user data and token
@@ -114,19 +100,9 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Role-based redirect
-      if (result.data.user && result.data.user.role === 2) {
-        navigate('/admin-dashboard');
-      } else if (result.data.user && result.data.user.role === 3) {
-        navigate('/owner-dashboard');
-      } else {
-        const u = result.data.user;
-        if ((u.isNewUser !== false) && !u.hasCompletedBehaviorQuestions) {
-          navigate('/seeker-onboarding');
-        } else {
-          navigate('/seeker-dashboard');
-        }
-      }
+      // Use utility function for role-based redirect
+      const redirectUrl = getRedirectUrl(result.data.user);
+      navigate(redirectUrl);
       
     } catch (err) {
       setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
@@ -156,19 +132,10 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Role-based redirect
-      if (response.data.user && response.data.user.role === 2) {
-        navigate('/admin-dashboard');
-      } else if (response.data.user && response.data.user.role === 3) {
-        navigate('/owner-dashboard');
-      } else {
-        const u = response.data.user;
-        if ((u.isNewUser !== false) && !u.hasCompletedBehaviorQuestions) {
-          navigate('/seeker-onboarding');
-        } else {
-          navigate('/seeker-dashboard');
-        }
-      }
+      // Role-based redirect using utility function
+      const userRole = getUserRole(response.data.user);
+      const redirectUrl = getRedirectUrl(response.data.user);
+      navigate(redirectUrl);
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');
     } finally {
@@ -310,6 +277,12 @@ const Login = () => {
                 className="text-sm text-red-600 hover:text-red-700 hover:underline"
               >
                 Forgot your password?
+              </Link>
+              <Link
+                to="/resend-verification"
+                className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Resend verification email
               </Link>
             </div>
 

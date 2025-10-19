@@ -96,8 +96,8 @@ const RoomOwnerSignup = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Navigate to dashboard
-      navigate('/dashboard');
+      // Navigate to owner dashboard
+      navigate('/owner-dashboard');
       
     } catch (err) {
       setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');

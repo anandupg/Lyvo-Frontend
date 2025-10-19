@@ -30,6 +30,7 @@ const Signup = () => {
   const [completedFields, setCompletedFields] = useState({ name: false, email: false, password: false, confirmPassword: false });
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
+  const [emailInfo, setEmailInfo] = useState(null);
   const navigate = useNavigate();
 
   // Initialize Google Sign-In
@@ -90,6 +91,7 @@ const Signup = () => {
 
       const result = await axios.post(`${API_URL}/google-signin`, {
         credential: response.credential,
+        role: 1, // Set role as seeker for regular signup
       });
 
       // Store user data and token
@@ -99,8 +101,13 @@ const Signup = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Navigate to home
-      navigate('/');
+      // Role-based redirect for seeker
+      const user = result.data.user;
+      if (user.isNewUser && !user.hasCompletedBehaviorQuestions) {
+        navigate('/seeker-onboarding');
+      } else {
+        navigate('/seeker-dashboard');
+      }
       
     } catch (err) {
       setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
@@ -284,9 +291,15 @@ const Signup = () => {
     const previousField = fieldOrder[currentIndex - 1];
     const isPreviousFieldCompleted = completedFields[previousField];
     
-    // Special case for password field - email must be completed AND not exist in DB
+    // Special case for password field - email must be completed AND either:
+    // 1. Email doesn't exist in DB, OR
+    // 2. Email exists but user is not verified (unverified users can re-register)
     if (fieldName === 'password') {
-      return isPreviousFieldCompleted && !emailExists;
+      // Always allow if email field is completed and no blocking conditions
+      const isEmailCompleted = completedFields.email;
+      const isEmailBlocked = emailExists && emailInfo && emailInfo.isVerified;
+      
+      return isEmailCompleted && !isEmailBlocked;
     }
     
     return isPreviousFieldCompleted;
@@ -294,13 +307,15 @@ const Signup = () => {
 
   // Check if all fields are completed and valid
   const isFormReady = () => {
-    return completedFields.name && completedFields.email && completedFields.password && completedFields.confirmPassword && !emailExists;
+    // Allow form submission if email exists but user is not verified (unverified users can re-register)
+    return completedFields.name && completedFields.email && completedFields.password && completedFields.confirmPassword;
   };
 
   // Check if email exists in database
   const checkEmailExists = async (email) => {
     if (!email || !email.includes('@')) {
       setEmailExists(false);
+      setEmailInfo(null);
       return;
     }
 
@@ -316,9 +331,19 @@ const Signup = () => {
       
       if (response.ok) {
         setEmailExists(data.exists);
+        setEmailInfo(data);
+        
         if (data.exists) {
-          setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
-          setCompletedFields(prev => ({ ...prev, email: false }));
+          // Only show error if user is verified
+          if (data.isVerified) {
+            setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
+            setCompletedFields(prev => ({ ...prev, email: false }));
+          } else {
+            // User exists but not verified - allow registration
+            setErrors(prev => ({ ...prev, email: '' }));
+            // Allow unverified users to proceed regardless of email format
+            setCompletedFields(prev => ({ ...prev, email: true }));
+          }
         } else {
           setErrors(prev => ({ ...prev, email: '' }));
           // Re-validate email format
@@ -327,9 +352,13 @@ const Signup = () => {
         }
       } else {
         console.error('Email check failed:', data);
+        setEmailExists(false);
+        setEmailInfo(null);
       }
     } catch (error) {
       console.error('Error checking email:', error);
+      setEmailExists(false);
+      setEmailInfo(null);
     } finally {
       setEmailChecking(false);
     }
@@ -645,14 +674,14 @@ const Signup = () => {
                   </div>
                 )}
               </div>
-              {(formData.email && (errors.email || emailExists)) && (
+              {(formData.email && (errors.email || (emailExists && emailInfo && emailInfo.isVerified))) && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-1 text-sm text-red-600 flex items-center gap-1"
                 >
                   <X className="w-4 h-4" />
-                  {emailExists ? 'Email already registered. Please use a different email.' : errors.email}
+                  {emailExists && emailInfo && emailInfo.isVerified ? 'Email already registered. Please use a different email.' : errors.email}
                 </motion.p>
               )}
               {formData.email && !errors.email && !emailExists && completedFields.email && (
@@ -665,13 +694,26 @@ const Signup = () => {
                   Email is available
                 </motion.p>
               )}
+              {formData.email && !errors.email && emailInfo && emailInfo.isUnverified && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-blue-600 flex items-center gap-1"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {emailInfo.note || 'This email was previously registered but not verified. You can register again.'}
+                </motion.p>
+              )}
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password {completedFields.password && <CheckCircle className="inline w-4 h-4 text-green-500 ml-1" />}
-                {!canAccessField('password') && emailExists && (
-                  <span className="text-xs text-red-500 ml-2">(Complete email validation first)</span>
+                {!canAccessField('password') && emailExists && emailInfo && emailInfo.isVerified && (
+                  <span className="text-xs text-red-500 ml-2">(Email already registered - use different email)</span>
+                )}
+                {!canAccessField('password') && emailExists && emailInfo && emailInfo.isUnverified && (
+                  <span className="text-xs text-blue-500 ml-2">(Complete email validation first)</span>
                 )}
               </label>
               <div className="relative">

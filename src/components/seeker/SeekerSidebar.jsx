@@ -104,6 +104,8 @@ const SeekerSidebar = ({ onClose }) => {
 
   // Base navigation items
   const baseNavigation = [
+    { name: 'My Room', href: '/my-room', icon: Home },
+    { name: 'My Booking', href: '/seeker-bookings', icon: Calendar },
     { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
     { name: 'Messages', href: '/seeker-messages', icon: MessageCircle },
     { name: 'Profile', href: '/seeker-profile', icon: User },
