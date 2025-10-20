@@ -97,7 +97,6 @@ const SeekerPropertyDetails = () => {
                 <Star className="w-4 h-4 text-yellow-400 fill-current" />
                 <span className="text-sm">4.5</span>
               </div>
-              <div className="text-lg font-semibold text-red-600">{property.rent ? `₹${Number(property.rent).toLocaleString()}` : 'Price not available'}</div>
             </div>
           </div>
 

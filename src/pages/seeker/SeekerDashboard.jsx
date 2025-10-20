@@ -1219,7 +1219,7 @@ const SeekerDashboard = () => {
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Recommended for You</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Available Rooms</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {recommendations.map((pg, index) => (
@@ -1250,8 +1250,7 @@ const SeekerDashboard = () => {
                         <span className="text-sm text-gray-600">{pg.location}</span>
                         <span className="text-xs text-gray-400">• {pg.distance}</span>
                       </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-lg font-bold text-gray-900">{pg.price}</span>
+                      <div className="flex items-center mt-2">
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
                           <span className="text-sm text-gray-600">{pg.rating}</span>

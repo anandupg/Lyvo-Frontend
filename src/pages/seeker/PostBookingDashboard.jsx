@@ -79,6 +79,7 @@ const PostBookingDashboard = () => {
     documents: false
   });
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = useState('');
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -219,15 +220,27 @@ const PostBookingDashboard = () => {
   const generateReceipt = async () => {
     setIsGeneratingReceipt(true);
     try {
-      // Simulate receipt generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Generate receipt HTML content
+      const receiptContent = generateReceiptHTML();
+      
+      // Create a new window for printing/downloading
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(receiptContent);
+      printWindow.document.close();
+      
+      // Wait for content to load then trigger print
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
       
       toast({
         title: "Receipt Generated!",
-        description: "Your booking receipt has been downloaded",
+        description: "Your booking receipt has been opened for download/printing",
         variant: "default",
       });
     } catch (error) {
+      console.error('Error generating receipt:', error);
       toast({
         title: "Error",
         description: "Failed to generate receipt",
@@ -238,14 +251,169 @@ const PostBookingDashboard = () => {
     }
   };
 
+  const generateReceiptHTML = () => {
+    const monthlyRent = room?.rent || booking.rent || 0;
+    const securityDeposit = property?.security_deposit || booking.securityDeposit || booking.propertySnapshot?.security_deposit || monthlyRent;
+    const totalAmount = monthlyRent + securityDeposit;
+    const advancePaid = totalAmount * 0.1;
+    const remaining = totalAmount * 0.9;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Booking Receipt - ${property?.propertyName || 'Property'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+          .receipt-title { font-size: 20px; margin: 10px 0; }
+          .receipt-info { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+          .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+          .info-label { font-weight: bold; }
+          .section { margin-bottom: 25px; }
+          .section-title { font-size: 18px; font-weight: bold; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 15px; }
+          .payment-table { width: 100%; border-collapse: collapse; }
+          .payment-table th, .payment-table td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+          .payment-table th { background: #f3f4f6; font-weight: bold; }
+          .total-row { font-weight: bold; background: #f0f9ff; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #6b7280; }
+          @media print { body { margin: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">Lyvo+</div>
+          <div class="receipt-title">Booking Receipt</div>
+          <div>Generated on: ${new Date().toLocaleDateString()}</div>
+        </div>
+        
+        <div class="receipt-info">
+          <div class="info-row">
+            <span class="info-label">Receipt Number:</span>
+            <span>LYV-${booking._id?.slice(-8)?.toUpperCase() || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Booking Date:</span>
+            <span>${formatDateTime(booking.createdAt)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span style="color: #059669; font-weight: bold;">CONFIRMED</span>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Property Details</div>
+          <div class="info-row">
+            <span class="info-label">Property Name:</span>
+            <span>${property?.propertyName || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Address:</span>
+            <span>${property?.address || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Room Number:</span>
+            <span>Room ${room?.roomNumber || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Room Type:</span>
+            <span>${room?.roomType || 'N/A'}</span>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Booking Period</div>
+          <div class="info-row">
+            <span class="info-label">Check-in Date:</span>
+            <span>${formatDate(booking.checkInDate)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Check-out Date:</span>
+            <span>${formatDate(booking.checkOutDate)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Duration:</span>
+            <span>${Math.ceil((new Date(booking.checkOutDate) - new Date(booking.checkInDate)) / (1000 * 60 * 60 * 24))} days</span>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Payment Summary</div>
+          <table class="payment-table">
+            <tr>
+              <th>Description</th>
+              <th>Amount</th>
+            </tr>
+            <tr>
+              <td>Monthly Rent</td>
+              <td>₹${monthlyRent.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td>Security Deposit</td>
+              <td>₹${securityDeposit.toLocaleString()}</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>Total Amount</strong></td>
+              <td><strong>₹${totalAmount.toLocaleString()}</strong></td>
+            </tr>
+            <tr>
+              <td>Advance Paid (10%)</td>
+              <td style="color: #059669;">₹${advancePaid.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td>Remaining (90%)</td>
+              <td style="color: #d97706;">₹${remaining.toLocaleString()}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Payment Status</div>
+          <div class="info-row">
+            <span class="info-label">Payment Status:</span>
+            <span style="color: #059669; font-weight: bold;">COMPLETED</span>
+          </div>
+          ${booking.payment?.transactionId ? `
+          <div class="info-row">
+            <span class="info-label">Transaction ID:</span>
+            <span>${booking.payment.transactionId}</span>
+          </div>
+          ` : ''}
+        </div>
+        
+        <div class="footer">
+          <p>Thank you for choosing Lyvo+!</p>
+          <p>For any queries, contact us at support@lyvo.com</p>
+          <p>This is a computer-generated receipt and does not require a signature.</p>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   const getDirections = () => {
-    if (property && property.latitude && property.longitude) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`;
+    // Try room coordinates first, then property coordinates
+    const coordinates = (room && room.latitude && room.longitude) 
+      ? { lat: room.latitude, lng: room.longitude, type: 'room' }
+      : (property && property.latitude && property.longitude)
+      ? { lat: property.latitude, lng: property.longitude, type: 'property' }
+      : null;
+
+    if (coordinates) {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${coordinates.lat},${coordinates.lng}`;
       window.open(url, '_blank');
+      
+      toast({
+        title: "Directions Opened",
+        description: `Opening directions to ${coordinates.type === 'room' ? 'your room' : 'the property'}`,
+        variant: "default",
+      });
     } else {
       toast({
         title: "Location Not Available",
-        description: "Property location coordinates are not available",
+        description: "Property and room location coordinates are not available",
         variant: "destructive",
       });
     }
@@ -263,6 +431,123 @@ const PostBookingDashboard = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const generateQRCode = () => {
+    try {
+      // Create booking data for QR code
+      const bookingData = {
+        bookingId: booking._id,
+        propertyName: property?.propertyName,
+        roomNumber: room?.roomNumber,
+        checkInDate: booking.checkInDate,
+        checkOutDate: booking.checkOutDate,
+        status: booking.status,
+        generatedAt: new Date().toISOString()
+      };
+
+      // Create a simple QR code using canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const size = 200;
+      canvas.width = size;
+      canvas.height = size;
+
+      // Generate a simple pattern-based QR code
+      const dataString = JSON.stringify(bookingData);
+      const pattern = generateQRPattern(dataString, size);
+      
+      // Draw the QR pattern
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, size, size);
+      
+      ctx.fillStyle = '#FFFFFF';
+      for (let i = 0; i < size; i += 10) {
+        for (let j = 0; j < size; j += 10) {
+          if (pattern[i / 10][j / 10]) {
+            ctx.fillRect(i, j, 8, 8);
+          }
+        }
+      }
+
+      // Convert to data URL
+      const dataURL = canvas.toDataURL('image/png');
+      setQrCodeDataURL(dataURL);
+      
+      toast({
+        title: "QR Code Generated!",
+        description: "Your booking QR code is ready",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate QR code",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateQRPattern = (data, size) => {
+    const pattern = [];
+    const moduleSize = 10;
+    const modules = size / moduleSize;
+    
+    // Initialize pattern
+    for (let i = 0; i < modules; i++) {
+      pattern[i] = [];
+      for (let j = 0; j < modules; j++) {
+        pattern[i][j] = false;
+      }
+    }
+    
+    // Add corner markers
+    const addCornerMarker = (startX, startY) => {
+      for (let i = 0; i < 7; i++) {
+        for (let j = 0; j < 7; j++) {
+          if (startX + i < modules && startY + j < modules) {
+            pattern[startX + i][startY + j] = (i === 0 || i === 6 || j === 0 || j === 6 || 
+                                             (i >= 2 && i <= 4 && j >= 2 && j <= 4));
+          }
+        }
+      }
+    };
+    
+    // Add corner markers
+    addCornerMarker(0, 0);
+    addCornerMarker(modules - 7, 0);
+    addCornerMarker(0, modules - 7);
+    
+    // Add data pattern based on string hash
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      hash = ((hash << 5) - hash + data.charCodeAt(i)) & 0xffffffff;
+    }
+    
+    // Fill remaining modules with pseudo-random pattern
+    for (let i = 0; i < modules; i++) {
+      for (let j = 0; j < modules; j++) {
+        // Skip corner markers
+        if ((i < 7 && j < 7) || 
+            (i >= modules - 7 && j < 7) || 
+            (i < 7 && j >= modules - 7)) {
+          continue;
+        }
+        
+        // Skip timing patterns
+        if (i === 6 || j === 6) {
+          pattern[i][j] = (i + j) % 2 === 0;
+          continue;
+        }
+        
+        // Add pseudo-random pattern
+        const seed = (hash + i * 31 + j * 17) % 1000;
+        pattern[i][j] = seed % 2 === 0;
+      }
+    }
+    
+    return pattern;
   };
 
   const shareBooking = () => {
@@ -384,12 +669,20 @@ const PostBookingDashboard = () => {
 
   const canCancelBooking = () => {
     if (!booking) return false;
-    const checkInDate = new Date(booking.checkInDate);
-    const today = new Date();
-    const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
     
-    // Allow cancellation if booking is confirmed and check-in is more than 24 hours away
-    return booking.status === 'confirmed' && daysUntilCheckIn > 1;
+    // Allow cancellation for pending bookings (not yet approved)
+    if (booking.status === 'pending') return true;
+    
+    // For confirmed bookings, check if check-in is more than 24 hours away
+    if (booking.status === 'confirmed') {
+      const checkInDate = new Date(booking.checkInDate);
+      const today = new Date();
+      const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
+      return daysUntilCheckIn > 1;
+    }
+    
+    // Cannot cancel rejected or already cancelled bookings
+    return false;
   };
 
   if (loading) {
@@ -619,21 +912,10 @@ const PostBookingDashboard = () => {
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       Booking Details
                     </h2>
-                    <button
-                      onClick={() => copyToClipboard(booking._id, 'Booking ID')}
-                      className="text-blue-600 hover:text-blue-700 flex items-center text-xs sm:text-sm self-start sm:self-auto"
-                    >
-                      <Copy className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      Copy ID
-                    </button>
                   </div>
                 </div>
                 <div className="p-4 sm:p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Booking ID</label>
-                      <p className="text-lg font-semibold text-gray-900 font-mono">{booking._id}</p>
-                    </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Booking Date</label>
                       <p className="text-lg font-semibold text-gray-900">{formatDateTime(booking.createdAt)}</p>
@@ -732,10 +1014,6 @@ const PostBookingDashboard = () => {
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Completed
                           </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Booking ID:</span>
-                          <span className="text-sm font-mono text-gray-600">{booking._id}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-700">Confirmed On:</span>
@@ -1003,7 +1281,11 @@ const PostBookingDashboard = () => {
                         <XCircle className="w-5 h-5 text-red-500 mt-0.5" />
                         <div>
                           <h3 className="font-semibold text-gray-900">Cancellation Policy</h3>
-                          <p className="text-gray-600">You can cancel your booking up to 24 hours before check-in. Cancellation after this period may incur charges.</p>
+                          <p className="text-gray-600">
+                            {booking.status === 'pending' 
+                              ? 'You can cancel your pending booking at any time before owner approval.'
+                              : 'You can cancel your booking up to 24 hours before check-in. Cancellation after this period may incur charges.'}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -1118,13 +1400,7 @@ const PostBookingDashboard = () => {
                     <Navigation className="w-4 h-4 mr-2" />
                     Get Directions
                   </button>
-                  <button 
-                    onClick={() => setShowQRCode(!showQRCode)}
-                    className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center"
-                  >
-                    <QrCode className="w-4 h-4 mr-2" />
-                    {showQRCode ? 'Hide QR Code' : 'Show QR Code'}
-                  </button>
+                  
                   <button 
                     onClick={shareBooking}
                     className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center"
@@ -1143,16 +1419,7 @@ const PostBookingDashboard = () => {
                   )}
                 </div>
                 
-                {/* QR Code Display */}
-                {showQRCode && (
-                  <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg text-center">
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-lg mx-auto mb-2 flex items-center justify-center">
-                      <QrCode className="w-16 h-16 sm:w-24 sm:h-24 text-gray-400" />
-                    </div>
-                    <p className="text-xs text-gray-600">Booking QR Code</p>
-                    <p className="text-xs text-gray-500 font-mono break-all">{booking._id}</p>
-                  </div>
-                )}
+                
               </motion.div>
 
               {/* Payment Summary */}
@@ -1175,32 +1442,36 @@ const PostBookingDashboard = () => {
                   </button>
                 </div>
                 
-                {expandedSections.payment && (
+                {expandedSections.payment && (() => {
+                  const monthlyRent = room?.rent || booking.rent || 0;
+                  const securityDeposit = property?.security_deposit || booking.securityDeposit || booking.propertySnapshot?.security_deposit || monthlyRent;
+                  const totalAmount = monthlyRent + securityDeposit;
+                  const advancePaid = totalAmount * 0.1;
+                  const remaining = totalAmount * 0.9;
+                  
+                  return (
                   <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between">
                       <span className="text-xs sm:text-sm text-gray-600">Monthly Rent</span>
-                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(room?.rent)}</span>
+                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(monthlyRent)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-xs sm:text-sm text-gray-600">Security Deposit</span>
-                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(booking.securityDeposit)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs sm:text-sm text-gray-600">Booking Fee</span>
-                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(booking.bookingFee)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs sm:text-sm text-gray-600">Maintenance</span>
-                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(booking.maintenanceFee)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs sm:text-sm text-gray-600">Utilities</span>
-                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(booking.utilitiesFee)}</span>
+                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(securityDeposit)}</span>
                     </div>
                     <hr />
-                    <div className="flex justify-between font-bold text-sm sm:text-lg">
-                      <span>Total Paid</span>
-                      <span>{formatCurrency(booking.totalAmount)}</span>
+                    <div className="flex justify-between font-bold text-sm sm:text-base">
+                      <span>Total Amount</span>
+                      <span className="text-blue-600">{formatCurrency(totalAmount)}</span>
+                    </div>
+                    <hr />
+                    <div className="flex justify-between text-sm sm:text-base">
+                      <span className="text-green-700 font-semibold">Advance Paid (10%)</span>
+                      <span className="font-bold text-green-600">{formatCurrency(advancePaid)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm sm:text-base">
+                      <span className="text-orange-700 font-semibold">Remaining (90%)</span>
+                      <span className="font-bold text-orange-600">{formatCurrency(remaining)}</span>
                     </div>
                     
                     {/* Payment Status */}
@@ -1233,7 +1504,8 @@ const PostBookingDashboard = () => {
                       )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </motion.div>
 
               {/* Important Documents */}

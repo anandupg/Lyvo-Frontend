@@ -20,6 +20,7 @@ const SeekerSidebar = ({ onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState({});
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
   const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
   
   // State for counts
@@ -31,7 +32,12 @@ const SeekerSidebar = ({ onClose }) => {
     try {
       const userData = localStorage.getItem('user');
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsed = JSON.parse(userData);
+        setUser(parsed);
+        if (parsed?.role === 2) {
+          const needs = [!parsed.phone, !parsed.location, (parsed.age === undefined || parsed.age === null || parsed.age === ''), !parsed.occupation, !parsed.gender].some(Boolean);
+          setProfileIncomplete(needs);
+        }
       }
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -115,24 +121,36 @@ const SeekerSidebar = ({ onClose }) => {
     };
   }, [refreshBookingStatus]);
 
-  // Base navigation items
+  // Base navigation items (always visible)
   const baseNavigation = [
-    { name: 'My Room', href: '/my-room', icon: Home },
     { name: 'My Booking', href: '/seeker-bookings', icon: Calendar },
     { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
-    { name: 'Messages', href: '/seeker-messages', icon: MessageCircle },
     { name: 'Profile', href: '/seeker-profile', icon: User },
   ];
 
   // Items to show only when user has NO confirmed booking
-  const conditionalNavigation = [
+  const noBookingNavigation = [
     { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
-    { name: 'My Bookings', href: '/seeker-bookings', icon: Calendar },
     { name: 'Identity Verification', href: '/seeker-kyc', icon: Shield },
   ];
 
+  // Items to show only when user HAS confirmed booking
+  const confirmedBookingNavigation = [
+    { name: 'My Room', href: '/my-room', icon: Home },
+    { name: 'Messages', href: '/seeker-messages', icon: MessageCircle }, // Only show when booking is confirmed
+  ];
+
   // Build navigation based on booking status
-  const navigation = hasConfirmedBooking ? baseNavigation : [...conditionalNavigation, ...baseNavigation];
+  // If profile incomplete, only allow Profile and KYC; block others
+  const blocked = profileIncomplete;
+  const navigation = blocked
+    ? [
+        { name: 'Profile', href: '/seeker-profile', icon: User },
+        { name: 'Identity Verification', href: '/seeker-kyc', icon: Shield },
+      ]
+    : hasConfirmedBooking 
+      ? [...confirmedBookingNavigation, ...baseNavigation] 
+      : [...noBookingNavigation, ...baseNavigation];
 
   const isActive = (path) => location.pathname === path;
 

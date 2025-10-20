@@ -1,6 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import OwnerLayout from '../../components/owner/OwnerLayout';
+import { 
+  ArrowLeft, 
+  Calendar, 
+  MapPin, 
+  Home, 
+  Bed, 
+  Users, 
+  Mail, 
+  Phone, 
+  CheckCircle, 
+  XCircle, 
+  Clock,
+  DollarSign,
+  Tag,
+  Maximize,
+  User,
+  Building,
+  AlertCircle
+} from 'lucide-react';
 
 const BookingDetails = () => {
   const { bookingId } = useParams();
@@ -11,6 +31,9 @@ const BookingDetails = () => {
   const [error, setError] = useState('');
   const [source, setSource] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [actionType, setActionType] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -32,7 +55,7 @@ const BookingDetails = () => {
           setBooking(data.booking);
           setSource(data.source || 'booking');
         } else {
-          // Second attempt: try public by id explicitly (even if token exists)
+          // Second attempt: try public by id explicitly
           if (bookingId) {
             const publicById = `${baseUrl}/api/public/bookings/${bookingId}`;
             const publicResp = await fetch(publicById, { headers: { 'Content-Type': 'application/json' } });
@@ -73,23 +96,8 @@ const BookingDetails = () => {
         setLoading(false);
       }
     };
-    // allow fetching via composite if no bookingId provided
     load();
   }, [bookingId, location.search, location.state]);
-
-  const Section = ({ title, children }) => (
-    <div className="bg-white rounded-xl border p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
-      {children}
-    </div>
-  );
-
-  const Row = ({ label, value }) => (
-    <div className="flex items-start justify-between py-2 border-b last:border-b-0">
-      <div className="text-gray-500 text-sm">{label}</div>
-      <div className="text-gray-900 font-medium max-w-[60%] text-right break-words">{value}</div>
-    </div>
-  );
 
   const updateStatus = async (action) => {
     try {
@@ -111,6 +119,14 @@ const BookingDetails = () => {
       }
       const data = await resp.json();
       setBooking(data.booking);
+      setActionType(action);
+      
+      // Show success modal
+      if (action === 'approve') {
+        setShowApprovalModal(true);
+      } else {
+        setShowRejectionModal(true);
+      }
     } catch (e) {
       setError(e.message || 'Failed to update booking');
     } finally {
@@ -118,106 +134,463 @@ const BookingDetails = () => {
     }
   };
 
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending_approval: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock, label: 'Pending Approval' },
+      confirmed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle, label: 'Confirmed' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle, label: 'Rejected' },
+      cancelled: { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle, label: 'Cancelled' },
+    };
+    
+    const config = statusConfig[status] || statusConfig.pending_approval;
+    const StatusIcon = config.icon;
+    
+    return (
+      <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${config.bg} ${config.text} font-medium`}>
+        <StatusIcon className="w-4 h-4" />
+        {config.label}
+      </span>
+    );
+  };
+
   return (
     <OwnerLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <button 
+              onClick={() => navigate('/owner-bookings')} 
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Back to Bookings</span>
+            </button>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Booking Details</h1>
-          <button onClick={() => navigate('/owner-bookings')} className="text-sm text-blue-600 hover:text-blue-800">← Back to Bookings</button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Booking Details</h1>
+                <p className="text-gray-600 mt-1">Manage and review booking information</p>
+              </div>
+              {booking && (
+                <div>
+                  {getStatusBadge(booking.status)}
+                </div>
+              )}
         </div>
+          </motion.div>
 
         {loading ? (
-          <div className="bg-white rounded-xl border p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-3"></div>
-            <p className="text-gray-600">Loading booking…</p>
+            <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-red-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 text-lg">Loading booking details...</p>
           </div>
         ) : error ? (
-          <div className="bg-white rounded-xl border p-10 text-center">
-            <div className="text-red-600 text-5xl mb-3">⚠️</div>
-            <p className="text-gray-700">{error}</p>
+            <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <p className="text-gray-700 text-lg">{error}</p>
           </div>
         ) : booking ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
-              <Section title="Overview">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Row label="Booking ID" value={booking._id} />
-                  <Row label="Status" value={booking.status} />
-                  <Row label="Booked At" value={new Date(booking.createdAt || booking.bookedAt).toLocaleString()} />
-                  <Row label="User ID" value={booking.userId} />
-                  <Row label="Owner ID" value={booking.ownerId} />
-                  <Row label="Data Source" value={source} />
+                {/* Property Information */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Building className="w-6 h-6" />
+                      Property Details
+                    </h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <Home className="w-4 h-4" />
+                          Property Name
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.propertySnapshot?.name || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Security Deposit
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.propertySnapshot?.security_deposit != null 
+                            ? `₹${Number(booking.propertySnapshot.security_deposit).toLocaleString()}` 
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          Address
+                        </label>
+                        <p className="mt-1 text-gray-900">
+                          {booking.propertySnapshot?.address?.street && `${booking.propertySnapshot.address.street}, `}
+                          {booking.propertySnapshot?.address?.city && `${booking.propertySnapshot.address.city}, `}
+                          {booking.propertySnapshot?.address?.state && `${booking.propertySnapshot.address.state} `}
+                          {booking.propertySnapshot?.address?.pincode && `- ${booking.propertySnapshot.address.pincode}`}
+                          {!booking.propertySnapshot?.address && 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Room Information */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Bed className="w-6 h-6" />
+                      Room Details
+                    </h2>
+                  </div>
+                  <div className="p-6">
+                    {/* Room Images */}
+                    {(booking.roomSnapshot?.images?.room || booking.roomSnapshot?.images?.toilet) && (
+                      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {booking.roomSnapshot?.images?.room && (
+                          <div className="relative group overflow-hidden rounded-xl">
+                            <img 
+                              src={booking.roomSnapshot.images.room} 
+                              alt="Room" 
+                              className="w-full h-64 object-cover transform group-hover:scale-105 transition-transform duration-300" 
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                              <p className="text-white font-medium">Room View</p>
+                            </div>
+                          </div>
+                        )}
+                        {booking.roomSnapshot?.images?.toilet && (
+                          <div className="relative group overflow-hidden rounded-xl">
+                            <img 
+                              src={booking.roomSnapshot.images.toilet} 
+                              alt="Bathroom" 
+                              className="w-full h-64 object-cover transform group-hover:scale-105 transition-transform duration-300" 
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                              <p className="text-white font-medium">Bathroom View</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          Room Number
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.roomSnapshot?.roomNumber ?? 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <Bed className="w-4 h-4" />
+                          Room Type
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.roomSnapshot?.roomType || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <Maximize className="w-4 h-4" />
+                          Room Size
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.roomSnapshot?.roomSize != null ? `${booking.roomSnapshot.roomSize} sq ft` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Bed Type</label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.roomSnapshot?.bedType || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          Occupancy
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {booking.roomSnapshot?.occupancy ?? 'N/A'} {booking.roomSnapshot?.occupancy > 1 ? 'Persons' : 'Person'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Monthly Rent
+                        </label>
+                        <p className="mt-1 text-lg font-semibold text-green-600">
+                          {booking.roomSnapshot?.rent != null ? `₹${Number(booking.roomSnapshot.rent).toLocaleString()}` : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Booking Timeline */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Calendar className="w-6 h-6" />
+                      Booking Timeline
+                    </h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Booking Date</label>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {new Date(booking.createdAt || booking.bookedAt).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(booking.createdAt || booking.bookedAt).toLocaleTimeString('en-IN')}
+                        </p>
+                      </div>
+                      {booking.approvedAt && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Approved Date</label>
+                          <p className="mt-1 text-lg font-semibold text-gray-900">
+                            {new Date(booking.approvedAt).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(booking.approvedAt).toLocaleTimeString('en-IN')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                 </div>
-                <div className="mt-4 flex items-center gap-3">
+                </motion.div>
+
+                {/* Action Buttons */}
+                {booking.status === 'pending_approval' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-white rounded-2xl shadow-lg p-6"
+                  >
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
+                    <div className="flex flex-wrap gap-4">
                   <button
                     disabled={updating}
                     onClick={() => updateStatus('approve')}
-                    className={`px-4 py-2 rounded-md text-white ${updating ? 'bg-green-300' : 'bg-green-600 hover:bg-green-700'}`}
-                  >
-                    Approve
+                        className="flex-1 min-w-[200px] bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {updating ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-5 h-5" />
+                            Approve Booking
+                          </>
+                        )}
                   </button>
                   <button
                     disabled={updating}
                     onClick={() => updateStatus('reject')}
-                    className={`px-4 py-2 rounded-md text-white ${updating ? 'bg-red-300' : 'bg-red-600 hover:bg-red-700'}`}
-                  >
-                    Reject
+                        className="flex-1 min-w-[200px] bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {updating ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-5 h-5" />
+                            Reject Booking
+                          </>
+                        )}
                   </button>
                 </div>
-              </Section>
-
-              <Section title="Property">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Row label="Name" value={booking.propertySnapshot?.name || '-'} />
-                  <Row label="Security Deposit" value={booking.propertySnapshot?.security_deposit != null ? `₹${Number(booking.propertySnapshot.security_deposit).toLocaleString()}` : '-'} />
-                  <Row label="Latitude" value={booking.propertySnapshot?.latitude ?? '-'} />
-                  <Row label="Longitude" value={booking.propertySnapshot?.longitude ?? '-'} />
-                  <Row label="Address" value={`${booking.propertySnapshot?.address?.street || ''} ${booking.propertySnapshot?.address?.city || ''} ${booking.propertySnapshot?.address?.state || ''}`} />
-                </div>
-              </Section>
-
-              <Section title="Room">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Row label="Room Number" value={booking.roomSnapshot?.roomNumber ?? '-'} />
-                  <Row label="Type" value={booking.roomSnapshot?.roomType || '-'} />
-                  <Row label="Size" value={booking.roomSnapshot?.roomSize != null ? `${booking.roomSnapshot.roomSize} sq ft` : '-'} />
-                  <Row label="Bed" value={booking.roomSnapshot?.bedType || '-'} />
-                  <Row label="Occupancy" value={booking.roomSnapshot?.occupancy ?? '-'} />
-                  <Row label="Rent" value={booking.roomSnapshot?.rent != null ? `₹${Number(booking.roomSnapshot.rent).toLocaleString()}` : '-'} />
-                </div>
-                {(booking.roomSnapshot?.images?.room || booking.roomSnapshot?.images?.toilet) && (
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {booking.roomSnapshot?.images?.room && (
-                      <img src={booking.roomSnapshot.images.room} alt="Room" className="w-full h-44 object-cover rounded" />
-                    )}
-                    {booking.roomSnapshot?.images?.toilet && (
-                      <img src={booking.roomSnapshot.images.toilet} alt="Toilet" className="w-full h-44 object-cover rounded" />
-                    )}
-                  </div>
+                  </motion.div>
                 )}
-              </Section>
             </div>
 
+              {/* Sidebar */}
             <div className="space-y-6">
-              <Section title="Seeker">
-                <Row label="Name" value={booking.userSnapshot?.name || '-'} />
-                <Row label="Email" value={booking.userSnapshot?.email || '-'} />
-                <Row label="Phone" value={booking.userSnapshot?.phone || '-'} />
-              </Section>
+                {/* Seeker Information */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Seeker Information
+                    </h2>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Name</label>
+                      <p className="mt-1 text-lg font-semibold text-gray-900">
+                        {booking.userSnapshot?.name || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </label>
+                      <p className="mt-1 text-gray-900 break-words">
+                        {booking.userSnapshot?.email || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Phone
+                      </label>
+                      <p className="mt-1 text-gray-900">
+                        {booking.userSnapshot?.phone || 'N/A'}
+                      </p>
+                    </div>
+                </div>
+                </motion.div>
 
-              <Section title="Owner">
-                <Row label="Name" value={booking.ownerSnapshot?.name || '-'} />
-                <Row label="Email" value={booking.ownerSnapshot?.email || '-'} />
-                <Row label="Phone" value={booking.ownerSnapshot?.phone || '-'} />
-              </Section>
+                {/* Owner Information */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Owner Information
+                    </h2>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Name</label>
+                      <p className="mt-1 text-lg font-semibold text-gray-900">
+                        {booking.ownerSnapshot?.name || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </label>
+                      <p className="mt-1 text-gray-900 break-words">
+                        {booking.ownerSnapshot?.email || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Phone
+                      </label>
+                      <p className="mt-1 text-gray-900">
+                        {booking.ownerSnapshot?.phone || 'N/A'}
+                      </p>
+                </div>
+                  </div>
+                </motion.div>
             </div>
           </div>
         ) : null}
       </div>
+            </div>
+
+      {/* Approval Success Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center"
+          >
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Booking Approved!</h3>
+            <p className="text-gray-600 mb-6">
+              The booking has been successfully approved. The seeker will be notified via email.
+            </p>
+            <button
+              onClick={() => {
+                setShowApprovalModal(false);
+                navigate('/owner-bookings');
+              }}
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all duration-200"
+            >
+              Back to Bookings
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Rejection Success Modal */}
+      {showRejectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center"
+          >
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Booking Rejected</h3>
+            <p className="text-gray-600 mb-6">
+              The booking has been rejected. The seeker will be notified via email.
+            </p>
+            <button
+              onClick={() => {
+                setShowRejectionModal(false);
+                navigate('/owner-bookings');
+              }}
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200"
+            >
+              Back to Bookings
+            </button>
+          </motion.div>
+          </div>
+      )}
     </OwnerLayout>
   );
 };
 
 export default BookingDetails;
-
-

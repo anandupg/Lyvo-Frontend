@@ -28,6 +28,7 @@ const RoomDetailsView = () => {
   const [checkingAadharStatus, setCheckingAadharStatus] = useState(false);
   const [tenants, setTenants] = useState([]);
   const [loadingTenants, setLoadingTenants] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   
   // Refs for Google Maps
   const mapRef = useRef(null);
@@ -57,7 +58,7 @@ const RoomDetailsView = () => {
 
     setCheckingBookingStatus(true);
     try {
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
       const response = await fetch(`${baseUrl}/api/bookings/check-status?userId=${userId}&roomId=${roomId}`);
       
       if (response.ok) {
@@ -969,7 +970,7 @@ const RoomDetailsView = () => {
                                 {tenant.name || 'Anonymous Tenant'}
                               </h3>
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Verified
+                                Approved
                               </span>
                             </div>
                             <div className="mt-1 space-y-1">
@@ -1233,7 +1234,17 @@ const RoomDetailsView = () => {
                     )}
                     
                     <button
-                      onClick={handleBookRoom}
+                      onClick={() => {
+                        // Check if user can book
+                        if (!room.isAvailable || checkingAadharStatus || (aadharStatus && !aadharStatus.isApproved)) {
+                          if (!aadharStatus || !aadharStatus.isApproved) {
+                            navigate('/seeker-kyc');
+                          }
+                          return;
+                        }
+                        // Show payment modal
+                        setShowPaymentModal(true);
+                      }}
                       disabled={!room.isAvailable || bookingLoading || checkingAadharStatus || (aadharStatus && !aadharStatus.isApproved)}
                       className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                         room.isAvailable && !bookingLoading && !checkingAadharStatus && (!aadharStatus || aadharStatus.isApproved)
@@ -1339,6 +1350,143 @@ const RoomDetailsView = () => {
         </div>
       </div>
     </div>
+
+    {/* Payment Breakdown Modal */}
+    {showPaymentModal && room && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">Payment Breakdown</h3>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Room Info */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-1">{property?.property_name || 'Property'}</h4>
+              <p className="text-sm text-gray-600">Room {room.room_number} • {room.room_type}</p>
+            </div>
+
+            {/* Payment Details */}
+            <div className="space-y-4 mb-6">
+              {/* Monthly Rent */}
+              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
+                <span className="text-gray-700">Monthly Rent</span>
+                <span className="text-lg font-semibold text-gray-900">
+                  ₹{room.rent ? room.rent.toLocaleString() : '0'}
+                </span>
+              </div>
+
+              {/* Security Deposit */}
+              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
+                <span className="text-gray-700">Security Deposit</span>
+                <span className="text-lg font-semibold text-gray-900">
+                  ₹{property?.security_deposit ? property.security_deposit.toLocaleString() : '0'}
+                </span>
+              </div>
+
+              {/* Total */}
+              <div className="flex justify-between items-center py-3 bg-blue-50 rounded-lg px-4">
+                <span className="text-gray-900 font-semibold">Total Amount</span>
+                <span className="text-xl font-bold text-blue-600">
+                  ₹{room.rent && property?.security_deposit ? (room.rent + property.security_deposit).toLocaleString() : '0'}
+                </span>
+              </div>
+
+              {/* Advance (10%) */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-200">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <span className="text-green-900 font-semibold">Advance Payment (10%)</span>
+                    <p className="text-xs text-green-700 mt-1">To be paid online now</p>
+                  </div>
+                  <span className="text-xl font-bold text-green-600">
+                    ₹{room.rent && property?.security_deposit ? ((room.rent + property.security_deposit) * 0.1).toLocaleString() : '0'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Remaining (90%) */}
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-4 border-2 border-orange-200">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <span className="text-orange-900 font-semibold">Remaining Amount (90%)</span>
+                    <p className="text-xs text-orange-700 mt-1">To be paid offline during check-in</p>
+                  </div>
+                  <span className="text-xl font-bold text-orange-600">
+                    ₹{room.rent && property?.security_deposit ? ((room.rent + property.security_deposit) * 0.9).toLocaleString() : '0'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Important Notes */}
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h5 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                Important Notes
+              </h5>
+              <ul className="text-sm text-yellow-900 space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-600 mt-1">•</span>
+                  <span>Security deposit is fully refundable at checkout</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-600 mt-1">•</span>
+                  <span>Pay 10% advance online to confirm your booking</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-600 mt-1">•</span>
+                  <span>Remaining 90% payment during check-in (cash/UPI)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-600 mt-1">•</span>
+                  <span>Owner approval required before check-in</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  handleBookRoom();
+                }}
+                disabled={bookingLoading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bookingLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  'Proceed to Pay'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     </SeekerLayout>
   );
 };

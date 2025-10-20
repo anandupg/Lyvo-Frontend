@@ -26,17 +26,31 @@ const SeekerProfile = () => {
     confirm: false
   });
   const [saveStatus, setSaveStatus] = useState({ type: "", message: "" });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
     phone: "",
     location: "",
+    age: "",
+    occupation: "",
+    gender: "",
     joinDate: "",
     bio: "",
     isVerified: false,
     trustScore: 0,
     profilePicture: ""
   });
+
+  const isProfileComplete = (p) => {
+    if (!p) return false;
+    const hasPhone = Boolean(p.phone);
+    const hasAge = !(p.age === undefined || p.age === null || p.age === "") && Number(p.age) > 0;
+    const hasOccupation = Boolean(p.occupation);
+    const hasGender = Boolean(p.gender);
+    return hasPhone && hasAge && hasOccupation && hasGender;
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -77,6 +91,9 @@ const SeekerProfile = () => {
           profilePicture: parsedUser.profilePicture || "",
           phone: parsedUser.phone || "",
           location: parsedUser.location || "",
+          age: parsedUser.age || "",
+          occupation: parsedUser.occupation || "",
+          gender: parsedUser.gender || "",
           bio: parsedUser.bio || "",
           isVerified: parsedUser.isVerified || false,
           trustScore: 95,
@@ -84,6 +101,18 @@ const SeekerProfile = () => {
             ? new Date(parsedUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
             : "Recently"
         }));
+
+        // Force completion modal and enable edit if mandatory fields missing
+        const needsCompletion = [
+          !parsedUser.phone,
+          (parsedUser.age === undefined || parsedUser.age === null || parsedUser.age === ""),
+          !parsedUser.occupation,
+          !parsedUser.gender,
+        ].some(Boolean);
+        if (needsCompletion) {
+          setIsEditing(true);
+          setShowCompletionModal(true);
+        }
       } catch (error) {
         console.error('SeekerProfile: Error in fetchUserData:', error);
         setError(`An error occurred: ${error.message}`);
@@ -113,6 +142,29 @@ const SeekerProfile = () => {
     try {
       setSaveStatus({ type: "loading", message: "Saving changes..." });
 
+      // Validate mandatory fields
+      const errors = {};
+      const phoneRegex = /^\+?[0-9]{7,14}$/;
+      if (!profileData.phone || !phoneRegex.test(String(profileData.phone).trim())) {
+        errors.phone = 'Enter a valid phone number (7-14 digits).';
+      }
+      const ageNum = Number(profileData.age);
+      if (!profileData.age || Number.isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+        errors.age = 'Age must be a number between 1 and 120.';
+      }
+      if (!profileData.occupation || String(profileData.occupation).trim().length < 2) {
+        errors.occupation = 'Occupation is required.';
+      }
+      if (!profileData.gender || !['male','female','other'].includes(String(profileData.gender))) {
+        errors.gender = 'Select a gender option.';
+      }
+
+      setFieldErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        setSaveStatus({ type: "error", message: "Please fix the highlighted fields." });
+        return;
+      }
+
       const token = localStorage.getItem("authToken");
       if (!token) {
         throw new Error("No authentication token found");
@@ -129,7 +181,10 @@ const SeekerProfile = () => {
           body: JSON.stringify({
             name: profileData.name,
             phone: profileData.phone,
-            location: profileData.location,
+            // location removed from mandatory updates
+            age: profileData.age ? Number(profileData.age) : null,
+            occupation: profileData.occupation,
+            gender: profileData.gender || null,
             bio: profileData.bio
           })
         }
@@ -148,6 +203,14 @@ const SeekerProfile = () => {
       setIsEditing(false);
       setSaveStatus({ type: "success", message: "Profile updated successfully!" });
       window.dispatchEvent(new Event("lyvo-profile-update"));
+      if (isProfileComplete({
+        phone: result.user.phone,
+        age: result.user.age,
+        occupation: result.user.occupation,
+        gender: result.user.gender,
+      })) {
+        setShowCompletionModal(false);
+      }
       setTimeout(() => setSaveStatus({ type: "", message: "" }), 3000);
     } catch (error) {
       setSaveStatus({ type: "error", message: error.message || "Failed to update profile" });
@@ -327,6 +390,27 @@ const SeekerProfile = () => {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+                      {isEditing ? (
+                        <select
+                          value={profileData.gender}
+                          onChange={(e) => handleInputChange("gender", e.target.value)}
+                          className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 ${fieldErrors.gender ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'}`}
+                        >
+                          <option value="">Select gender</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      ) : (
+                        <p className="text-gray-900 py-3 font-medium">{profileData.gender ? profileData.gender.charAt(0).toUpperCase() + profileData.gender.slice(1) : "Not provided"}</p>
+                      )}
+                      {isEditing && fieldErrors.gender && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.gender}</p>
+                      )}
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
                       <p className="text-gray-900 py-3 font-medium flex items-center">
                         <Mail className="w-4 h-4 mr-2 text-gray-400" />
@@ -341,7 +425,7 @@ const SeekerProfile = () => {
                           type="tel"
                           value={profileData.phone}
                           onChange={(e) => handleInputChange("phone", e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
+                          className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 ${fieldErrors.phone ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'}`}
                         />
                       ) : (
                         <p className="text-gray-900 py-3 font-medium flex items-center">
@@ -349,43 +433,53 @@ const SeekerProfile = () => {
                           {profileData.phone || "Not provided"}
                         </p>
                       )}
+                      {isEditing && fieldErrors.phone && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
+                      )}
+                    </div>
+
+                    {/* Location field removed per requirement */}
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={profileData.age}
+                          onChange={(e) => handleInputChange("age", e.target.value)}
+                          className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 ${fieldErrors.age ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'}`}
+                          placeholder="Your age"
+                        />
+                      ) : (
+                        <p className="text-gray-900 py-3 font-medium">{profileData.age || "Not provided"}</p>
+                      )}
+                      {isEditing && fieldErrors.age && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.age}</p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Occupation</label>
                       {isEditing ? (
                         <input
                           type="text"
-                          value={profileData.location}
-                          onChange={(e) => handleInputChange("location", e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300"
-                          placeholder="Enter your location"
+                          value={profileData.occupation}
+                          onChange={(e) => handleInputChange("occupation", e.target.value)}
+                          className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 ${fieldErrors.occupation ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'}`}
+                          placeholder="e.g., Student, Software Engineer"
                         />
                       ) : (
-                        <p className="text-gray-900 py-3 font-medium flex items-center">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                          {profileData.location || "Not provided"}
-                        </p>
+                        <p className="text-gray-900 py-3 font-medium">{profileData.occupation || "Not provided"}</p>
+                      )}
+                      {isEditing && fieldErrors.occupation && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.occupation}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Bio</label>
-                    {isEditing ? (
-                      <textarea
-                        value={profileData.bio}
-                        onChange={(e) => handleInputChange("bio", e.target.value)}
-                        rows={4}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-300 resize-none"
-                        placeholder="Tell us about yourself..."
-                      />
-                    ) : (
-                      <p className="text-gray-600 leading-relaxed">
-                        {profileData.bio || "No bio provided"}
-                      </p>
-                    )}
-                  </div>
+                  {/* Bio field removed per requirement */}
                 </div>
               </motion.div>
 
@@ -465,6 +559,51 @@ const SeekerProfile = () => {
             >
               {saveStatus.message}
             </motion.div>
+          )}
+
+          {showCompletionModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-xl p-6 max-w-md w-full border border-blue-200"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">Complete your profile to continue</h3>
+                    <p className="text-sm text-gray-600 mt-1">Phone, Age, Occupation, and Gender are required.</p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
+                    {!profileData.phone && (<li>Phone Number is missing</li>)}
+                    {(profileData.age === undefined || profileData.age === null || profileData.age === "") && (<li>Age is missing</li>)}
+                    {!profileData.occupation && (<li>Occupation is missing</li>)}
+                    {!profileData.gender && (<li>Gender is missing</li>)}
+                  </ul>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => { setIsEditing(true); setShowCompletionModal(false); }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Edit Now
+                  </button>
+                  <button
+                    disabled={!isProfileComplete(profileData)}
+                    onClick={() => setShowCompletionModal(false)}
+                    className={`flex-1 px-4 py-2 rounded-lg ${isProfileComplete(profileData) ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           )}
 
           {showPasswordModal && (

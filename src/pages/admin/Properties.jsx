@@ -195,10 +195,7 @@ const PropertiesPage = () => {
           <div className="p-3 rounded-md bg-gray-50 text-gray-700 border border-gray-200">Loading properties…</div>
         )}
 
-          <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2">
-            <Home className="w-4 h-4" />
-            <span>Add New Property</span>
-          </button>
+          
         </div>
 
         {/* Stats Cards */}

@@ -587,10 +587,6 @@ const BasicRoomDashboard = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Info</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Booking ID</span>
-                    <span className="font-mono text-sm">{booking._id.slice(0, 8)}...</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-gray-600">Total Paid</span>
                     <span className="font-semibold">{formatCurrency(booking.totalAmount)}</span>
                   </div>

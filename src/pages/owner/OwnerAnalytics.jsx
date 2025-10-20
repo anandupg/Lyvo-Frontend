@@ -49,7 +49,7 @@ const OwnerAnalytics = () => {
   const [bookings, setBookings] = useState([]);
   const [rooms, setRooms] = useState([]);
 
-  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
 
   // Fetch data
   useEffect(() => {
@@ -70,25 +70,30 @@ const OwnerAnalytics = () => {
           'x-user-id': userData._id
         };
 
-        // Fetch properties and bookings
+        // Fetch properties (owner-scoped via auth) and bookings
         const [propertiesRes, bookingsRes] = await Promise.all([
-          fetch(`${propertyServiceUrl}/api/properties/owner/${userData._id}`, { headers }),
+          fetch(`${propertyServiceUrl}/api/properties?page=1&limit=500`, { headers }),
           fetch(`${propertyServiceUrl}/api/bookings/owner`, { headers })
         ]);
 
         const propertiesData = await propertiesRes.json();
         const bookingsData = await bookingsRes.json();
 
-        const propsArray = propertiesData.properties || [];
+        const propsArray = propertiesData.properties || propertiesData.data || [];
         setProperties(propsArray);
-        setBookings(bookingsData.bookings || []);
+        setBookings(bookingsData.bookings || bookingsData.data || []);
 
         // Extract all rooms from properties
         const allRooms = propsArray.reduce((acc, prop) => {
-          if (prop.rooms && Array.isArray(prop.rooms)) {
-            return [...acc, ...prop.rooms.map(room => ({ ...room, property: prop }))];
-          }
-          return acc;
+          const propRooms = (prop.rooms && Array.isArray(prop.rooms)) ? prop.rooms : [];
+          const normalized = propRooms.map(room => ({
+            ...room,
+            rent: room.rent ?? room.price ?? 0,
+            roomType: room.roomType ?? room.room_type ?? 'Unknown',
+            is_available: typeof room.is_available === 'boolean' ? room.is_available : (room.status === 'active'),
+            property
+          }));
+          return [...acc, ...normalized];
         }, []);
         setRooms(allRooms);
 
@@ -106,13 +111,15 @@ const OwnerAnalytics = () => {
   const stats = useMemo(() => {
     const totalProperties = properties.length;
     const totalRooms = rooms.length;
-    const activeRooms = rooms.filter(r => r.status === 'active' && r.is_available).length;
-    const occupiedRooms = rooms.filter(r => !r.is_available).length;
+    const activeRooms = rooms.filter(r => (r.status === 'active' || r.is_available) ).length;
+    const occupiedRooms = rooms.filter(r => r.is_available === false).length;
     
     // Revenue calculations
-    const confirmedBookings = bookings.filter(b => 
-      b.status === 'confirmed' && b.payment?.paymentStatus === 'completed'
-    );
+    const confirmedBookings = bookings.filter(b => {
+      const paymentStatus = b.payment?.paymentStatus || b.paymentStatus;
+      const status = b.status || b.bookingStatus;
+      return status === 'confirmed' && paymentStatus === 'completed';
+    });
     
     const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.payment?.amount || 0), 0);
     
@@ -180,17 +187,19 @@ const OwnerAnalytics = () => {
 
       const monthRevenue = bookings
         .filter(b => {
-          if (b.status !== 'confirmed' || b.payment?.paymentStatus !== 'completed') return false;
-          const bookingDate = new Date(b.createdAt);
+          const status = b.status || b.bookingStatus;
+          const paymentStatus = b.payment?.paymentStatus || b.paymentStatus;
+          if (status !== 'confirmed' || paymentStatus !== 'completed') return false;
+          const bookingDate = new Date(b.createdAt || b.updatedAt || b.date || Date.now());
           return bookingDate.getMonth() === monthIndex && bookingDate.getFullYear() === year;
         })
-        .reduce((sum, b) => sum + (b.payment?.amount || 0), 0);
+        .reduce((sum, b) => sum + (b.payment?.amount || b.amount || b.totalAmount || 0), 0);
 
       data.push({
         month: monthNames[monthIndex],
         revenue: monthRevenue,
         bookings: bookings.filter(b => {
-          const bookingDate = new Date(b.createdAt);
+          const bookingDate = new Date(b.createdAt || b.updatedAt || b.date || Date.now());
           return bookingDate.getMonth() === monthIndex && bookingDate.getFullYear() === year;
         }).length
       });
@@ -202,23 +211,24 @@ const OwnerAnalytics = () => {
   // Property performance data
   const propertyPerformance = useMemo(() => {
     return properties.map(prop => {
-      const propRooms = prop.rooms || [];
-      const propBookings = bookings.filter(b => 
-        propRooms.some(r => r._id?.toString() === b.room_id?.toString())
-      );
+      const propName = prop.propertyName || prop.property_name || 'Property';
+      const propRooms = Array.isArray(prop.rooms) ? prop.rooms : [];
+      const propRoomIds = new Set(propRooms.map(r => (r._id || r.id || '').toString()));
+      const propBookings = bookings.filter(b => {
+        const roomId = (b.roomId || b.room_id || '').toString();
+        return roomId && propRoomIds.has(roomId);
+      });
       const propRevenue = propBookings
-        .filter(b => b.status === 'confirmed' && b.payment?.paymentStatus === 'completed')
-        .reduce((sum, b) => sum + (b.payment?.amount || 0), 0);
+        .filter(b => (b.status || b.bookingStatus) === 'confirmed' && (b.payment?.paymentStatus || b.paymentStatus) === 'completed')
+        .reduce((sum, b) => sum + (b.payment?.amount || b.amount || b.totalAmount || 0), 0);
 
       return {
-        name: prop.property_name.length > 15 
-          ? prop.property_name.substring(0, 15) + '...' 
-          : prop.property_name,
-        fullName: prop.property_name,
+        name: propName.length > 15 ? propName.substring(0, 15) + '...' : propName,
+        fullName: propName,
         revenue: propRevenue,
         bookings: propBookings.length,
         rooms: propRooms.length,
-        occupiedRooms: propRooms.filter(r => !r.is_available).length
+        occupiedRooms: propRooms.filter(r => r.is_available === false).length
       };
     }).sort((a, b) => b.revenue - a.revenue);
   }, [properties, bookings]);
@@ -242,7 +252,7 @@ const OwnerAnalytics = () => {
   const roomTypeData = useMemo(() => {
     const types = {};
     rooms.forEach(room => {
-      const type = room.room_type || 'Unknown';
+      const type = room.roomType || room.room_type || 'Unknown';
       types[type] = (types[type] || 0) + 1;
     });
 

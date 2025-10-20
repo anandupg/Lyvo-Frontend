@@ -100,8 +100,15 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Use utility function for role-based redirect
-      const redirectUrl = getRedirectUrl(result.data.user);
+      // After login, if seeker and required fields missing, open profile-completion modal
+      const u = result.data.user || {};
+      const needsCompletion = u && u.role === 1 && (!u.phone || !u.location || u.age === undefined || u.age === null || u.age === '' || !u.occupation || !u.gender);
+      if (needsCompletion) {
+        navigate('/seeker-profile');
+        return;
+      }
+
+      const redirectUrl = getRedirectUrl(u);
       navigate(redirectUrl);
       
     } catch (err) {
@@ -132,9 +139,14 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // Role-based redirect using utility function
-      const userRole = getUserRole(response.data.user);
-      const redirectUrl = getRedirectUrl(response.data.user);
+      const u = response.data.user || {};
+      const needsCompletion = u && u.role === 1 && (!u.phone || !u.location || u.age === undefined || u.age === null || u.age === '' || !u.occupation || !u.gender);
+      if (needsCompletion) {
+        navigate('/seeker-profile');
+        return;
+      }
+
+      const redirectUrl = getRedirectUrl(u);
       navigate(redirectUrl);
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');

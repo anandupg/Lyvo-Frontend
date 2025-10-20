@@ -7,6 +7,7 @@ import SeekerFooter from './SeekerFooter';
 const SeekerLayout = ({ children, hideFooter = false, hideNavbar = false }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
+  const [blockBrowsing, setBlockBrowsing] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -65,19 +66,41 @@ const SeekerLayout = ({ children, hideFooter = false, hideNavbar = false }) => {
     }
   };
 
-  // Check seeker profile completion prompt flag
-  useEffect(() => {
+  const recomputeProfileCompletion = () => {
     try {
       const userRaw = localStorage.getItem('user');
       if (!userRaw) return;
       const user = JSON.parse(userRaw);
-      if (user?.role === 2) { // Seeker role
-        // If no profileCompleted flag or false, show prompt
-        if (!user.profileCompleted) {
-          setShowProfilePrompt(true);
-        }
+      if (user?.role === 2) {
+        const missing = [
+          !user.phone,
+          (user.age === null || user.age === undefined || user.age === ''),
+          !user.occupation,
+          !user.gender,
+        ].some(Boolean);
+        setShowProfilePrompt(missing);
+        setBlockBrowsing(missing);
       }
     } catch {}
+  };
+
+  // Check on mount
+  useEffect(() => {
+    recomputeProfileCompletion();
+  }, []);
+
+  // Recompute when profile is updated in any tab
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === 'user') recomputeProfileCompletion();
+    };
+    const handleProfileEvent = () => recomputeProfileCompletion();
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('lyvo-profile-update', handleProfileEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('lyvo-profile-update', handleProfileEvent);
+    };
   }, []);
 
   return (
@@ -170,13 +193,26 @@ const SeekerLayout = ({ children, hideFooter = false, hideNavbar = false }) => {
 
         {/* Page Content */}
         <main className="min-h-screen">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {children}
-          </motion.div>
+          {blockBrowsing ? (
+            <div className="min-h-[60vh] flex items-center justify-center p-6">
+              <div className="max-w-md w-full bg-white border border-blue-200 rounded-xl p-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">Complete Your Profile</h2>
+                <p className="text-sm text-gray-600 mb-4">Please fill in phone, age, occupation, and gender to continue.</p>
+                <a href="/seeker-profile" className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Go to Profile</a>
+              </div>
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {children}
+            </motion.div>
+          )}
         </main>
 
         {/* Footer */}

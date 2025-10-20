@@ -260,13 +260,13 @@ const SettingsPage = () => {
                     <div className="flex-1">
                       <p className="text-green-800 font-medium">Password changed successfully!</p>
                       <p className="text-green-700 text-sm mt-1">Your password has been updated.</p>
-                    </div>
-                  </motion.div>
-                )}
+                </div>
+              </motion.div>
+            )}
 
                 {/* Error Message */}
                 {passwordChangeError && (
-                  <motion.div
+              <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3"
@@ -335,7 +335,7 @@ const SettingsPage = () => {
                       >
                         {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
-                    </div>
+                  </div>
                     {passwordErrors.newPassword && touchedFields.newPassword && (
                       <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
@@ -397,9 +397,9 @@ const SettingsPage = () => {
                               <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
                             )}
                             <span>One special character (!@#$%^&*...)</span>
-                          </div>
-                        </div>
-                      </div>
+                    </div>
+                  </div>
+                </div>
                     )}
                   </div>
 
@@ -409,7 +409,7 @@ const SettingsPage = () => {
                       Confirm New Password <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <input
+                    <input
                         type={showPasswords.confirm ? "text" : "password"}
                         id="confirmPassword"
                         value={passwordData.confirmPassword}

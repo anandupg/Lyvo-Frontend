@@ -86,6 +86,52 @@ const SeekerBookings = () => {
     }
   };
 
+  // Cancel booking function
+  const cancelBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this booking? This action cannot be undone and the booking will be permanently removed.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      
+      const response = await fetch(`${baseUrl}/api/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Booking cancelled and removed successfully",
+          variant: "default"
+        });
+        // Refresh bookings
+        fetchBookings();
+        // Dispatch event to update booking status in other components
+        window.dispatchEvent(new Event('booking-cancelled'));
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.message || "Failed to cancel booking",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel booking. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Filter bookings based on status and search query
   useEffect(() => {
     let filtered = bookings;
@@ -327,6 +373,7 @@ const SeekerBookings = () => {
           <div className="space-y-6">
             {filteredBookings.map((booking, index) => {
               const statusInfo = getStatusInfo(booking.status);
+              console.log('Booking status:', booking.status, 'Booking ID:', booking._id); // Debug log
               
               return (
                 <motion.div
@@ -590,37 +637,46 @@ const SeekerBookings = () => {
                         )}
 
                         {/* Actions */}
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           <button
                             onClick={() => navigate(`/booking-dashboard/${booking._id}`)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
                           >
                             <Calendar className="w-4 h-4" />
-                            View Booking Details
+                            <span>View Details</span>
                           </button>
                           
                           <button
                             onClick={() => navigate(`/seeker/property/${booking.property?._id}`)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
                           >
                             <Eye className="w-4 h-4" />
-                            View Property
+                            <span>View Property</span>
                           </button>
                           
                           <button
-                            onClick={() => navigate(`/seeker/room/${booking.room?._id}`)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                            onClick={() => navigate(`/room/${booking.room?._id}`)}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
                           >
                             <Bed className="w-4 h-4" />
-                            View Room
+                            <span>View Room</span>
                           </button>
 
                           <button 
                             onClick={() => openContactModal(booking)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
                           >
                             <Phone className="w-4 h-4" />
-                            Contact Owner
+                            <span>Contact Owner</span>
+                          </button>
+
+                          {/* Cancel Booking Button */}
+                          <button 
+                            onClick={() => cancelBooking(booking._id)}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-md hover:shadow-lg font-medium border-2 border-red-800"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            <span>Cancel Booking</span>
                           </button>
                         </div>
                       </div>

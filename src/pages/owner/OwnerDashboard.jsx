@@ -323,10 +323,24 @@ const OwnerDashboard = () => {
       ? property.images[0] 
       : property.frontImage || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=300&fit=crop&crop=center";
     
+    // Format address object to string
+    let locationString = 'Location not available';
+    if (property.address) {
+      if (typeof property.address === 'string') {
+        locationString = property.address;
+      } else if (typeof property.address === 'object') {
+        // Format address object: "City, State"
+        const parts = [];
+        if (property.address.city) parts.push(property.address.city);
+        if (property.address.state) parts.push(property.address.state);
+        locationString = parts.length > 0 ? parts.join(', ') : 'Location not available';
+      }
+    }
+    
     return {
       id: property._id,
       name: property.propertyName || property.property_name || 'Unnamed Property',
-      location: property.address || 'Location not available',
+      location: locationString,
       type: property.propertyType || property.property_type || 'Property',
       tenants: occupiedRooms,
       occupancy: `${occupancyPercentage}%`,
