@@ -395,28 +395,24 @@ const Messages = () => {
                   ) : (
                     <div className="space-y-3 px-4 py-4">
                       {messages.map((msg) => {
-                        // More robust user ID comparison
+                        // Determine if this message is from the current user
                         const currentUserId = user?.id || user?._id;
                         const senderId = msg.senderId || msg.sender;
-                        const isOwnerMessage = String(senderId) === String(currentUserId);
-                        
-                        // Fallback: if user ID comparison fails, alternate messages
-                        const messageIndex = messages.indexOf(msg);
-                        const shouldBeOwnerMessage = isOwnerMessage || (messageIndex % 2 === 0);
+                        const isCurrentUserMessage = String(senderId) === String(currentUserId);
                         
                         return (
                           <div
                             key={msg.messageId || msg.id}
-                            className={`flex ${shouldBeOwnerMessage ? 'justify-end' : 'justify-start'} mb-3`}
+                            className={`flex ${isCurrentUserMessage ? 'justify-end' : 'justify-start'} mb-3`}
                           >
                             <div className={`max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl ${
-                              shouldBeOwnerMessage
-                                ? 'bg-red-600 text-white rounded-br-md'
-                                : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                              isCurrentUserMessage
+                                ? 'bg-red-600 text-white rounded-br-md' // Sent messages on right (red)
+                                : 'bg-gray-100 text-gray-900 rounded-bl-md' // Received messages on left (gray)
                             }`}>
                               <p className="text-sm leading-relaxed break-words">{msg.content}</p>
                               <div className={`flex items-center mt-2 space-x-1 ${
-                                shouldBeOwnerMessage ? 'justify-end' : 'justify-start'
+                                isCurrentUserMessage ? 'justify-end' : 'justify-start'
                               }`}>
                                 <span className="text-xs opacity-70">
                                   {new Date(msg.createdAt).toLocaleTimeString([], { 
@@ -424,7 +420,7 @@ const Messages = () => {
                                     minute: '2-digit' 
                                   })}
                                 </span>
-                                {shouldBeOwnerMessage && (
+                                {isCurrentUserMessage && (
                                   <CheckCheck className="w-3 h-3 opacity-70" />
                                 )}
                               </div>

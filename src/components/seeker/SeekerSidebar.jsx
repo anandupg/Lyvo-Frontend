@@ -23,10 +23,6 @@ const SeekerSidebar = ({ onClose }) => {
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
   
-  // State for counts
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const [bookingsCount, setBookingsCount] = useState(0);
-  
   // Safely parse user from localStorage
   useEffect(() => {
     try {
@@ -55,54 +51,6 @@ const SeekerSidebar = ({ onClose }) => {
     navigate('/login');
   };
 
-  // Fetch favorites count
-  const fetchFavoritesCount = async () => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const userId = userData.userId || userData._id;
-      
-      if (!userId) return;
-
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
-      const response = await fetch(`${baseUrl}/api/favorites/user?userId=${userId}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setFavoritesCount((data.favorites || []).length);
-      }
-    } catch (error) {
-      console.error('Error fetching favorites count:', error);
-      setFavoritesCount(0);
-    }
-  };
-
-  // Fetch bookings count
-  const fetchBookingsCount = async () => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const userId = userData.userId || userData._id;
-      
-      if (!userId) return;
-
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
-      const response = await fetch(`${baseUrl}/api/bookings/user?userId=${userId}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setBookingsCount((data.bookings || []).length);
-      }
-    } catch (error) {
-      console.error('Error fetching bookings count:', error);
-      setBookingsCount(0);
-    }
-  };
-
-  // Fetch counts on component mount
-  useEffect(() => {
-    fetchFavoritesCount();
-    fetchBookingsCount();
-  }, []);
-
   // Listen for booking status changes
   useEffect(() => {
     const handleBookingStatusChange = () => {
@@ -123,8 +71,6 @@ const SeekerSidebar = ({ onClose }) => {
 
   // Base navigation items (always visible)
   const baseNavigation = [
-    { name: 'My Booking', href: '/seeker-bookings', icon: Calendar },
-    { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
     { name: 'Profile', href: '/seeker-profile', icon: User },
   ];
 
@@ -132,6 +78,8 @@ const SeekerSidebar = ({ onClose }) => {
   const noBookingNavigation = [
     { name: 'Dashboard', href: '/seeker-dashboard', icon: Home },
     { name: 'Identity Verification', href: '/seeker-kyc', icon: Shield },
+    { name: 'My Booking', href: '/seeker-bookings', icon: Calendar },
+    { name: 'Favorites', href: '/seeker-favorites', icon: Heart },
   ];
 
   // Items to show only when user HAS confirmed booking
@@ -423,73 +371,6 @@ const SeekerSidebar = ({ onClose }) => {
           </motion.div>
         ))}
       </nav>
-
-      {/* Quick Stats */}
-      <div className="flex-shrink-0 p-4 border-t border-red-200/50">
-        <motion.div 
-          className="relative bg-gradient-to-br from-red-50 via-red-100/50 to-red-50 rounded-2xl p-4 border border-red-200/50 shadow-lg overflow-hidden"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.3 }}
-          whileHover={{ 
-            scale: 1.02,
-            transition: { duration: 0.2 }
-          }}
-        >
-          {/* Animated background pattern */}
-          <div className="absolute top-0 right-0 w-20 h-20 bg-red-200/30 rounded-full blur-xl"></div>
-          <div className="absolute bottom-0 left-0 w-16 h-16 bg-red-300/20 rounded-full blur-lg"></div>
-          
-          <div className="relative z-10">
-            <motion.div 
-              className="flex items-center justify-between mb-3"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6, duration: 0.3 }}
-            >
-              <span className="text-sm font-semibold text-gray-700 flex items-center">
-                <Heart className="w-4 h-4 mr-2 text-red-500" />
-                Favorites
-              </span>
-              <motion.span 
-                className="text-lg font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent"
-                animate={{
-                  scale: [1, 1.05, 1]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              >{favoritesCount}</motion.span>
-            </motion.div>
-            
-            <motion.div 
-              className="flex items-center justify-between"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.7, duration: 0.3 }}
-            >
-              <span className="text-sm font-semibold text-gray-700 flex items-center">
-                <Calendar className="w-4 h-4 mr-2 text-red-500" />
-                Bookings
-              </span>
-              <motion.span 
-                className="text-lg font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent"
-                animate={{
-                  scale: [1, 1.05, 1]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.5
-                }}
-              >{bookingsCount}</motion.span>
-            </motion.div>
-          </div>
-        </motion.div>
-      </div>
 
       {/* Logout Button */}
       <div className="flex-shrink-0 p-4 border-t border-red-200/50">

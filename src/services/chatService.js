@@ -10,7 +10,7 @@ class ChatService {
     this.isConnected = false;
     this.currentChatId = null;
     this.eventListeners = new Map();
-    this.apiBaseUrl = 'http://localhost:5002';
+    this.apiBaseUrl = 'http://localhost:3004';
   }
 
   /**
