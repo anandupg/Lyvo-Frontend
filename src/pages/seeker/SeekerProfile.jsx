@@ -3,9 +3,8 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Edit, Save, X, User, Mail, Phone, MapPin, Calendar, Shield,
-  Lock, Eye, EyeOff
+  Lock, Eye, EyeOff, AlertCircle
 } from "lucide-react";
-import ScrollReveal from "../../components/ScrollReveal";
 import ProfilePictureUpload from "../../components/ProfilePictureUpload";
 import SeekerLayout from "../../components/seeker/SeekerLayout";
 
@@ -14,6 +13,7 @@ const SeekerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -51,10 +51,20 @@ const SeekerProfile = () => {
           return;
         }
 
-        const parsedUser = JSON.parse(userData);
+        let parsedUser;
+        try {
+          parsedUser = JSON.parse(userData);
+        } catch (parseError) {
+          console.error('SeekerProfile: Error parsing user data:', parseError);
+          setError('Failed to load user data. Please log in again.');
+          setLoading(false);
+          setTimeout(() => navigate("/login"), 2000);
+          return;
+        }
 
         // Only seekers are allowed here; others are redirected by wrapper routes as well
         if (parsedUser.role !== 1) {
+          console.warn('SeekerProfile: User role mismatch, redirecting');
           navigate("/login");
           return;
         }
@@ -75,8 +85,10 @@ const SeekerProfile = () => {
             : "Recently"
         }));
       } catch (error) {
+        console.error('SeekerProfile: Error in fetchUserData:', error);
+        setError(`An error occurred: ${error.message}`);
         setUser(null);
-        navigate("/login");
+        setTimeout(() => navigate("/login"), 2000);
       } finally {
         setLoading(false);
       }
@@ -196,39 +208,40 @@ const SeekerProfile = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="pt-16 min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="pt-16 min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">Please log in to access your profile.</p>
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <SeekerLayout>
+      {loading ? (
+        <div className="pt-4 min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile...</p>
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
+                <div className="flex items-center space-x-2 text-red-600">
+                  <AlertCircle className="w-5 h-5" />
+                  <span className="text-sm font-medium">{error}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : !user ? (
+        <div className="pt-4 min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
+            <p className="text-gray-600 mb-6">Please log in to access your profile.</p>
+            <button
+              onClick={() => navigate('/login')}
+              className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      ) : (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -236,7 +249,11 @@ const SeekerProfile = () => {
         className="pt-4 min-h-screen bg-gradient-to-br from-gray-50 to-white"
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <ScrollReveal>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
               <div className="relative h-48 bg-gradient-to-r from-red-500/10 via-red-600/10 to-red-700/10">
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent" />
@@ -274,11 +291,15 @@ const SeekerProfile = () => {
                 </div>
               </div>
             </div>
-          </ScrollReveal>
+          </motion.div>
 
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <ScrollReveal delay={0.1}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
@@ -366,12 +387,16 @@ const SeekerProfile = () => {
                     )}
                   </div>
                 </div>
-              </ScrollReveal>
+              </motion.div>
 
             </div>
 
             <div className="space-y-6">
-              <ScrollReveal delay={0.1}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Trust Score</h3>
                   <div className="text-center">
@@ -381,9 +406,13 @@ const SeekerProfile = () => {
                     <p className="text-sm text-gray-600">Excellent Profile</p>
                   </div>
                 </div>
-              </ScrollReveal>
+              </motion.div>
 
-              <ScrollReveal delay={0.2}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                   <div className="space-y-3">
@@ -396,13 +425,17 @@ const SeekerProfile = () => {
                     </button>
                   </div>
                 </div>
-              </ScrollReveal>
+              </motion.div>
 
             </div>
           </div>
 
           {isEditing && (
-            <ScrollReveal delay={0.4}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+            >
               <div className="text-center mt-8">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -415,7 +448,7 @@ const SeekerProfile = () => {
                   <span>{saveStatus.type === 'loading' ? 'Saving...' : 'Save Changes'}</span>
                 </motion.button>
               </div>
-            </ScrollReveal>
+            </motion.div>
           )}
 
           {saveStatus.message && (
@@ -506,6 +539,7 @@ const SeekerProfile = () => {
           )}
         </div>
       </motion.div>
+      )}
     </SeekerLayout>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../../hooks/use-toast';
-import { ArrowLeft, Heart } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, User, Mail, Phone } from 'lucide-react';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
 
 const RoomDetailsView = () => {
@@ -1057,22 +1057,64 @@ const RoomDetailsView = () => {
               </div>
             </div>
 
-            {/* Booking Section */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Book This Room</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Monthly Rent</span>
-                  <span className="text-xl font-bold text-gray-900">
-                    ₹{room.rent ? room.rent.toLocaleString() : 'Ask Price'}
-                  </span>
+            {/* Inactive/Maintenance Room Alert */}
+            {(room.status === 'inactive' || room.status === 'maintenance') && (
+              <div className={`bg-white rounded-lg shadow-sm p-6 ${
+                room.status === 'inactive' 
+                  ? 'border-2 border-red-200' 
+                  : 'border-2 border-yellow-200'
+              }`}>
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-full ${
+                    room.status === 'inactive' 
+                      ? 'bg-red-100' 
+                      : 'bg-yellow-100'
+                  }`}>
+                    <span className="text-2xl">
+                      {room.status === 'inactive' ? '❌' : '🔧'}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold mb-2 ${
+                      room.status === 'inactive' 
+                        ? 'text-red-900' 
+                        : 'text-yellow-900'
+                    }`}>
+                      {room.status === 'inactive' 
+                        ? 'Room Currently Inactive' 
+                        : 'Room Under Maintenance'}
+                    </h3>
+                    <p className={`text-sm ${
+                      room.status === 'inactive' 
+                        ? 'text-red-700' 
+                        : 'text-yellow-700'
+                    }`}>
+                      {room.status === 'inactive' 
+                        ? 'This room has been temporarily deactivated by the owner and is not available for booking at this time. Please check back later or explore other available rooms.' 
+                        : 'This room is currently undergoing maintenance and will be available for booking soon. Please check back later.'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Security Deposit</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ₹{property?.security_deposit?.toLocaleString() || 'Not specified'}
-                  </span>
-                </div>
+              </div>
+            )}
+
+            {/* Booking Section - Only show for active rooms */}
+            {room.status !== 'inactive' && room.status !== 'maintenance' && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Book This Room</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Monthly Rent</span>
+                    <span className="text-xl font-bold text-gray-900">
+                      ₹{room.rent ? room.rent.toLocaleString() : 'Ask Price'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Security Deposit</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      ₹{property?.security_deposit?.toLocaleString() || 'Not specified'}
+                    </span>
+                  </div>
                 
                 {/* Favorite Button */}
                 <div className="mt-4">
@@ -1221,20 +1263,75 @@ const RoomDetailsView = () => {
                   <p className="text-sm text-red-600 text-center">This room is currently not available</p>
                 )}
               </div>
-            </div>
+              </div>
+            )}
 
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                  Contact Owner
-                </button>
-                <button className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                  Add to Favorites
-                </button>
-                <button className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                  Share Room
+                {/* Contact Owner */}
+                {owner && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Contact Owner</p>
+                    {owner.name && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <User className="w-4 h-4" />
+                        <span>{owner.name}</span>
+                      </div>
+                    )}
+                    {owner.email && (
+                      <a 
+                        href={`mailto:${owner.email}`}
+                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        <Mail className="w-4 h-4" />
+                        <span>{owner.email}</span>
+                      </a>
+                    )}
+                    {owner.phone && (
+                      <a 
+                        href={`tel:${owner.phone}`}
+                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        <Phone className="w-4 h-4" />
+                        <span>{owner.phone}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+                
+                {/* Share Room */}
+                <button 
+                  onClick={() => {
+                    const roomUrl = window.location.href;
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `Room ${room.roomNumber} - ${property?.property_name || 'Property'}`,
+                        text: `Check out this room: ${room.roomType} - ₹${room.rent?.toLocaleString()}/month`,
+                        url: roomUrl
+                      }).then(() => {
+                        toast({
+                          title: "Shared successfully!",
+                          description: "Room link has been shared.",
+                        });
+                      }).catch((error) => {
+                        console.log('Error sharing:', error);
+                      });
+                    } else {
+                      // Fallback: Copy to clipboard
+                      navigator.clipboard.writeText(roomUrl).then(() => {
+                        toast({
+                          title: "Link copied!",
+                          description: "Room link has been copied to clipboard.",
+                        });
+                      });
+                    }
+                  }}
+                  className="w-full bg-blue-50 text-blue-700 py-3 px-4 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Share2 className="w-5 h-5" />
+                  Share Room Link
                 </button>
               </div>
             </div>

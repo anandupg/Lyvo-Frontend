@@ -1,25 +1,41 @@
 import React, { useState } from 'react';
-import { Settings, Save, Bell, Shield, Globe, Database, Key, Users, Mail, Zap } from 'lucide-react';
+import { Shield, Database, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { motion } from 'framer-motion';
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('security');
   const [settings, setSettings] = useState({
-    siteName: 'Lyvo+',
-    siteDescription: 'Co-Living Platform',
-    adminEmail: 'admin@lyvoplus.com',
-    supportEmail: 'support@lyvoplus.com',
-    maxFileSize: 10,
-    enableNotifications: true,
-    enableEmailVerification: true,
     enableTwoFactor: false,
-    maintenanceMode: false,
-    autoApproveProperties: false,
-    commissionRate: 5,
-    currency: 'INR',
-    timezone: 'Asia/Kolkata'
   });
+
+  // Password change states
+  const [passwordData, setPasswordData] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    old: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
+  const [touchedFields, setTouchedFields] = useState({
+    oldPassword: false,
+    newPassword: false,
+    confirmPassword: false
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState('');
 
   const handleSettingChange = (key, value) => {
     setSettings(prev => ({
@@ -28,16 +44,142 @@ const SettingsPage = () => {
     }));
   };
 
-  const handleSave = () => {
-    // Save settings logic here
-    console.log('Saving settings:', settings);
+  // Validate password strength
+  const validatePasswordStrength = (password) => {
+    const strength = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    setPasswordStrength(strength);
+    return Object.values(strength).every(Boolean);
+  };
+
+  // Real-time password validation
+  const validatePasswordField = (field, value) => {
+    const errors = { ...passwordErrors };
+
+    if (field === 'oldPassword') {
+      if (!value) {
+        errors.oldPassword = 'Current password is required';
+      } else {
+        delete errors.oldPassword;
+      }
+    }
+
+    if (field === 'newPassword') {
+      if (!value) {
+        errors.newPassword = 'New password is required';
+      } else if (!validatePasswordStrength(value)) {
+        errors.newPassword = 'Password does not meet all requirements';
+      } else if (value === passwordData.oldPassword) {
+        errors.newPassword = 'New password must be different from current password';
+      } else {
+        delete errors.newPassword;
+      }
+    }
+
+    if (field === 'confirmPassword') {
+      if (!value) {
+        errors.confirmPassword = 'Please confirm your new password';
+      } else if (value !== passwordData.newPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      } else {
+        delete errors.confirmPassword;
+      }
+    }
+
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
+    
+    if (field === 'newPassword') {
+      validatePasswordStrength(value);
+    }
+
+    if (touchedFields[field]) {
+      validatePasswordField(field, value);
+    }
+
+    // Also revalidate confirm password if new password changes
+    if (field === 'newPassword' && touchedFields.confirmPassword) {
+      validatePasswordField('confirmPassword', passwordData.confirmPassword);
+    }
+  };
+
+  const handlePasswordBlur = (field) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    validatePasswordField(field, passwordData[field]);
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordChangeSuccess(false);
+    setPasswordChangeError('');
+
+    // Mark all fields as touched
+    setTouchedFields({
+      oldPassword: true,
+      newPassword: true,
+      confirmPassword: true
+    });
+
+    // Validate all fields
+    const isOldValid = validatePasswordField('oldPassword', passwordData.oldPassword);
+    const isNewValid = validatePasswordField('newPassword', passwordData.newPassword);
+    const isConfirmValid = validatePasswordField('confirmPassword', passwordData.confirmPassword);
+
+    if (!isOldValid || !isNewValid || !isConfirmValid) {
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const userServiceUrl = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+
+      const response = await fetch(`${userServiceUrl}/user/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.oldPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to change password');
+      }
+
+      setPasswordChangeSuccess(true);
+      setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      setTouchedFields({ oldPassword: false, newPassword: false, confirmPassword: false });
+      setPasswordErrors({});
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => setPasswordChangeSuccess(false), 5000);
+
+    } catch (error) {
+      console.error('Password change error:', error);
+      setPasswordChangeError(error.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const tabs = [
-    { id: 'general', name: 'General', icon: Settings },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
-    { id: 'email', name: 'Email', icon: Mail },
     { id: 'system', name: 'System', icon: Database }
   ];
 
@@ -50,13 +192,6 @@ const SettingsPage = () => {
             <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">System Settings</h1>
             <p className="text-sm lg:text-base text-gray-600 mt-1">Configure platform settings and preferences</p>
           </div>
-          <button 
-            onClick={handleSave}
-            className="bg-red-600 text-white px-3 lg:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-2 text-sm lg:text-base"
-          >
-            <Save className="w-4 h-4" />
-            <span>Save Changes</span>
-          </button>
         </div>
 
         {/* Settings Tabs */}
@@ -106,235 +241,232 @@ const SettingsPage = () => {
 
           {/* Tab Content */}
           <div className="p-4 lg:p-6">
-            {activeTab === 'general' && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">General Settings</h2>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Site Name
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.siteName}
-                      onChange={(e) => handleSettingChange('siteName', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Site Description
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.siteDescription}
-                      onChange={(e) => handleSettingChange('siteDescription', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Currency
-                    </label>
-                    <select
-                      value={settings.currency}
-                      onChange={(e) => handleSettingChange('currency', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    >
-                      <option value="INR">Indian Rupee (₹)</option>
-                      <option value="USD">US Dollar ($)</option>
-                      <option value="EUR">Euro (€)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Timezone
-                    </label>
-                    <select
-                      value={settings.timezone}
-                      onChange={(e) => handleSettingChange('timezone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    >
-                      <option value="Asia/Kolkata">Asia/Kolkata</option>
-                      <option value="UTC">UTC</option>
-                      <option value="America/New_York">America/New_York</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Commission Rate (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.commissionRate}
-                      onChange={(e) => handleSettingChange('commissionRate', parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Max File Size (MB)
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.maxFileSize}
-                      onChange={(e) => handleSettingChange('maxFileSize', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">Auto-approve Properties</h3>
-                      <p className="text-xs lg:text-sm text-gray-500">Automatically approve new property listings</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.autoApproveProperties}
-                        onChange={(e) => handleSettingChange('autoApproveProperties', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">Maintenance Mode</h3>
-                      <p className="text-xs lg:text-sm text-gray-500">Put the site in maintenance mode</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.maintenanceMode}
-                        onChange={(e) => handleSettingChange('maintenanceMode', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'notifications' && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Notification Settings</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">Enable Notifications</h3>
-                      <p className="text-xs lg:text-sm text-gray-500">Receive system notifications</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.enableNotifications}
-                        onChange={(e) => handleSettingChange('enableNotifications', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
-                      <p className="text-xs lg:text-sm text-gray-500">Receive notifications via email</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.enableEmailVerification}
-                        onChange={(e) => handleSettingChange('enableEmailVerification', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
             {activeTab === 'security' && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="space-y-6"
               >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
+
+                {/* Success Message */}
+                {passwordChangeSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3"
+                  >
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
-                      <p className="text-xs lg:text-sm text-gray-500">Enable 2FA for admin accounts</p>
+                      <p className="text-green-800 font-medium">Password changed successfully!</p>
+                      <p className="text-green-700 text-sm mt-1">Your password has been updated.</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                  </motion.div>
+                )}
+
+                {/* Error Message */}
+                {passwordChangeError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3"
+                  >
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <span className="text-red-800 font-medium">{passwordChangeError}</span>
+                  </motion.div>
+                )}
+
+                {/* Password Change Form */}
+                <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                  {/* Current Password */}
+                  <div>
+                    <label htmlFor="oldPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Current Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
                       <input
-                        type="checkbox"
-                        checked={settings.enableTwoFactor}
-                        onChange={(e) => handleSettingChange('enableTwoFactor', e.target.checked)}
-                        className="sr-only peer"
+                        type={showPasswords.old ? "text" : "password"}
+                        id="oldPassword"
+                        value={passwordData.oldPassword}
+                        onChange={(e) => handlePasswordChange('oldPassword', e.target.value)}
+                        onBlur={() => handlePasswordBlur('oldPassword')}
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all ${
+                          passwordErrors.oldPassword && touchedFields.oldPassword ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter your current password"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'email' && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-6"
-              >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Email Settings</h2>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Admin Email
-                    </label>
-                    <input
-                      type="email"
-                      value={settings.adminEmail}
-                      onChange={(e) => handleSettingChange('adminEmail', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, old: !prev.old }))}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPasswords.old ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {passwordErrors.oldPassword && touchedFields.oldPassword && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {passwordErrors.oldPassword}
+                      </p>
+                    )}
                   </div>
 
+                  {/* New Password */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Support Email
+                    <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                      New Password <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="email"
-                      value={settings.supportEmail}
-                      onChange={(e) => handleSettingChange('supportEmail', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPasswords.new ? "text" : "password"}
+                        id="newPassword"
+                        value={passwordData.newPassword}
+                        onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                        onBlur={() => handlePasswordBlur('newPassword')}
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all ${
+                          passwordErrors.newPassword && touchedFields.newPassword ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter your new password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {passwordErrors.newPassword && touchedFields.newPassword && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {passwordErrors.newPassword}
+                      </p>
+                    )}
+                    
+                    {/* Password Strength Indicators */}
+                    {passwordData.newPassword && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-700 mb-1.5">Password must contain:</p>
+                        <div className="space-y-1">
+                          <div className={`flex items-center gap-2 text-xs transition-all ${
+                            passwordStrength.length ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {passwordStrength.length ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                            )}
+                            <span>At least 8 characters</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-xs transition-all ${
+                            passwordStrength.uppercase ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {passwordStrength.uppercase ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                            )}
+                            <span>One uppercase letter (A-Z)</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-xs transition-all ${
+                            passwordStrength.lowercase ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {passwordStrength.lowercase ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                            )}
+                            <span>One lowercase letter (a-z)</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-xs transition-all ${
+                            passwordStrength.number ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {passwordStrength.number ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                            )}
+                            <span>One number (0-9)</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-xs transition-all ${
+                            passwordStrength.special ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {passwordStrength.special ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                            )}
+                            <span>One special character (!@#$%^&*...)</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  {/* Confirm New Password */}
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Confirm New Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords.confirm ? "text" : "password"}
+                        id="confirmPassword"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                        onBlur={() => handlePasswordBlur('confirmPassword')}
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all ${
+                          passwordErrors.confirmPassword && touchedFields.confirmPassword ? 'border-red-500' : 
+                          touchedFields.confirmPassword && !passwordErrors.confirmPassword && passwordData.confirmPassword ? 'border-green-500' : 
+                          'border-gray-300'
+                        }`}
+                        placeholder="Re-enter your new password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {passwordErrors.confirmPassword && touchedFields.confirmPassword && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {passwordErrors.confirmPassword}
+                      </p>
+                    )}
+                    {touchedFields.confirmPassword && !passwordErrors.confirmPassword && passwordData.confirmPassword && passwordData.newPassword === passwordData.confirmPassword && (
+                      <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Passwords match!
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex justify-end pt-4">
+                    <motion.button
+                      type="submit"
+                      disabled={isChangingPassword || Object.keys(passwordErrors).length > 0}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isChangingPassword ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Changing Password...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-5 h-5" />
+                          Change Password
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                </form>
               </motion.div>
             )}
 

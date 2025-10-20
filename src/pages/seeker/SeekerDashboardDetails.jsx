@@ -561,13 +561,23 @@ const SeekerDashboardDetails = () => {
                             Room {room.roomNumber} • {room.roomType}
                           </h3>
                           <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              room.isAvailable 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {room.isAvailable ? 'Available' : 'Not Available'}
-                            </span>
+                            {room.status === 'inactive' ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 font-medium">
+                                ❌ Inactive
+                              </span>
+                            ) : room.status === 'maintenance' ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">
+                                🔧 Maintenance
+                              </span>
+                            ) : (
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                room.isAvailable 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {room.isAvailable ? 'Available' : 'Not Available'}
+                              </span>
+                            )}
                             {getVerificationBadge() && (
                               <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                                 Verified
@@ -619,23 +629,63 @@ const SeekerDashboardDetails = () => {
                           </div>
                         </div>
 
-                        {/* Price and Book Button */}
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                          <div>
-                            <span className="text-2xl font-bold text-gray-900">
-                              ₹{room.rent ? room.rent.toLocaleString() : 'Ask Price'}
-                            </span>
-                            <span className="text-sm text-gray-600">/month</span>
-                          </div>
-                          {/* Booking Status Display */}
-                          {checkingBookingStatus[room._id] ? (
-                            <div className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 text-center">
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                                Checking...
+                        {/* Inactive/Maintenance Room Alert */}
+                        {(room.status === 'inactive' || room.status === 'maintenance') && (
+                          <div className={`p-4 rounded-lg border-2 ${
+                            room.status === 'inactive' 
+                              ? 'bg-red-50 border-red-200' 
+                              : 'bg-yellow-50 border-yellow-200'
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-full ${
+                                room.status === 'inactive' 
+                                  ? 'bg-red-100' 
+                                  : 'bg-yellow-100'
+                              }`}>
+                                {room.status === 'inactive' ? '❌' : '🔧'}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className={`font-semibold text-sm mb-1 ${
+                                  room.status === 'inactive' 
+                                    ? 'text-red-900' 
+                                    : 'text-yellow-900'
+                                }`}>
+                                  {room.status === 'inactive' 
+                                    ? 'Room Currently Inactive' 
+                                    : 'Room Under Maintenance'}
+                                </h4>
+                                <p className={`text-xs ${
+                                  room.status === 'inactive' 
+                                    ? 'text-red-700' 
+                                    : 'text-yellow-700'
+                                }`}>
+                                  {room.status === 'inactive' 
+                                    ? 'This room has been temporarily deactivated by the owner and is not available for booking at this time.' 
+                                    : 'This room is currently undergoing maintenance and will be available soon.'}
+                                </p>
                               </div>
                             </div>
-                          ) : bookingStatuses[room._id]?.hasBooking ? (
+                          </div>
+                        )}
+
+                        {/* Price and Book Button */}
+                        {room.status !== 'inactive' && room.status !== 'maintenance' && (
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                            <div>
+                              <span className="text-2xl font-bold text-gray-900">
+                                ₹{room.rent ? room.rent.toLocaleString() : 'Ask Price'}
+                              </span>
+                              <span className="text-sm text-gray-600">/month</span>
+                            </div>
+                            {/* Booking Status Display */}
+                            {checkingBookingStatus[room._id] ? (
+                              <div className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 text-center">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                  Checking...
+                                </div>
+                              </div>
+                            ) : bookingStatuses[room._id]?.hasBooking ? (
                             <div className="px-6 py-2 rounded-lg text-center">
                               {bookingStatuses[room._id].status === 'pending_approval' && (
                                 <div className="bg-yellow-100 text-yellow-800 rounded-lg p-2">
@@ -678,14 +728,18 @@ const SeekerDashboardDetails = () => {
                                 </div>
                               )}
                             </div>
+                          ) : !room.isAvailable ? (
+                            <div className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 font-medium border border-gray-300">
+                              Not Available
+                            </div>
                           ) : (
                             <button
                               onClick={() => handleBookRoom(room._id)}
-                              disabled={!room.isAvailable || bookingLoading[room._id]}
+                              disabled={bookingLoading[room._id]}
                               className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                                room.isAvailable && !bookingLoading[room._id]
-                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                bookingLoading[room._id]
+                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700'
                               }`}
                             >
                               {bookingLoading[room._id] ? (
@@ -698,7 +752,8 @@ const SeekerDashboardDetails = () => {
                               )}
                             </button>
                           )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -38,13 +38,36 @@ const About = () => {
 
 
   return (
-    <div className="min-h-screen bg-white pt-16">
-
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-red-50 to-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-5xl md:text-6xl font-bold text-gray-900 mb-6"
+          >
+            About <span className="text-red-600">Lyvo+</span>
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-gray-600 max-w-3xl mx-auto"
+          >
+            Revolutionizing the co-living experience through technology, community, and trust.
+          </motion.p>
+        </div>
+      </section>
 
       {/* Mission Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <ScrollReveal direction="up" delay={0.05}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             <div className="text-center mb-16">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
                 Our <span className="text-red-600">Mission</span>
@@ -54,57 +77,58 @@ const About = () => {
                 and where technology enhances human connections rather than replacing them.
               </p>
             </div>
-          </ScrollReveal>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <ScrollReveal direction="left" delay={0.08}>
-              <div className="space-y-6">
-                <h3 className="text-2xl font-bold text-gray-900">Why Co-Living Matters</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  In today's fast-paced world, traditional housing models often leave people feeling isolated. 
-                  Co-living offers a solution that combines affordability, community, and flexibility.
-                </p>
-                <p className="text-gray-600 leading-relaxed">
-                  We believe everyone deserves a place they can call home, surrounded by like-minded individuals 
-                  who share their values and aspirations.
-                </p>
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-red-600" />
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center"
+          >
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold text-gray-900">Why Co-Living Matters</h3>
+              <p className="text-gray-600 leading-relaxed">
+                In today's fast-paced world, traditional housing models often leave people feeling isolated. 
+                Co-living offers a solution that combines affordability, community, and flexibility.
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                We believe everyone deserves a place they can call home, surrounded by like-minded individuals 
+                who share their values and aspirations.
+              </p>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Growing Trend</h4>
+                  <p className="text-sm text-gray-500">Co-living is the future of urban living</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-8">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="text-gray-700 font-medium">Smart Matching</span>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Growing Trend</h4>
-                    <p className="text-sm text-gray-500">Co-living is the future of urban living</p>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <span className="text-gray-700 font-medium">Community Building</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="text-gray-700 font-medium">Secure Transactions</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-gray-700 font-medium">24/7 Support</span>
                   </div>
                 </div>
               </div>
-            </ScrollReveal>
-
-            <ScrollReveal direction="right" delay={0.1}>
-              <div className="relative">
-                <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-gray-700 font-medium">Smart Matching</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                      <span className="text-gray-700 font-medium">Community Building</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                      <span className="text-gray-700 font-medium">Secure Transactions</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-700 font-medium">24/7 Support</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
-          </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -113,7 +137,11 @@ const About = () => {
       {/* Values Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
-          <ScrollReveal direction="up" delay={0.15}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
             <div className="text-center mb-16">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
                 Our <span className="text-red-600">Values</span>
@@ -122,24 +150,28 @@ const About = () => {
                 The principles that guide everything we do
               </p>
             </div>
-          </ScrollReveal>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
             {values.map((value, index) => (
-                              <ScrollReveal key={index} direction="up" delay={0.18 + index * 0.01}>
-                <motion.div 
-                  whileHover={{ y: -5 }}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 text-center"
-                >
-                  <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <value.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{value.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{value.description}</p>
-                </motion.div>
-              </ScrollReveal>
+              <motion.div 
+                key={index}
+                whileHover={{ y: -5 }}
+                className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200 text-center"
+              >
+                <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <value.icon className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{value.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{value.description}</p>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 

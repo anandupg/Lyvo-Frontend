@@ -145,7 +145,11 @@ const Home = () => {
       {/* Hero Section */}
           <div className="relative pt-20 pb-4 px-2 sm:px-6 lg:px-8 sm:pt-28 lg:pt-32 overflow-hidden">
         <div className="max-w-4xl mx-auto text-center">
-            <ScrollReveal direction="up" delay={0.02}>
+            <motion.div
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex flex-col items-center justify-center mb-12">
               {/* Clean Brand Logo */}
               <motion.div
@@ -534,7 +538,7 @@ const Home = () => {
                     </motion.div>
                   </motion.div>
               </div>
-              </ScrollReveal>
+            </motion.div>
             </div>
           </div>
 
@@ -571,7 +575,11 @@ const Home = () => {
         </div>
 
         <div className="max-w-7xl mx-auto">
-            <ScrollReveal delay={0.02}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
               <div className="text-center mb-12 sm:mb-16">
                 <h2 className="text-3xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-6 px-2">
                   Why Choose{' '}
@@ -582,14 +590,19 @@ const Home = () => {
                   hostels, and co-living spaces. Book instantly with secure payments and verified properties.
               </p>
             </div>
-          </ScrollReveal>
+          </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8"
+            >
               {features.map((feature, index) => (
-                <ScrollReveal key={index} direction="up" delay={index * 0.01}>
                 <motion.div 
+                  key={index}
                   whileHover={{ y: -5 }}
-                    className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 hover:shadow-md transition-shadow duration-200 relative"
+                    className="bg-white rounded-xl shadow-lg border border-gray-200 p-5 sm:p-6 hover:shadow-xl transition-all duration-200 relative"
                   >
                     {index === 0 && (
                       <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
@@ -613,16 +626,19 @@ const Home = () => {
                       </div>
                     )}
                 </motion.div>
-              </ScrollReveal>
             ))}
-          </div>
+          </motion.div>
             </div>
         </div>
 
                 {/* CTA Section */}
         <div className="py-20 sm:py-28 lg:py-32 relative overflow-hidden bg-gray-50">
           <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-8 text-center relative z-10">
-            <ScrollReveal direction="up" delay={0.02}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
               <h2 className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-8 sm:mb-10 font-display px-2">
                   Ready to Book Your <span className="text-red-600">Perfect PG</span>?
               </h2>
@@ -684,7 +700,7 @@ const Home = () => {
                 <div className="text-center text-sm sm:text-sm text-gray-500 px-2">
                   <p>🔒 Secure & Verified • 💳 No Hidden Charges • 🚀 Instant Booking</p>
                 </div>
-          </ScrollReveal>
+          </motion.div>
           </div>
         </div>
       </div>

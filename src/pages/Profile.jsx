@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import ScrollReveal from "../components/ScrollReveal";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
+import SeekerLayout from "../components/seeker/SeekerLayout";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -272,11 +273,12 @@ const Profile = () => {
   }
 
   return (
+    <SeekerLayout>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="pt-16 min-h-screen bg-gradient-to-br from-gray-50 to-white"
+      className="pt-4 min-h-screen bg-gradient-to-br from-gray-50 to-white"
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -593,6 +595,7 @@ const Profile = () => {
         )}
       </div>
     </motion.div>
+    </SeekerLayout>
   );
 };
 

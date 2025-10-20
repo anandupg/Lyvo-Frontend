@@ -25,7 +25,9 @@ import {
   User,
   Bed,
   Bath,
-  Square
+  Square,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { motion } from 'framer-motion';
@@ -47,6 +49,8 @@ const AdminPropertyDetails = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [adminMessage, setAdminMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   // Google Maps state
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
@@ -57,7 +61,7 @@ const AdminPropertyDetails = () => {
   const sidebarMapDivRef = useRef(null);
   const modalMapDivRef = useRef(null);
 
-  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
 
   // Calculate hasCoords early to avoid reference errors
   const hasCoords = property && typeof property.latitude === 'number' && typeof property.longitude === 'number' && 
@@ -276,6 +280,48 @@ const AdminPropertyDetails = () => {
     }
   };
 
+  const sendMessageToOwner = async () => {
+    if (!adminMessage.trim()) {
+      setErrorMessage('Please enter a message');
+      setShowErrorModal(true);
+      setTimeout(() => setShowErrorModal(false), 3000);
+      return;
+    }
+
+    try {
+      setIsSendingMessage(true);
+      const authToken = localStorage.getItem('authToken');
+      const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+      const userId = user._id || user.id || '';
+
+      const resp = await fetch(`${propertyServiceUrl}/api/admin/properties/${propertyId}/send-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'x-user-id': userId
+        },
+        body: JSON.stringify({ message: adminMessage.trim() })
+      });
+
+      const data = await resp.json();
+      if (!resp.ok || data.success !== true) {
+        throw new Error(data.message || 'Failed to send message');
+      }
+
+      setSuccessMessage('Message sent to owner successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 3000);
+      setAdminMessage(''); // Clear the message box
+    } catch (e) {
+      setErrorMessage(e.message || 'Failed to send message');
+      setShowErrorModal(true);
+      setTimeout(() => setShowErrorModal(false), 5000);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   const getAmenityIcon = (amenity) => {
     const icons = {
       ac: '❄️',
@@ -491,7 +537,16 @@ const AdminPropertyDetails = () => {
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Monthly Rent</h3>
-                      <p className="text-2xl font-bold text-gray-900">₹{property.monthly_rent?.toLocaleString() || '0'}</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {property.rooms && property.rooms.length > 0 
+                          ? `₹${Math.min(...property.rooms.map(r => r.rent || 0)).toLocaleString()} - ₹${Math.max(...property.rooms.map(r => r.rent || 0)).toLocaleString()}`
+                          : property.monthly_rent 
+                            ? `₹${property.monthly_rent.toLocaleString()}`
+                            : '₹0'}
+                      </p>
+                      {property.rooms && property.rooms.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">Range from {property.rooms.length} room(s)</p>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Coordinates</h3>
@@ -814,10 +869,6 @@ const AdminPropertyDetails = () => {
                     <p className="text-sm font-medium text-gray-700">Email</p>
                     <p className="text-gray-900">{property.owner?.email || 'Not provided'}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Owner ID</p>
-                    <p className="text-gray-900 font-mono text-sm">{property.owner_id}</p>
-                  </div>
                 </div>
               </motion.div>
 
@@ -856,6 +907,64 @@ const AdminPropertyDetails = () => {
                   ) : (
                     <p className="text-sm text-gray-500">No documents uploaded</p>
                   )}
+                </div>
+              </motion.div>
+
+              {/* Send Message to Owner */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+              >
+                <div className="p-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <MessageSquare className="w-5 h-5 mr-2" />
+                    Send Message to Owner
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Send a notification message to the property owner</p>
+                </div>
+                <div className="p-4">
+                  <div className="space-y-3">
+                    <textarea
+                      value={adminMessage}
+                      onChange={(e) => setAdminMessage(e.target.value)}
+                      placeholder="Type your message here... (e.g., Property details incorrect, Already listed elsewhere, etc.)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                      rows="4"
+                      maxLength="500"
+                      disabled={isSendingMessage}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        {adminMessage.length}/500 characters
+                      </span>
+                      <button
+                        onClick={sendMessageToOwner}
+                        disabled={isSendingMessage || !adminMessage.trim()}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                          isSendingMessage || !adminMessage.trim()
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
+                        }`}
+                      >
+                        {isSendingMessage ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Send Message</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 italic">
+                      💡 Tip: Use this to notify the owner about issues like duplicate listings, incorrect information, or required updates.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             </div>

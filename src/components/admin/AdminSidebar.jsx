@@ -6,19 +6,10 @@ import {
   Building,
   Users,
   User,
-  Calendar,
-  DollarSign,
-  FileText,
   Settings,
-  BarChart3,
-  MessageCircle,
-  Bell,
   LogOut,
-  Plus,
   X,
-  Shield,
-  CreditCard,
-  HelpCircle
+  Shield
 } from 'lucide-react';
 
 const AdminSidebar = ({ onClose }) => {
@@ -41,13 +32,10 @@ const AdminSidebar = ({ onClose }) => {
   const navigation = [
     { name: 'Dashboard', href: '/admin-dashboard', icon: Home },
     { name: 'All Users', href: '/admin-users', icon: Users },
+    { name: 'Add Admin', href: '/admin-add-admin', icon: Shield },
     { name: 'Room Owners', href: '/admin-owners', icon: User },
     { name: 'Seekers', href: '/admin-seekers', icon: User },
     { name: 'Properties', href: '/admin-properties', icon: Building },
-    { name: 'Bookings', href: '/admin-bookings', icon: Calendar },
-    { name: 'Reports', href: '/admin-reports', icon: BarChart3 },
-    { name: 'Revenue', href: '/admin-revenue', icon: DollarSign },
-    { name: 'Support', href: '/admin-support', icon: HelpCircle },
     { name: 'Settings', href: '/admin-settings', icon: Settings },
   ];
 
@@ -181,22 +169,6 @@ const AdminSidebar = ({ onClose }) => {
       {/* Navigation Links */}
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-4 space-y-2">
-          {/* Quick Actions Button */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-          >
-            <Link
-              to="/admin-quick-actions"
-              onClick={onClose}
-              className="group flex items-center px-3 py-3 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors duration-200 mb-4 shadow-sm"
-            >
-              <Plus className="mr-3 h-5 w-5" />
-              Quick Actions
-            </Link>
-          </motion.div>
-
           {/* Navigation Items */}
           {navigation.map((item, index) => {
             const Icon = item.icon;

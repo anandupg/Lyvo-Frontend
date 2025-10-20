@@ -89,8 +89,8 @@ class AIService {
   }
 
   async testConnectionWithRetry() {
-    const maxRetries = 3;
-    const retryDelay = 2000; // 2 seconds
+    const maxRetries = 2; // Reduced retries
+    const baseDelay = 5000; // 5 seconds base delay
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -104,7 +104,7 @@ class AIService {
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: "Hello, respond with 'Connection successful'"
+                text: "test"
               }]
             }]
           })
@@ -116,8 +116,9 @@ class AIService {
         } else if (testResponse.status === 429) {
           console.warn(`⚠️ Rate limit hit (429). Attempt ${attempt}/${maxRetries}`);
           if (attempt < maxRetries) {
-            console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            const waitTime = baseDelay * attempt; // Exponential backoff
+            console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
         }
@@ -132,8 +133,9 @@ class AIService {
         }
         
         if (error.message.includes('429')) {
-          console.log(`⏳ Rate limit detected. Waiting ${retryDelay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          const waitTime = baseDelay * attempt;
+          console.log(`⏳ Rate limit detected. Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
     }

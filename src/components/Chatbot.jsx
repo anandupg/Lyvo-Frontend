@@ -36,7 +36,7 @@ const Chatbot = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [aiServiceStatus, setAiServiceStatus] = useState('initializing'); // 'initializing', 'ready', 'error'
+  const [aiServiceStatus, setAiServiceStatus] = useState('idle'); // 'idle', 'initializing', 'ready', 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -48,21 +48,24 @@ const Chatbot = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Initialize AI service
+  // Initialize AI service only when chat is opened
   useEffect(() => {
-    const initializeAI = async () => {
-      try {
-        await aiService.initialize();
-        setAiServiceStatus('ready');
-      } catch (error) {
-        console.error('Failed to initialize AI service:', error);
-        setAiServiceStatus('error');
-        setErrorMessage('AI service unavailable. Using fallback responses.');
-      }
-    };
+    if (isOpen && aiServiceStatus === 'idle') {
+      const initializeAI = async () => {
+        setAiServiceStatus('initializing');
+        try {
+          await aiService.initialize();
+          setAiServiceStatus('ready');
+        } catch (error) {
+          console.error('Failed to initialize AI service:', error);
+          setAiServiceStatus('error');
+          setErrorMessage('AI service unavailable. Using fallback responses.');
+        }
+      };
 
-    initializeAI();
-  }, []);
+      initializeAI();
+    }
+  }, [isOpen, aiServiceStatus]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -144,7 +147,15 @@ const Chatbot = () => {
   const getFallbackResponse = (userMessage) => {
     const message = userMessage.toLowerCase();
     
-    if (message.includes('price') || message.includes('cost') || message.includes('rent') || message.includes('fee')) {
+    // Check for AI/bot related questions
+    if (message.includes('are you ai') || message.includes('are you a bot') || message.includes('are you real') || 
+        message.includes('ai or human') || message.includes('bot or human')) {
+      return "Yes, I'm an AI-powered chatbot assistant designed to help you with co-living questions. Currently using fallback responses due to high traffic, but I can still help you with pricing, locations, booking, and more!";
+    } else if (message.includes('mock') || message.includes('fake') || message.includes('real message')) {
+      return "I'm using pre-programmed fallback responses right now since our main AI service is temporarily busy. But I'm still here to help with all your co-living questions! What would you like to know?";
+    } else if (message.includes('what i asked') || message.includes('my question') || message.includes('tell me about')) {
+      return "I apologize for not directly answering your previous question. I'm currently in fallback mode. Could you please rephrase your question? I can help with: pricing, locations, amenities, booking process, roommate matching, security, payments, or support contact info.";
+    } else if (message.includes('price') || message.includes('cost') || message.includes('rent') || message.includes('fee')) {
       return fallbackResponses.pricing[Math.floor(Math.random() * fallbackResponses.pricing.length)];
     } else if (message.includes('location') || message.includes('area') || message.includes('where') || message.includes('place')) {
       return fallbackResponses.locations[Math.floor(Math.random() * fallbackResponses.locations.length)];
@@ -343,17 +354,19 @@ const Chatbot = () => {
                  </div>
                  <div className="flex-1">
                    <h3 className="font-bold text-base sm:text-sm"><span className="text-black">Lyvo</span><span className="text-black">+</span> Assistant</h3>
-                   <p className="text-sm sm:text-xs text-red-100 flex items-center space-x-1">
+                   <div className="text-sm sm:text-xs text-red-100 flex items-center space-x-1">
                      <div className={`w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full ${
                        aiServiceStatus === 'ready' ? 'bg-green-400 animate-pulse' : 
-                       aiServiceStatus === 'error' ? 'bg-yellow-400' : 'bg-gray-400'
+                       aiServiceStatus === 'error' ? 'bg-yellow-400' : 
+                       aiServiceStatus === 'initializing' ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'
                      }`}></div>
                      <span>
                        {aiServiceStatus === 'ready' ? 'AI Online • Ready to help' :
                         aiServiceStatus === 'error' ? 'Fallback Mode • Still helping' :
-                        'Initializing...'}
+                        aiServiceStatus === 'initializing' ? 'Initializing AI...' :
+                        'Ready to chat'}
                      </span>
-                   </p>
+                   </div>
                  </div>
                                    <div className="relative chatbot-menu">
                     <motion.button

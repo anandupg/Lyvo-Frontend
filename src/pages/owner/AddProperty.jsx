@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import OwnerLayout from '../../components/owner/OwnerLayout';
@@ -23,6 +23,39 @@ import {
   FileText,
   Eye
 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default marker icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Component to handle map clicks
+const MapClickHandler = ({ onLocationSelect }) => {
+  useMapEvents({
+    click: (e) => {
+      const { lat, lng } = e.latlng;
+      onLocationSelect(lat, lng);
+    }
+  });
+  return null;
+};
+
+// Map update component to handle center changes
+const MapUpdater = ({ center }) => {
+  const map = useMapEvents({});
+  React.useEffect(() => {
+    if (center && center[0] && center[1]) {
+      map.setView(center, map.getZoom());
+    }
+  }, [center, map]);
+  return null;
+};
 
 const AddProperty = () => {
   const navigate = useNavigate();
@@ -218,11 +251,7 @@ const AddProperty = () => {
     }));
   };
 
-  // Google Maps Places state (from env key)
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-  const autocompleteServiceRef = useRef(null);
-  const placesServiceRef = useRef(null);
-  const modalMapDivRef = useRef(null);
+  // Leaflet Map state
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const [isSatellite, setIsSatellite] = useState(false);
@@ -234,6 +263,7 @@ const AddProperty = () => {
   const debounceRef = useRef(null);
   const listRef = useRef(null);
   const selectingRef = useRef(false);
+  const [markerPosition, setMarkerPosition] = useState([12.9716, 77.5946]); // Default: Bangalore
   
 
   // Check authentication
@@ -269,89 +299,38 @@ const AddProperty = () => {
 
   // Stay on this page; do not auto-redirect. Show prompt instead.
 
-  // Load Google Maps JS API (Places) using env key
+  // Initialize marker position from existing coordinates
   useEffect(() => {
-    const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCoPzRJLAmma54BBOyF4AhZ2ZIqGvak8CA';
-    if (!key) return;
-    if (window.google && window.google.maps && window.google.maps.places) {
-      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-      placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
-      setIsGoogleLoaded(true);
-      return;
+    if (formData.address.latitude && formData.address.longitude) {
+      const lat = parseFloat(formData.address.latitude);
+      const lng = parseFloat(formData.address.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setMarkerPosition([lat, lng]);
+      }
     }
-    const existing = document.querySelector('script[data-google-places="true"]');
-    if (existing) {
-      existing.addEventListener('load', () => {
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-        placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
-        setIsGoogleLoaded(true);
-      });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.googlePlaces = 'true';
-    script.onload = () => {
-      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-      placesServiceRef.current = new window.google.maps.places.PlacesService(document.createElement('div'));
-      setIsGoogleLoaded(true);
-    };
-    document.head.appendChild(script);
-  }, []);
+  }, [formData.address.latitude, formData.address.longitude]);
 
-  // Initialize map when modal opens
-  useEffect(() => {
-    if (!isMapOpen || !isGoogleLoaded) return;
-    // Clear previous map instance
-    mapRef.current = null;
-    markerRef.current = null;
-    if (!modalMapDivRef.current) return;
-    const center = {
-      lat: formData.address.latitude ? parseFloat(formData.address.latitude) : 12.9716,
-      lng: formData.address.longitude ? parseFloat(formData.address.longitude) : 77.5946,
-    };
-    mapRef.current = new window.google.maps.Map(modalMapDivRef.current, {
-      center,
-      zoom: 15,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      mapTypeId: isSatellite ? 'hybrid' : 'roadmap',
-    });
-    markerRef.current = new window.google.maps.Marker({ map: mapRef.current, position: center, draggable: true });
-    markerRef.current.addListener('dragend', () => {
-      const pos = markerRef.current.getPosition();
-      setFormData(prev => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          latitude: String(pos.lat()),
-          longitude: String(pos.lng()),
-        }
-      }));
-    });
-    mapRef.current.addListener('click', (e) => {
-      const pos = e.latLng;
-      markerRef.current.setPosition(pos);
-      setFormData(prev => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          latitude: String(pos.lat()),
-          longitude: String(pos.lng()),
-        }
-      }));
-    });
-  }, [isMapOpen, isGoogleLoaded, isSatellite]);
+  // Handle location selection from map click or marker drag
+  const handleLocationSelect = (lat, lng) => {
+    setMarkerPosition([lat, lng]);
+    setFormData(prev => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        latitude: String(lat),
+        longitude: String(lng),
+      }
+    }));
+  };
+
+  // Handle marker drag end
+  const handleMarkerDragEnd = (event) => {
+    const { lat, lng } = event.target.getLatLng();
+    handleLocationSelect(lat, lng);
+  };
 
   const toggleSatellite = () => {
-    const next = !isSatellite;
-    setIsSatellite(next);
-    if (mapRef.current) {
-      mapRef.current.setMapTypeId(next ? 'hybrid' : 'roadmap');
-    }
+    setIsSatellite(!isSatellite);
   };
 
   const copyCoords = () => {
@@ -373,9 +352,9 @@ const AddProperty = () => {
     }
   };
 
-  // Fetch place suggestions (debounced)
+  // Fetch place suggestions using OpenStreetMap Nominatim (debounced)
   useEffect(() => {
-    if (!placeSearch || placeSearch.trim().length < 2 || !isGoogleLoaded || !autocompleteServiceRef.current) {
+    if (!placeSearch || placeSearch.trim().length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);
@@ -386,25 +365,42 @@ const AddProperty = () => {
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = setTimeout(async () => {
       try {
-        autocompleteServiceRef.current.getPlacePredictions({ input: placeSearch }, (predictions, status) => {
-          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            setActiveSuggestionIndex(-1);
-            return;
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(placeSearch)}` +
+          `&format=json` +
+          `&addressdetails=1` +
+          `&limit=5` +
+          `&countrycodes=in`, // Restrict to India
+          {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'LyvoPropertyApp/1.0'
+            }
           }
-          setSuggestions(predictions);
-          setShowSuggestions(true);
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSuggestions(data);
+          setShowSuggestions(data.length > 0);
           setActiveSuggestionIndex(-1);
-        });
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          setActiveSuggestionIndex(-1);
+        }
       } catch (err) {
-        console.error('Places autocomplete error:', err);
+        console.error('Error fetching place suggestions:', err);
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setActiveSuggestionIndex(-1);
       }
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [placeSearch, isGoogleLoaded]);
+  }, [placeSearch]);
 
   // Keep active item visible when navigating via keyboard
   useEffect(() => {
@@ -413,55 +409,46 @@ const AddProperty = () => {
     if (el) el.scrollIntoView({ block: 'nearest' });
   }, [activeSuggestionIndex]);
 
-  const selectPlace = (prediction) => {
-    if (!prediction || !placesServiceRef.current) return;
+  const selectPlace = (place) => {
+    if (!place) return;
     selectingRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setShowSuggestions(false);
     setSuggestions([]);
-    placesServiceRef.current.getDetails({ placeId: prediction.place_id, fields: ['geometry', 'address_components', 'formatted_address', 'name'] }, (place, status) => {
-      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
-        setPlaceSearch(prediction.description || '');
-        setShowSuggestions(false);
-        setActiveSuggestionIndex(-1);
-        selectingRef.current = false;
-        return;
+    
+    // Extract address components from Nominatim data
+    const addr = place.address || {};
+    const street = [addr.road, addr.suburb, addr.neighbourhood].filter(Boolean).join(', ');
+    const city = addr.city || addr.town || addr.village || addr.municipality || '';
+    const state = addr.state || '';
+    const pincode = addr.postcode || '';
+    const landmark = place.name || addr.amenity || '';
+    const lat = parseFloat(place.lat);
+    const lng = parseFloat(place.lon);
+    
+    // Update marker position
+    if (!isNaN(lat) && !isNaN(lng)) {
+      setMarkerPosition([lat, lng]);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        street: street || prev.address.street,
+        city: city || prev.address.city,
+        state: state || prev.address.state,
+        pincode: pincode || prev.address.pincode,
+        landmark: landmark || prev.address.landmark,
+        latitude: !isNaN(lat) ? String(lat) : prev.address.latitude,
+        longitude: !isNaN(lng) ? String(lng) : prev.address.longitude,
       }
-      const comps = place.address_components || [];
-      const byType = (t) => comps.find(c => c.types?.includes(t))?.long_name || '';
-      const street = [byType('route'), byType('sublocality'), byType('neighborhood')].filter(Boolean).join(', ');
-      const city = byType('locality') || byType('administrative_area_level_2');
-      const state = byType('administrative_area_level_1');
-      const pincode = byType('postal_code');
-      const landmark = place.name || '';
-      const lat = place.geometry?.location?.lat?.();
-      const lng = place.geometry?.location?.lng?.();
-      // Move map and marker
-      if (mapRef.current && markerRef.current && lat !== undefined && lng !== undefined) {
-        const pos = { lat, lng };
-        mapRef.current.setCenter(pos);
-        mapRef.current.setZoom(15);
-        markerRef.current.setPosition(pos);
-      }
-      setFormData(prev => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          street: street || prev.address.street,
-          city: city || prev.address.city,
-          state: state || prev.address.state,
-          pincode: pincode || prev.address.pincode,
-          landmark: landmark || prev.address.landmark,
-          latitude: lat !== undefined ? String(lat) : prev.address.latitude,
-          longitude: lng !== undefined ? String(lng) : prev.address.longitude,
-        }
-      }));
-      setPlaceSearch(place.name || prediction.structured_formatting?.main_text || prediction.description || place.formatted_address || '');
-      setShowSuggestions(false);
-      setActiveSuggestionIndex(-1);
-      // allow suggestion fetching after the value settles
-      setTimeout(() => { selectingRef.current = false; }, 0);
-    });
+    }));
+    setPlaceSearch(place.display_name || '');
+    setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
+    // allow suggestion fetching after the value settles
+    setTimeout(() => { selectingRef.current = false; }, 0);
   };
 
   const onKeyDownPlace = (e) => {
@@ -648,7 +635,11 @@ const AddProperty = () => {
     if (!formData.securityDeposit) newErrors.securityDeposit = 'Security deposit is required';
 
     // Required image slots
-    const slots = ['front','back','hall','kitchen'];
+    const slots = ['front','back','hall'];
+    // Only require kitchen image if kitchen amenity is checked
+    if (formData.amenities.kitchen) {
+      slots.push('kitchen');
+    }
     slots.forEach((s) => {
       if (!formData.requiredImages[s]) {
         newErrors[`requiredImages.${s}`] = 'Required';
@@ -1257,13 +1248,13 @@ const AddProperty = () => {
                           onClick={() => selectPlace(s)}
                           className={`w-full text-left px-4 py-3 text-sm transition-colors ${idx===activeSuggestionIndex ? 'bg-red-50' : 'hover:bg-gray-50'}`}
                         >
-                          <div className="text-gray-700 leading-snug line-clamp-2">{s.structured_formatting?.main_text || s.description || ''}</div>
-                          {s.structured_formatting?.secondary_text && (
-                            <div className="text-xs text-gray-500 mt-0.5">{s.structured_formatting.secondary_text}</div>
+                          <div className="text-gray-700 leading-snug line-clamp-2">{s.display_name || s.name || ''}</div>
+                          {s.type && (
+                            <div className="text-xs text-gray-500 mt-0.5 capitalize">{s.type}</div>
                           )}
                         </button>
                       ))}
-                      <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-500">Powered by Google Places</div>
+                      <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-500">Powered by OpenStreetMap</div>
                     </div>
                   )}
                 </div>
@@ -1452,9 +1443,11 @@ const AddProperty = () => {
                 { key: 'back', label: 'Back' },
                 { key: 'hall', label: 'Hall' },
                 { key: 'kitchen', label: 'Kitchen' }
-              ].map(({ key, label }) => (
+              ].filter(({ key }) => key !== 'kitchen' || formData.amenities.kitchen).map(({ key, label }) => (
                 <div key={key} className="">
-                  <div className="text-xs font-medium text-gray-700 mb-2">{label} *</div>
+                  <div className="text-xs font-medium text-gray-700 mb-2">
+                    {label} {key !== 'kitchen' || formData.amenities.kitchen ? '*' : ''}
+                  </div>
                   {!formData.requiredImages[key] ? (
                     <label className={`flex items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer ${errors[`requiredImages.${key}`] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'} hover:bg-gray-100`}>
                       <div className="text-xs text-gray-500 text-center px-2">Upload {label}</div>
@@ -1660,12 +1653,39 @@ const AddProperty = () => {
               <div className="text-sm font-semibold text-gray-900">Select Location</div>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={toggleSatellite} className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-xs">
-                  {isSatellite ? 'Satellite' : 'Map'} view
+                  {isSatellite ? 'Satellite' : 'Street'} view
                 </button>
                 <button type="button" onClick={() => setIsMapOpen(false)} className="px-2 py-1 text-gray-500 hover:text-gray-700 text-sm">Close</button>
               </div>
             </div>
-            <div ref={modalMapDivRef} style={{ width: '100%', height: '420px' }} />
+            <div style={{ width: '100%', height: '420px' }}>
+              <MapContainer
+                center={markerPosition}
+                zoom={15}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url={isSatellite 
+                    ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                  }
+                  key={isSatellite ? 'satellite' : 'street'}
+                />
+                {markerPosition && markerPosition[0] && markerPosition[1] && (
+                  <Marker
+                    position={markerPosition}
+                    draggable={true}
+                    eventHandlers={{
+                      dragend: handleMarkerDragEnd
+                    }}
+                  />
+                )}
+                <MapUpdater center={markerPosition} />
+                <MapClickHandler onLocationSelect={handleLocationSelect} />
+              </MapContainer>
+            </div>
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 flex items-center justify-between">
               <div>
                 Lat: {formData.address.latitude || '—'} | Lng: {formData.address.longitude || '—'}

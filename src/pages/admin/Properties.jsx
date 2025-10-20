@@ -15,7 +15,7 @@ const PropertiesPage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -67,6 +67,52 @@ const PropertiesPage = () => {
     });
     return groups;
   }, [filteredProperties]);
+
+  // Calculate actual statistics
+  const stats = useMemo(() => {
+    const totalProperties = properties.length;
+    
+    // Active listings: properties with approval_status = 'approved' and status = 'active'
+    const activeListings = properties.filter(p => 
+      (p.approval_status === 'approved' || p.status === 'active') && p.status !== 'inactive'
+    ).length;
+    
+    // Pending approval: properties with approval_status = 'pending'
+    const pendingApproval = properties.filter(p => 
+      p.approval_status === 'pending'
+    ).length;
+    
+    // Total revenue: sum of all room rents from all properties (monthly)
+    let totalRevenue = 0;
+    properties.forEach(property => {
+      if (property.rooms && Array.isArray(property.rooms)) {
+        property.rooms.forEach(room => {
+          if (room.rent && typeof room.rent === 'number') {
+            totalRevenue += room.rent;
+          }
+        });
+      }
+    });
+    
+    // Format revenue
+    const formatRevenue = (amount) => {
+      if (amount >= 10000000) { // >= 1 crore
+        return `₹${(amount / 10000000).toFixed(1)}Cr`;
+      } else if (amount >= 100000) { // >= 1 lakh
+        return `₹${(amount / 100000).toFixed(1)}L`;
+      } else if (amount >= 1000) { // >= 1 thousand
+        return `₹${(amount / 1000).toFixed(1)}K`;
+      }
+      return `₹${amount}`;
+    };
+    
+    return {
+      totalProperties,
+      activeListings,
+      pendingApproval,
+      totalRevenue: formatRevenue(totalRevenue)
+    };
+  }, [properties]);
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -165,7 +211,7 @@ const PropertiesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Properties</p>
-                <p className="text-2xl font-bold text-gray-900">320</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalProperties}</p>
               </div>
               <div className="p-3 rounded-lg bg-blue-50">
                 <Home className="w-6 h-6 text-blue-500" />
@@ -182,7 +228,7 @@ const PropertiesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Listings</p>
-                <p className="text-2xl font-bold text-gray-900">285</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeListings}</p>
               </div>
               <div className="p-3 rounded-lg bg-green-50">
                 <Star className="w-6 h-6 text-green-500" />
@@ -199,7 +245,7 @@ const PropertiesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Approval</p>
-                <p className="text-2xl font-bold text-gray-900">15</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pendingApproval}</p>
               </div>
               <div className="p-3 rounded-lg bg-yellow-50">
                 <Calendar className="w-6 h-6 text-yellow-500" />
@@ -216,7 +262,7 @@ const PropertiesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">₹8.2M</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalRevenue}</p>
               </div>
               <div className="p-3 rounded-lg bg-green-50">
                 <DollarSign className="w-6 h-6 text-green-500" />

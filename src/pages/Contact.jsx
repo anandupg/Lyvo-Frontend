@@ -49,17 +49,38 @@ const Contact = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white pt-16">
-
-
-
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-red-50 to-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-5xl md:text-6xl font-bold text-gray-900 mb-6"
+          >
+            Get in <span className="text-red-600">Touch</span>
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-gray-600 max-w-3xl mx-auto"
+          >
+            Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+          </motion.p>
+        </div>
+      </section>
 
       {/* Contact Form Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             {/* Form */}
-            <ScrollReveal direction="left" delay={0.2}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <div className="mb-8">
                   <h2 className="text-3xl font-bold text-gray-900 mb-4">Send us a Message</h2>
@@ -177,10 +198,14 @@ const Contact = () => {
                   </form>
                 )}
               </div>
-            </ScrollReveal>
+            </motion.div>
 
             {/* Contact Details & FAQ */}
-            <ScrollReveal direction="right" delay={0.25}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
               <div className="space-y-8">
                 {/* Why Choose Us */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -229,7 +254,7 @@ const Contact = () => {
                   </div>
                 </div>
               </div>
-            </ScrollReveal>
+            </motion.div>
           </div>
         </div>
       </section>

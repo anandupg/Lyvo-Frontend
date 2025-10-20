@@ -11,7 +11,7 @@ const ScrollReveal = ({
   once = true
 }) => {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once, margin: "-100px" });
+  const isInView = useInView(ref, { once, margin: "0px" });
   const controls = useAnimation();
 
   const directionVariants = {

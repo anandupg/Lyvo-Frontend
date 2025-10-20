@@ -24,6 +24,7 @@ import DebugLogout from "./pages/DebugLogout";
 import Onboarding from "./pages/Onboarding";
 import Loader from "./components/Loader";
 import RoleRepairProvider from "./components/RoleRepairProvider";
+import ErrorBoundary from "./components/ErrorBoundary";
 import RoomOwnerDashboard from "./pages/owner/RoomOwnerDashboard";
 // Import seeker pages and components
 import SeekerDashboard from "./pages/seeker/SeekerDashboard";
@@ -50,6 +51,8 @@ import KycRequired from "./pages/owner/KycRequired";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminOwners from "./pages/admin/Owners";
 import AdminSeekers from "./pages/admin/Seekers";
+import AllUsers from "./pages/admin/AllUsers";
+import AddAdmin from "./pages/admin/AddAdmin";
 import AdminProperties from "./pages/admin/Properties";
 import AdminPropertyDetails from "./pages/admin/AdminPropertyDetails";
 import AdminSettings from "./pages/admin/Settings";
@@ -58,6 +61,7 @@ import OwnerSettings from "./pages/owner/Settings";
 import OwnerBookings from "./pages/owner/Bookings";
 import BookingDetails from "./pages/owner/BookingDetails";
 import Tenants from "./pages/owner/Tenants";
+import OwnerAnalytics from "./pages/owner/OwnerAnalytics";
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -390,9 +394,11 @@ function AppRoutesWithLoader() {
             </ProtectedSeekerRoute>
           } />
           <Route path="/seeker-profile" element={
-            <ProtectedSeekerRoute>
-              <SeekerProfile />
-            </ProtectedSeekerRoute>
+            <ErrorBoundary>
+              <ProtectedSeekerRoute>
+                <SeekerProfile />
+              </ProtectedSeekerRoute>
+            </ErrorBoundary>
           } />
           <Route path="/seeker/property/:id" element={
             <ProtectedSeekerRoute>
@@ -513,11 +519,26 @@ function AppRoutesWithLoader() {
               <Tenants />
             </ProtectedOwnerRoute>
           } />
+          <Route path="/owner-analytics" element={
+            <ProtectedOwnerRoute>
+              <OwnerAnalytics />
+            </ProtectedOwnerRoute>
+          } />
 
           {/* Admin routes - protected with role-based authentication */}
           <Route path="/admin-dashboard" element={
             <ProtectedAdminRoute>
               <AdminDashboard />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin-users" element={
+            <ProtectedAdminRoute>
+              <AllUsers />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin-add-admin" element={
+            <ProtectedAdminRoute>
+              <AddAdmin />
             </ProtectedAdminRoute>
           } />
           <Route path="/admin-owners" element={

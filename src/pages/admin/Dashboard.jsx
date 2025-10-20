@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   LineChart,
@@ -7,9 +7,6 @@ import {
   Area,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,44 +15,205 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import AdminLayout from "../../components/admin/AdminLayout";
+import { Loader2 } from "lucide-react";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Real data states
+  const [users, setUsers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeProperties: 0,
+    monthlyRevenue: 0,
+    pendingApprovals: 0
+  });
 
-  // Sample data for charts
-  const userGrowthData = [
-    { month: "Jan", users: 120, growth: 15 },
-    { month: "Feb", users: 180, growth: 25 },
-    { month: "Mar", users: 250, growth: 30 },
-    { month: "Apr", users: 320, growth: 28 },
-    { month: "May", users: 410, growth: 35 },
-    { month: "Jun", users: 520, growth: 40 },
-  ];
+  const userServiceUrl = import.meta.env.VITE_API_URL || 'http://localhost:4002/api';
+  const propertyServiceUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
 
-  const revenueData = [
-    { month: "Jan", revenue: 15000, bookings: 45 },
-    { month: "Feb", revenue: 22000, bookings: 62 },
-    { month: "Mar", revenue: 28000, bookings: 78 },
-    { month: "Apr", revenue: 35000, bookings: 95 },
-    { month: "May", revenue: 42000, bookings: 112 },
-    { month: "Jun", revenue: 48000, bookings: 128 },
-  ];
+  // Helper function to format time ago (defined early to avoid hoisting issues)
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return `${seconds} seconds ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 2592000) return `${Math.floor(seconds / 86400)} days ago`;
+    return `${Math.floor(seconds / 2592000)} months ago`;
+  };
 
-  const propertyData = [
-    { type: "Apartments", count: 45, percentage: 45 },
-    { type: "Houses", count: 28, percentage: 28 },
-    { type: "Studios", count: 18, percentage: 18 },
-    { type: "Shared", count: 9, percentage: 9 },
-  ];
+  // Format revenue helper
+  const formatRevenue = (amount) => {
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+    return `₹${amount}`;
+  };
 
-  const COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b"];
+  // Fetch all data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        };
+
+        // Fetch users, properties, and bookings in parallel
+        const [usersRes, propertiesRes, bookingsRes] = await Promise.all([
+          fetch(`${userServiceUrl}/user/all`, { headers }),
+          fetch(`${propertyServiceUrl}/api/admin/properties?limit=1000`, { headers }), // Fetch all properties
+          fetch(`${propertyServiceUrl}/api/debug/bookings`, { headers })
+        ]);
+
+        const usersData = await usersRes.json();
+        const propertiesData = await propertiesRes.json();
+        const bookingsData = await bookingsRes.json();
+
+        // Set data (handle different response formats)
+        setUsers(usersData.data || []);
+        setProperties(propertiesData.data || propertiesData.properties || []);
+        setBookings(bookingsData.bookings || []);
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Calculate real stats from fetched data
+  const calculatedStats = useMemo(() => {
+    const totalUsers = users.filter(u => u.role !== 2).length; // Exclude admins
+    const totalProperties = properties.length;
+    
+    // Active listings: match the logic from Properties page
+    // Properties with approval_status = 'approved' OR status = 'active', but NOT inactive
+    const activeProperties = properties.filter(p => 
+      (p.approval_status === 'approved' || p.status === 'active') && p.status !== 'inactive'
+    ).length;
+    
+    const pendingApprovals = properties.filter(p => p.approval_status === 'pending').length;
+    
+    // Debug logging with detailed property info
+    console.log('Dashboard Stats:', {
+      totalProperties: properties.length,
+      activeProperties,
+      pendingApprovals,
+      propertiesBreakdown: properties.map(p => ({
+        name: p.property_name,
+        approval_status: p.approval_status,
+        status: p.status,
+        isActive: (p.approval_status === 'approved' || p.status === 'active') && p.status !== 'inactive'
+      }))
+    });
+    
+    // Calculate monthly revenue from bookings
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthlyBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.createdAt);
+      return bookingDate.getMonth() === currentMonth && 
+             bookingDate.getFullYear() === currentYear &&
+             b.status === 'confirmed' &&
+             b.payment?.paymentStatus === 'completed';
+    });
+    
+    const monthlyRevenue = monthlyBookings.reduce((sum, booking) => {
+      return sum + (booking.payment?.amount || 0);
+    }, 0);
+
+    return {
+      totalUsers,
+      totalProperties,
+      activeProperties,
+      monthlyRevenue,
+      pendingApprovals
+    };
+  }, [users, properties, bookings]);
+
+  // Calculate user growth data by month
+  const userGrowthData = useMemo(() => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const last6Months = [];
+    const today = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthIndex = date.getMonth();
+      const year = date.getFullYear();
+      
+      const usersInMonth = users.filter(u => {
+        if (u.role === 2) return false; // Exclude admins
+        const userDate = new Date(u.createdAt);
+        return userDate.getMonth() === monthIndex && userDate.getFullYear() === year;
+      }).length;
+      
+      last6Months.push({
+        month: monthNames[monthIndex],
+        users: usersInMonth,
+        growth: usersInMonth
+      });
+    }
+    
+    // Calculate cumulative users
+    let cumulative = 0;
+    return last6Months.map(month => {
+      cumulative += month.users;
+      return {
+        ...month,
+        users: cumulative
+      };
+    });
+  }, [users]);
+
+  // Calculate revenue and bookings data by month
+  const revenueData = useMemo(() => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const last6Months = [];
+    const today = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthIndex = date.getMonth();
+      const year = date.getFullYear();
+      
+      const monthBookings = bookings.filter(b => {
+        const bookingDate = new Date(b.createdAt);
+        return bookingDate.getMonth() === monthIndex && 
+               bookingDate.getFullYear() === year &&
+               b.status === 'confirmed' &&
+               b.payment?.paymentStatus === 'completed';
+      });
+      
+      const revenue = monthBookings.reduce((sum, b) => sum + (b.payment?.amount || 0), 0);
+      
+      last6Months.push({
+        month: monthNames[monthIndex],
+        revenue,
+        bookings: monthBookings.length
+      });
+    }
+    
+    return last6Months;
+  }, [bookings]);
 
   const statsCards = [
     {
       title: "Total Users",
-      value: "2,847",
-      change: "+12.5%",
+      value: calculatedStats.totalUsers.toLocaleString(),
+      change: "+0%",
       changeType: "positive",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,9 +222,9 @@ const Dashboard = () => {
       ),
     },
     {
-      title: "Active Properties",
-      value: "156",
-      change: "+8.2%",
+      title: "Total Properties",
+      value: calculatedStats.totalProperties.toString(),
+      change: "+0%",
       changeType: "positive",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,8 +234,8 @@ const Dashboard = () => {
     },
     {
       title: "Monthly Revenue",
-      value: "$48,250",
-      change: "+15.3%",
+      value: formatRevenue(calculatedStats.monthlyRevenue),
+      change: "+0%",
       changeType: "positive",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,9 +245,9 @@ const Dashboard = () => {
     },
     {
       title: "Pending Approvals",
-      value: "23",
-      change: "-5.1%",
-      changeType: "negative",
+      value: calculatedStats.pendingApprovals.toString(),
+      change: "0%",
+      changeType: calculatedStats.pendingApprovals > 0 ? "negative" : "positive",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -98,42 +256,87 @@ const Dashboard = () => {
     },
   ];
 
-  const recentActivities = [
-    {
-      id: 1,
+  // Calculate recent activities from real data
+  const recentActivities = useMemo(() => {
+    const activities = [];
+    
+    // Recent users (last 5)
+    const recentUsers = users
+      .filter(u => u.role !== 2)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 3);
+    
+    recentUsers.forEach(user => {
+      activities.push({
+        id: `user-${user._id}`,
       type: "user_registration",
-      message: "New user registered: John Doe",
-      time: "2 minutes ago",
-      status: "success",
-    },
-    {
-      id: 2,
+        message: `New user registered: ${user.name}`,
+        time: getTimeAgo(user.createdAt),
+        status: "success"
+      });
+    });
+    
+    // Recent properties (last 3)
+    const recentProperties = properties
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 2);
+    
+    recentProperties.forEach(prop => {
+      if (prop.approval_status === 'approved') {
+        activities.push({
+          id: `prop-${prop._id}`,
       type: "property_approval",
-      message: "Property approved: Downtown Apartment",
-      time: "15 minutes ago",
-      status: "success",
-    },
-    {
-      id: 3,
+          message: `Property approved: ${prop.property_name}`,
+          time: getTimeAgo(prop.updatedAt || prop.createdAt),
+          status: "success"
+        });
+      }
+    });
+    
+    // Recent bookings (last 2)
+    const recentBookings = bookings
+      .filter(b => b.status === 'confirmed' && b.payment?.paymentStatus === 'completed')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 2);
+    
+    recentBookings.forEach(booking => {
+      activities.push({
+        id: `booking-${booking._id}`,
       type: "payment_received",
-      message: "Payment received: $1,200",
-      time: "1 hour ago",
-      status: "success",
-    },
-    {
-      id: 4,
-      type: "support_ticket",
-      message: "New support ticket: #1234",
-      time: "2 hours ago",
-      status: "warning",
-    },
-  ];
+        message: `Payment received: ${formatRevenue(booking.payment?.amount || 0)}`,
+        time: getTimeAgo(booking.createdAt),
+        status: "success"
+      });
+    });
+    
+    // Sort by time and return last 5
+    return activities
+      .sort((a, b) => {
+        // Sort by recency (this is approximate since we're using "time ago" strings)
+        return 0; // Already sorted by creation date in each category
+      })
+      .slice(0, 5);
+  }, [users, properties, bookings]);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "analytics", label: "Analytics", icon: "📈" },
     { id: "reports", label: "Reports", icon: "📋" },
   ];
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 text-lg">Loading dashboard data...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -256,47 +459,6 @@ const Dashboard = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
-                {/* Property Distribution */}
-                <div className="bg-gray-50 rounded-xl p-4 lg:p-6">
-                  <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Property Distribution</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                    <ResponsiveContainer width="100%" height={250} className="lg:h-[300px]">
-                      <PieChart>
-                        <Pie
-                          data={propertyData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ type, percentage }) => `${type}: ${percentage}%`}
-                          outerRadius={60}
-                          className="lg:outerRadius={80}"
-                          fill="#8884d8"
-                          dataKey="count"
-                        >
-                          {propertyData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-3">
-                      {propertyData.map((property, index) => (
-                        <div key={property.type} className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div
-                              className="w-3 h-3 lg:w-4 lg:h-4 rounded-full mr-3"
-                              style={{ backgroundColor: COLORS[index] }}
-                            ></div>
-                            <span className="font-medium text-gray-700 text-sm lg:text-base">{property.type}</span>
-                          </div>
-                          <span className="text-gray-600 text-sm lg:text-base">{property.count} properties</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -356,38 +518,6 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
-          <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            <button className="flex items-center justify-center p-3 lg:p-4 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors duration-200 text-sm">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-              Manage Users
-            </button>
-            <button className="flex items-center justify-center p-3 lg:p-4 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-sm">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              View Properties
-            </button>
-            <button className="flex items-center justify-center p-3 lg:p-4 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors duration-200 text-sm">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              View Reports
-            </button>
-            <button className="flex items-center justify-center p-3 lg:p-4 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors duration-200 text-sm">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Settings
-            </button>
           </div>
         </div>
       </div>
