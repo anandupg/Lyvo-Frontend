@@ -3,362 +3,111 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
 import Chatbot from '../../components/Chatbot';
+import LeafletMap from '../../components/maps/LeafletMap';
+import UniversalSearchInput from '../../components/search/UniversalSearchInput';
+import locationService from '../../services/locationService';
 import { 
-  Search, 
+  Search,
   Heart, 
   Calendar, 
   MapPin, 
   Star, 
   Users, 
   Building,
-  TrendingUp,
   Clock,
   CheckCircle,
   AlertCircle,
-  ArrowRight,
-  Navigation,
-  Map,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Layers
 } from 'lucide-react';
 
 const SeekerDashboard = () => {
   const [user, setUser] = useState({});
-  const [recentSearches, setRecentSearches] = useState([]);
   const [favoritePGs, setFavoritePGs] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   
-  // Google Maps and Location Search States
+  // Location Search States
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [radius, setRadius] = useState(5); // in kilometers
   const [isSearching, setIsSearching] = useState(false);
   const [nearbyPGs, setNearbyPGs] = useState([]);
+  const [allProperties, setAllProperties] = useState([]); // Store all properties
+  const [recentSearches, setRecentSearches] = useState([]); // Store recent searches
   const navigate = useNavigate();
   const [locationError, setLocationError] = useState(null);
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  
-  const mapRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const autocompleteRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markersRef = useRef([]);
-  const circleRef = useRef(null);
 
-  // Load Google Maps API (singleton) and initialize when container is visible
+  // Load all properties on component mount
   useEffect(() => {
-    let observer;
-
-    const ensureGoogleMaps = () => {
-      if (window.google && window.google.maps) return Promise.resolve();
-
-      if (window.__googleMapsPromise) return window.__googleMapsPromise;
-
-      window.__googleMapsPromise = new Promise((resolve, reject) => {
-        const existing = document.getElementById('google-maps-script');
-        if (existing) {
-          existing.addEventListener('load', () => resolve());
-          existing.addEventListener('error', (e) => reject(e));
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.id = 'google-maps-script';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCoPzRJLAmma54BBOyF4AhZ2ZIqGvak8CA&libraries=places,geometry`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = (e) => reject(e);
-        document.head.appendChild(script);
-      });
-
-      return window.__googleMapsPromise;
-    };
-
-    const initWhenVisible = async () => {
-      try {
-        await ensureGoogleMaps();
-        if (!mapRef.current) return;
-        // Wait until the container is actually visible to avoid zero-size init
-        observer = new IntersectionObserver((entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              initializeMap();
-              // Trigger a resize in case container dimensions changed
-              if (mapInstanceRef.current && window.google && window.google.maps) {
-                window.google.maps.event.trigger(mapInstanceRef.current, 'resize');
-              }
-              observer.disconnect();
-            }
-          });
-        }, { threshold: 0.1 });
-        observer.observe(mapRef.current);
-      } catch (e) {
-        console.error('Failed to ensure Google Maps:', e);
-      }
-    };
-
-    initWhenVisible();
-
-    return () => {
-      if (observer) observer.disconnect();
-    };
+    loadAllPropertiesOnMap();
   }, []);
 
-  // Reinitialize autocomplete when search input ref changes
-  useEffect(() => {
-    if (window.google && window.google.maps && searchInputRef.current && !autocompleteRef.current) {
-      initializeMap();
-    }
-  }, [searchInputRef.current]);
-
-  // Fallback initialization after component mounts
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (window.google && window.google.maps && mapRef.current && !mapInstanceRef.current) {
-        console.log('Fallback map initialization...');
-        initializeMap();
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Initialize Google Maps
-  const initializeMap = () => {
-    console.log('Initializing map...');
-    console.log('Google Maps available:', !!window.google);
-    console.log('Map ref available:', !!mapRef.current);
+  // Location selection handler for Leaflet maps
+  const handleLocationSelect = (locationData) => {
+    setSelectedLocation(locationData);
+    setSearchQuery(locationData.name);
     
-    if (window.google && window.google.maps) {
-      // Initialize Places Autocomplete first
-      if (searchInputRef.current && !autocompleteRef.current) {
-        console.log('Initializing autocomplete...');
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(
-          searchInputRef.current,
-          {
-            types: ['establishment', 'geocode'],
-            componentRestrictions: { country: 'in' },
-            fields: ['place_id', 'geometry', 'name', 'formatted_address']
-          }
-        );
-
-        autocompleteRef.current.addListener('place_changed', handlePlaceSelect);
-        console.log('Autocomplete initialized');
-      }
-
-      // Initialize map if container exists
-      if (mapRef.current && !mapInstanceRef.current) {
-        console.log('Creating map instance...');
-        mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-          center: { lat: 12.9716, lng: 77.5946 }, // Bangalore coordinates
-          zoom: 12,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }]
-            }
-          ]
-        });
-        
-        console.log('Map created successfully');
-        
-        // Load all properties on map initialization
-        loadAllPropertiesOnMap();
-        console.log('Map initialized, loading properties...');
-        // If we already have a selected location, draw/update the radius circle
-        if (selectedLocation) {
-          const center = new window.google.maps.LatLng(selectedLocation.lat, selectedLocation.lng);
-          updateRadiusCircle(center);
-        }
-      } else {
-        console.log('Map container not ready or already initialized');
-      }
-    } else {
-      console.log('Google Maps not available');
-    }
+    // Add to recent searches
+    addToRecentSearches(locationData);
+    
+    // Search for nearby PGs
+    searchNearbyPGs(locationData.lat, locationData.lng, radius);
   };
 
-  // Create or update the radius circle on the map
-  const updateRadiusCircle = (centerLatLng) => {
-    if (!mapInstanceRef.current || !window.google || !window.google.maps) return;
-
-    const options = {
-      map: mapInstanceRef.current,
-      center: centerLatLng,
-      radius: (radius || 0) * 1000, // km -> meters
-      strokeColor: '#ef4444',
-      strokeOpacity: 0.9,
-      strokeWeight: 2,
-      fillColor: '#ef4444',
-      fillOpacity: 0.12,
-      clickable: false,
+  // Add location to recent searches
+  const addToRecentSearches = (locationData) => {
+    const searchEntry = {
+      id: Date.now(),
+      location: locationData.name,
+      address: locationData.address,
+      lat: locationData.lat,
+      lng: locationData.lng,
+      timestamp: new Date().toLocaleString(),
+      radius: radius,
+      pgCount: 0 // Will be updated after search
     };
 
-    if (circleRef.current) {
-      circleRef.current.setOptions(options);
-    } else {
-      circleRef.current = new window.google.maps.Circle(options);
-    }
+    // Remove if already exists (to avoid duplicates)
+    const filteredSearches = recentSearches.filter(search => 
+      search.lat !== locationData.lat || search.lng !== locationData.lng
+    );
+
+    // Add to beginning of array
+    const newSearches = [searchEntry, ...filteredSearches].slice(0, 5); // Keep only last 5
+    setRecentSearches(newSearches);
   };
 
-  // Handle place selection from autocomplete
-  const handlePlaceSelect = () => {
-    const place = autocompleteRef.current.getPlace();
-    if (place.geometry) {
-      setSelectedLocation({
-        name: place.name || place.formatted_address,
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-        address: place.formatted_address
+  // Get current location using Nominatim
+  const getCurrentLocation = async () => {
+    setIsSearching(true);
+    setLocationError(null);
+    
+    try {
+      const locationData = await locationService.getCurrentLocation('leaflet');
+      
+      setCurrentLocation({
+        lat: locationData.lat,
+        lng: locationData.lng,
+        accuracy: locationData.accuracy,
+        timestamp: locationData.timestamp
       });
-      setSearchQuery(place.name || place.formatted_address);
-      setSearchResults([]);
       
-      // Update map center
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.setCenter(place.geometry.location);
-        mapInstanceRef.current.setZoom(15);
-        updateRadiusCircle(place.geometry.location);
-      }
+      // Use the location handler
+      handleLocationSelect(locationData);
       
-      // Search for nearby PGs
-      searchNearbyPGs(place.geometry.location.lat(), place.geometry.location.lng(), radius);
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      setLocationError(error.message);
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  // Get current location
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsSearching(true);
-      setLocationError(null);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          setCurrentLocation({ 
-            lat: latitude, 
-            lng: longitude,
-            accuracy: accuracy,
-            timestamp: new Date().toLocaleString()
-          });
-          
-          // Get location name using reverse geocoding
-          if (window.google && window.google.maps) {
-            setIsGeocoding(true);
-            const geocoder = new window.google.maps.Geocoder();
-            geocoder.geocode(
-              { location: { lat: latitude, lng: longitude } },
-              (results, status) => {
-                setIsGeocoding(false);
-                let locationName = 'Current Location';
-                let address = 'Your current location';
-                
-                if (status === 'OK' && results[0]) {
-                  const result = results[0];
-                  address = result.formatted_address;
-                  
-                  // Try to get a shorter, more readable name
-                  if (result.address_components) {
-                    const components = result.address_components;
-                    
-                    // Look for different types of location names
-                    const locality = components.find(comp => comp.types.includes('locality'));
-                    const sublocality = components.find(comp => comp.types.includes('sublocality'));
-                    const neighborhood = components.find(comp => comp.types.includes('neighborhood'));
-                    const administrative_area_level_1 = components.find(comp => comp.types.includes('administrative_area_level_1'));
-                    const administrative_area_level_2 = components.find(comp => comp.types.includes('administrative_area_level_2'));
-                    
-                    // Build location name with priority: locality > sublocality > neighborhood
-                    if (locality && administrative_area_level_1) {
-                      locationName = `${locality.long_name}, ${administrative_area_level_1.long_name}`;
-                    } else if (sublocality && administrative_area_level_1) {
-                      locationName = `${sublocality.long_name}, ${administrative_area_level_1.long_name}`;
-                    } else if (neighborhood && administrative_area_level_1) {
-                      locationName = `${neighborhood.long_name}, ${administrative_area_level_1.long_name}`;
-                    } else if (administrative_area_level_2 && administrative_area_level_1) {
-                      locationName = `${administrative_area_level_2.long_name}, ${administrative_area_level_1.long_name}`;
-                    } else {
-                      // Fallback to formatted address
-                      locationName = result.formatted_address;
-                    }
-                  } else {
-                    // Fallback to formatted address
-                    locationName = result.formatted_address;
-                  }
-                }
-                
-                setSelectedLocation({
-                  name: locationName,
-                  lat: latitude,
-                  lng: longitude,
-                  address: address
-                });
-                
-                // Update search query to show the actual place name
-                setSearchQuery(locationName);
-              }
-            );
-          } else {
-            // Fallback if geocoding fails
-            setIsGeocoding(false);
-            setSelectedLocation({
-              name: 'Current Location',
-              lat: latitude,
-              lng: longitude,
-              address: 'Your current location'
-            });
-            setSearchQuery('Current Location');
-          }
-          
-          // Update map center
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.setCenter({ lat: latitude, lng: longitude });
-            mapInstanceRef.current.setZoom(15);
-            const center = new window.google.maps.LatLng(latitude, longitude);
-            updateRadiusCircle(center);
-          }
-          
-          // Search for nearby PGs
-          searchNearbyPGs(latitude, longitude, radius);
-          setIsSearching(false);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          setIsSearching(false);
-          let errorMessage = 'Unable to get your current location. ';
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage += 'Location access denied by user.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage += 'Location information unavailable.';
-              break;
-            case error.TIMEOUT:
-              errorMessage += 'Location request timed out.';
-              break;
-            default:
-              errorMessage += 'Unknown error occurred.';
-              break;
-          }
-          setLocationError(errorMessage);
-        }
-      );
-    } else {
-      setLocationError('Geolocation is not supported by this browser.');
-    }
-  };
-
-  // Search for nearby PGs
+  // Calculate distance between two coordinates using Haversine formula
   const getDistanceKm = (lat1, lng1, lat2, lng2) => {
-    if (window.google && window.google.maps && window.google.maps.geometry && window.google.maps.geometry.spherical) {
-      const a = new window.google.maps.LatLng(lat1, lng1);
-      const b = new window.google.maps.LatLng(lat2, lng2);
-      return window.google.maps.geometry.spherical.computeDistanceBetween(a, b) / 1000; // meters -> km
-    }
     return calculateDistance(lat1, lng1, lat2, lng2);
   };
 
@@ -412,12 +161,24 @@ const SeekerDashboard = () => {
         .sort((a, b) => a._distanceKm - b._distanceKm); // Sort by distance
 
       setNearbyPGs(nearbyProperties);
-      addMarkersToMap(nearbyProperties);
+      
+      // Update recent searches with PG count
+      updateRecentSearchPGCount(lat, lng, nearbyProperties.length);
     } catch (error) {
       console.error('Error fetching properties:', error);
       setNearbyPGs([]);
-      addMarkersToMap([]);
     }
+  };
+
+  // Update recent search with PG count
+  const updateRecentSearchPGCount = (lat, lng, pgCount) => {
+    setRecentSearches(prevSearches => 
+      prevSearches.map(search => 
+        Math.abs(search.lat - lat) < 0.001 && Math.abs(search.lng - lng) < 0.001
+          ? { ...search, pgCount }
+          : search
+      )
+    );
   };
 
   // Calculate distance between two coordinates
@@ -478,97 +239,12 @@ const SeekerDashboard = () => {
           };
         });
 
-      console.log(`Loaded ${allProperties.length} properties on map`);
-      addMarkersToMap(allProperties);
+      console.log(`Loaded ${allProperties.length} properties`);
+      setAllProperties(allProperties);
+      // Properties will be displayed on Leaflet map automatically
     } catch (error) {
-      console.error('Error loading properties on map:', error);
+      console.error('Error loading properties:', error);
     }
-  };
-
-  // Add markers to map
-  const addMarkersToMap = (pgs) => {
-    if (!mapInstanceRef.current) return;
-
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
-
-    pgs.forEach(pg => {
-      // Create different colored markers based on property type
-      const getMarkerColor = (propertyType) => {
-        switch (propertyType?.toLowerCase()) {
-          case 'pg': return '#ef4444'; // Red
-          case 'co-living': return '#3b82f6'; // Blue
-          case 'apartment': return '#10b981'; // Green
-          case 'house': return '#f59e0b'; // Yellow
-          default: return '#ef4444'; // Default red
-        }
-      };
-
-      const markerColor = getMarkerColor(pg.propertyType);
-      
-      const marker = new window.google.maps.Marker({
-        position: { lat: pg.lat, lng: pg.lng },
-        map: mapInstanceRef.current,
-        title: `${pg.name} - ${pg.price}`,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="20" cy="20" r="16" fill="${markerColor}" stroke="white" stroke-width="3"/>
-              <path d="M20 8l-6 12h12l-6-12z" fill="white"/>
-              <text x="20" y="32" text-anchor="middle" fill="white" font-size="8" font-weight="bold">${pg.propertyType?.charAt(0)?.toUpperCase() || 'P'}</text>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(40, 40)
-        }
-      });
-
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div class="p-4 max-w-sm">
-            <div class="flex items-start justify-between mb-2">
-              <h3 class="font-semibold text-gray-900 text-sm">${pg.name}</h3>
-              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">${pg.propertyType || 'PG'}</span>
-            </div>
-            <p class="text-xs text-gray-600 mb-2">${pg.address}</p>
-            <p class="text-[10px] text-gray-500 mb-1">Lat: ${pg.lat?.toFixed(6) || ''}, Lng: ${pg.lng?.toFixed(6) || ''}</p>
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-lg font-bold text-red-600">${pg.price}</p>
-              ${pg.distance !== '0 km' ? `<p class="text-xs text-gray-500">${pg.distance} away</p>` : ''}
-            </div>
-            <div class="space-y-1 text-xs text-gray-600">
-              ${pg.maxOccupancy ? `<p><span class="font-medium">Max Occupancy:</span> ${pg.maxOccupancy} people</p>` : ''}
-              ${pg.ownerName ? `<p><span class="font-medium">Owner:</span> ${pg.ownerName}</p>` : ''}
-              ${pg.amenities && Object.keys(pg.amenities).length > 0 ? `
-                <div class="mt-2">
-                  <p class="font-medium mb-1">Amenities:</p>
-                  <div class="flex flex-wrap gap-1">
-                    ${Object.entries(pg.amenities)
-                      .filter(([key, value]) => value === true)
-                      .slice(0, 3)
-                      .map(([key]) => `<span class="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">${key}</span>`)
-                      .join('')}
-                    ${Object.keys(pg.amenities).filter(key => pg.amenities[key] === true).length > 3 ? 
-                      `<span class="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">+${Object.keys(pg.amenities).filter(key => pg.amenities[key] === true).length - 3} more</span>` : ''}
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-            ${pg.images && pg.images.length > 0 ? `
-              <div class="mt-3">
-                <img src="${pg.images[0]}" alt="${pg.name}" class="w-full h-20 object-cover rounded border" />
-              </div>
-            ` : ''}
-          </div>
-        `
-      });
-
-      marker.addListener('click', () => {
-        infoWindow.open(mapInstanceRef.current, marker);
-      });
-
-      markersRef.current.push(marker);
-    });
   };
 
   // Open property modal and fetch full details
@@ -576,22 +252,6 @@ const SeekerDashboard = () => {
     navigate(`/seeker/property/${propertyId}`);
   };
 
-  // Handle search input
-  const handleSearchInput = (e) => {
-    setSearchQuery(e.target.value);
-    
-    // Initialize autocomplete if not already done
-    if (window.google && window.google.maps && !autocompleteRef.current && searchInputRef.current) {
-      initializeMap();
-    }
-    
-    if (e.target.value.length > 2) {
-      // In real app, this would trigger API search
-      setSearchResults([]);
-    } else {
-      setSearchResults([]);
-    }
-  };
 
   // Handle radius change
   const handleRadiusChange = (e) => {
@@ -599,31 +259,11 @@ const SeekerDashboard = () => {
     setRadius(newRadius);
     if (selectedLocation) {
       searchNearbyPGs(selectedLocation.lat, selectedLocation.lng, newRadius);
-      if (circleRef.current) {
-        circleRef.current.setRadius(newRadius * 1000);
-      } else if (window.google && window.google.maps) {
-        const center = new window.google.maps.LatLng(selectedLocation.lat, selectedLocation.lng);
-        updateRadiusCircle(center);
-      }
     } else if (currentLocation) {
       searchNearbyPGs(currentLocation.lat, currentLocation.lng, newRadius);
-      if (circleRef.current) {
-        circleRef.current.setRadius(newRadius * 1000);
-      } else if (window.google && window.google.maps) {
-        const center = new window.google.maps.LatLng(currentLocation.lat, currentLocation.lng);
-        updateRadiusCircle(center);
-      }
     }
   };
 
-  // Keep circle in sync when selected location changes
-  useEffect(() => {
-    if (selectedLocation && window.google && window.google.maps && mapInstanceRef.current) {
-      const center = new window.google.maps.LatLng(selectedLocation.lat, selectedLocation.lng);
-      updateRadiusCircle(center);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLocation]);
 
   // Check if user has confirmed booking and redirect to PostBookingDashboard
   const checkAndRedirectToBookingDashboard = async () => {
@@ -827,7 +467,7 @@ const SeekerDashboard = () => {
         return;
       }
 
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+        const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
       const url = `${baseUrl}/api/favorites/user?userId=${userId}`;
       console.log('Favorites API URL:', url);
 
@@ -867,7 +507,7 @@ const SeekerDashboard = () => {
         return;
       }
 
-      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+        const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
       const url = `${baseUrl}/api/bookings/user?userId=${userId}`;
       console.log('Bookings API URL:', url);
 
@@ -923,27 +563,6 @@ const SeekerDashboard = () => {
 
   return (
     <SeekerLayout>
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background: #ef4444;
-          cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .slider::-moz-range-thumb {
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background: #ef4444;
-          cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-      `}</style>
       <div className="p-6">
         {/* Welcome Header */}
         <motion.div
@@ -976,40 +595,25 @@ const SeekerDashboard = () => {
               <MapPin className="w-5 h-5 mr-2 text-red-600" />
               Find PGs Near You
             </h2>
+            
+            {/* Map Info */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Interactive Map:</span>
+              <div className="flex items-center space-x-1 text-xs text-blue-600">
+                <Layers className="w-3 h-3" />
+                <span>Leaflet + OpenStreetMap</span>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Search Input */}
             <div className="lg:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search for a location (e.g., Koramangala, Bangalore)"
-                  value={searchQuery}
-                  onChange={handleSearchInput}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  autoComplete="off"
-                />
-                {/* Debug info */}
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                  {window.google && window.google.maps ? (
-                    <span className="text-xs text-green-600">✓ Maps Loaded</span>
-                  ) : (
-                    <span className="text-xs text-yellow-600">⏳ Loading...</span>
-                  )}
-                </div>
-              </div>
-              {/* Manual initialization button */}
-              {window.google && window.google.maps && !autocompleteRef.current && (
-                <button
-                  onClick={() => initializeMap()}
-                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
-                >
-                  Initialize Search (Click if dropdown not working)
-                </button>
-              )}
+              <UniversalSearchInput
+                mapType="leaflet"
+                onLocationSelect={handleLocationSelect}
+                placeholder="Search for a location (e.g., Koramangala, Bangalore)"
+              />
             </div>
 
           </div>
@@ -1027,7 +631,7 @@ const SeekerDashboard = () => {
                 max="20"
                 value={radius}
                 onChange={handleRadiusChange}
-                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <span className="text-sm font-medium text-gray-700 min-w-[3rem]">{radius} km</span>
             </div>
@@ -1061,20 +665,6 @@ const SeekerDashboard = () => {
             </div>
           )}
 
-          {/* Geocoding State */}
-          {isGeocoding && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">Finding Your Location Name...</h4>
-                  <p className="text-sm text-gray-600">Converting coordinates to place name.</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Error State */}
           {locationError && (
@@ -1098,37 +688,21 @@ const SeekerDashboard = () => {
           )}
 
 
-          {/* Map Container - Always Visible */}
+          {/* Map Container - Leaflet Only */}
           <div className="mt-4">
-            <div 
-              ref={mapRef}
-              className="w-full h-80 rounded-lg border border-gray-200 relative"
-              style={{ minHeight: '320px' }}
+            <LeafletMap
+              properties={selectedLocation ? nearbyPGs : allProperties}
+              selectedLocation={selectedLocation}
+              radius={radius}
+              onPropertyClick={openPropertyDetails}
+              height="320px"
+              showRadius={!!selectedLocation}
             />
             
-            
-            {/* Debug info and manual initialization */}
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-              <div>
-                {window.google && window.google.maps ? (
-                  <span className="text-green-600">✓ Google Maps Loaded</span>
-                ) : (
-                  <span className="text-yellow-600">⏳ Loading Google Maps...</span>
-                )}
-                {mapInstanceRef.current ? (
-                  <span className="ml-2 text-green-600">✓ Map Initialized</span>
-                ) : (
-                  <span className="ml-2 text-red-600">✗ Map Not Ready</span>
-                )}
-              </div>
-              {window.google && window.google.maps && !mapInstanceRef.current && (
-                <button
-                  onClick={() => initializeMap()}
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  Initialize Map
-                </button>
-              )}
+            {/* Map Info */}
+            <div className="mt-2 text-xs text-gray-500">
+              <span className="text-green-600">✓ Leaflet Map Loaded</span>
+              <span className="ml-2 text-blue-600">OpenStreetMap Tiles</span>
             </div>
           </div>
 
@@ -1197,17 +771,33 @@ const SeekerDashboard = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => handleLocationSelect(search)}
                   >
                     <div className="flex items-center space-x-3">
                       <MapPin className="w-4 h-4 text-gray-400" />
                       <div>
                         <p className="font-medium text-gray-900">{search.location}</p>
-                        <p className="text-sm text-gray-500">{search.date}</p>
+                        <p className="text-sm text-gray-500">{search.timestamp}</p>
+                        <p className="text-xs text-blue-600">{search.radius}km radius</p>
                       </div>
                     </div>
-                    <Search className="w-4 h-4 text-gray-400" />
+                    <div className="flex items-center space-x-2">
+                      {search.pgCount > 0 && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          {search.pgCount} PGs
+                        </span>
+                      )}
+                      <Search className="w-4 h-4 text-gray-400" />
+                    </div>
                   </motion.div>
                 ))}
+                {recentSearches.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p>No recent searches yet</p>
+                    <p className="text-sm">Search for a location to see it here</p>
+                  </div>
+                )}
               </div>
             </motion.div>
 
