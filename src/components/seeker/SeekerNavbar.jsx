@@ -5,16 +5,38 @@ import {
   Menu, 
   Bell, 
   User, 
-  MessageCircle,
   Settings,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
+
+// Helper function to format time ago
+const getTimeAgo = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+  const years = Math.floor(days / 365);
+  return `${years} year${years > 1 ? 's' : ''} ago`;
+};
 
 const SeekerNavbar = ({ onMenuToggle }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [user, setUser] = useState({});
   const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face";
   
@@ -34,53 +56,155 @@ const SeekerNavbar = ({ onMenuToggle }) => {
     }
   }, []);
 
-  // Mock notifications data
-  useEffect(() => {
-    setNotifications([
-      {
-        id: 1,
-        title: 'New PG Available',
-        message: 'A new PG matching your preferences is now available in Koramangala',
-        time: '2 hours ago',
-        read: false,
-        type: 'info'
-      },
-      {
-        id: 2,
-        title: 'Booking Confirmed',
-        message: 'Your booking for PG in Indiranagar has been confirmed',
-        time: '1 day ago',
-        read: true,
-        type: 'success'
-      },
-      {
-        id: 3,
-        title: 'Payment Successful',
-        message: 'Your payment of ₹15,000 has been processed successfully',
-        time: '2 days ago',
-        read: true,
-        type: 'success'
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setNotificationsLoading(true);
+      const authToken = localStorage.getItem('authToken');
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (!authToken || !userData._id) {
+        return;
       }
-    ]);
-    setUnreadCount(1);
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userData._id
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setNotifications(data.data || []);
+          setUnreadCount(data.unread_count || 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (!authToken || !userData._id) {
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userData._id
+        }
+      });
+
+      if (response.ok) {
+        // Refresh notifications
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (!authToken || !userData._id) {
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/notifications/mark-all-read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userData._id
+        }
+      });
+
+      if (response.ok) {
+        // Refresh notifications
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (!authToken || !userData._id) {
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${baseUrl}/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'x-user-id': userData._id
+        }
+      });
+
+      if (response.ok) {
+        // Refresh notifications
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  // Fetch notifications on mount and set up polling
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Poll for new notifications every 30 seconds
+    const pollInterval = setInterval(fetchNotifications, 30000);
+    
+    return () => clearInterval(pollInterval);
   }, []);
 
+  // Listen for notification events
+  useEffect(() => {
+    const handleNewNotification = () => {
+      fetchNotifications();
+    };
+    
+    window.addEventListener('new-notification', handleNewNotification);
+    return () => window.removeEventListener('new-notification', handleNewNotification);
+  }, []);
 
-  const markAsRead = (id) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-container')) {
+        setShowProfileMenu(false);
+        setShowNotifications(false);
+      }
+    };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, read: true }))
-    );
-    setUnreadCount(0);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -127,10 +251,12 @@ const SeekerNavbar = ({ onMenuToggle }) => {
         <div className="flex items-center space-x-3">
 
           {/* Notifications */}
-          <div className="relative">
-            <button
+          <div className="relative dropdown-container">
+            <motion.button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <Bell className="w-5 h-5 text-gray-600" />
               {unreadCount > 0 && (
@@ -139,10 +265,10 @@ const SeekerNavbar = ({ onMenuToggle }) => {
                   animate={{ scale: 1 }}
                   className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
                 >
-                  {unreadCount}
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </motion.span>
               )}
-            </button>
+            </motion.button>
 
             {/* Notifications Dropdown */}
             <AnimatePresence>
@@ -165,30 +291,35 @@ const SeekerNavbar = ({ onMenuToggle }) => {
                     <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                                                 {unreadCount > 0 && (
-                           <button
-                             onClick={markAllAsRead}
-                             className="text-sm text-red-600 hover:text-red-700 transition-colors"
-                           >
-                             Mark all as read
-                           </button>
-                         )}
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={markAllAsRead}
+                            className="text-sm text-red-600 hover:text-red-700 transition-colors"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                      {notifications.length > 0 ? (
+                      {notificationsLoading ? (
+                        <div className="p-8 text-center text-gray-500">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                          <p className="mt-2">Loading notifications...</p>
+                        </div>
+                      ) : notifications.length > 0 ? (
                         notifications.map((notification) => (
                           <div
-                            key={notification.id}
-                            className={`p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
-                              !notification.read ? 'bg-blue-50' : ''
+                            key={notification._id}
+                            className={`p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${
+                              !notification.is_read ? 'bg-blue-50' : ''
                             }`}
-                            onClick={() => markAsRead(notification.id)}
                           >
                             <div className="flex items-start space-x-3">
                               <div className={`w-2 h-2 rounded-full mt-2 ${
-                                notification.type === 'success' ? 'bg-green-500' :
-                                notification.type === 'info' ? 'bg-blue-500' : 'bg-yellow-500'
+                                notification.type === 'booking_approved' ? 'bg-green-500' :
+                                notification.type === 'booking_rejected' ? 'bg-red-500' :
+                                notification.type === 'booking_request' ? 'bg-blue-500' : 'bg-yellow-500'
                               }`} />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900">
@@ -198,12 +329,21 @@ const SeekerNavbar = ({ onMenuToggle }) => {
                                   {notification.message}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-2">
-                                  {notification.time}
+                                  {getTimeAgo(notification.created_at)}
                                 </p>
                               </div>
-                              {!notification.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                              )}
+                              <div className="flex items-center space-x-2">
+                                {!notification.is_read && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                )}
+                                <button
+                                  onClick={() => deleteNotification(notification._id)}
+                                  className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                                  title="Close notification"
+                                >
+                                  <X className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -220,14 +360,6 @@ const SeekerNavbar = ({ onMenuToggle }) => {
             </AnimatePresence>
           </div>
 
-          {/* Messages */}
-          <Link
-            to="/seeker-messages"
-            className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <MessageCircle className="w-5 h-5 text-gray-600" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></span>
-          </Link>
 
           {/* Profile Menu */}
           <div className="relative">

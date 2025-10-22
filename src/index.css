@@ -18,6 +18,19 @@ code {
         monospace;
 }
 
+/* Fix Leaflet map z-index issues with modals */
+.leaflet-container {
+    z-index: 1 !important;
+}
+
+.leaflet-control-container {
+    z-index: 2 !important;
+}
+
+.leaflet-popup {
+    z-index: 1000 !important;
+}
+
 .font-display {
     font-family: 'Outfit', 'Poppins', sans-serif;
 }

@@ -572,13 +572,19 @@ const SeekerDashboardDetails = () => {
                               <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">
                                 🔧 Maintenance
                               </span>
+                            ) : room.room_status === 'full' ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800 font-medium">
+                                🏠 {room.currentTenants || room.occupancy}/{room.occupancy} Full
+                              </span>
                             ) : (
                               <span className={`text-xs px-2 py-1 rounded-full ${
                                 room.isAvailable 
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {room.isAvailable ? 'Available' : 'Not Available'}
+                                {room.isAvailable 
+                                  ? `✅ ${room.currentTenants || 0}/${room.occupancy} Available` 
+                                  : 'Not Available'}
                               </span>
                             )}
                             {getVerificationBadge() && (
@@ -632,39 +638,51 @@ const SeekerDashboardDetails = () => {
                           </div>
                         </div>
 
-                        {/* Inactive/Maintenance Room Alert */}
-                        {(room.status === 'inactive' || room.status === 'maintenance') && (
+                        {/* Inactive/Maintenance/Full Room Alert */}
+                        {(room.status === 'inactive' || room.status === 'maintenance' || room.room_status === 'full') && (
                           <div className={`p-4 rounded-lg border-2 ${
                             room.status === 'inactive' 
                               ? 'bg-red-50 border-red-200' 
-                              : 'bg-yellow-50 border-yellow-200'
+                              : room.status === 'maintenance'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : 'bg-orange-50 border-orange-200'
                           }`}>
                             <div className="flex items-start gap-3">
                               <div className={`p-2 rounded-full ${
                                 room.status === 'inactive' 
                                   ? 'bg-red-100' 
-                                  : 'bg-yellow-100'
+                                  : room.status === 'maintenance'
+                                  ? 'bg-yellow-100'
+                                  : 'bg-orange-100'
                               }`}>
-                                {room.status === 'inactive' ? '❌' : '🔧'}
+                                {room.status === 'inactive' ? '❌' : room.status === 'maintenance' ? '🔧' : '🏠'}
                               </div>
                               <div className="flex-1">
                                 <h4 className={`font-semibold text-sm mb-1 ${
                                   room.status === 'inactive' 
                                     ? 'text-red-900' 
-                                    : 'text-yellow-900'
+                                    : room.status === 'maintenance'
+                                    ? 'text-yellow-900'
+                                    : 'text-orange-900'
                                 }`}>
                                   {room.status === 'inactive' 
                                     ? 'Room Currently Inactive' 
-                                    : 'Room Under Maintenance'}
+                                    : room.status === 'maintenance'
+                                    ? 'Room Under Maintenance'
+                                    : `Room is Full (${room.currentTenants || room.occupancy}/${room.occupancy})`}
                                 </h4>
                                 <p className={`text-xs ${
                                   room.status === 'inactive' 
                                     ? 'text-red-700' 
-                                    : 'text-yellow-700'
+                                    : room.status === 'maintenance'
+                                    ? 'text-yellow-700'
+                                    : 'text-orange-700'
                                 }`}>
                                   {room.status === 'inactive' 
                                     ? 'This room has been temporarily deactivated by the owner and is not available for booking at this time.' 
-                                    : 'This room is currently undergoing maintenance and will be available soon.'}
+                                    : room.status === 'maintenance'
+                                    ? 'This room is currently undergoing maintenance and will be available soon.'
+                                    : `This room has reached its maximum occupancy limit (${room.currentTenants || room.occupancy}/${room.occupancy}) and is not available for booking.`}
                                 </p>
                               </div>
                             </div>
@@ -731,9 +749,11 @@ const SeekerDashboardDetails = () => {
                                 </div>
                               )}
                             </div>
-                          ) : !room.isAvailable ? (
+                          ) : !room.isAvailable || room.room_status === 'full' ? (
                             <div className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 font-medium border border-gray-300">
-                              Not Available
+                              {room.room_status === 'full' 
+                                ? `Room Full (${room.currentTenants || room.occupancy}/${room.occupancy})` 
+                                : 'Not Available'}
                             </div>
                           ) : (
                             <button

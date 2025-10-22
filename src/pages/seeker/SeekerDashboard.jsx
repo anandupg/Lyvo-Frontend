@@ -152,7 +152,7 @@ const SeekerDashboard = () => {
             _distanceKm: dKm,
             amenities: property.amenities ? Object.entries(property.amenities).filter(([key, value]) => value === true).map(([key]) => key) : [],
             propertyType: property.propertyType || 'PG',
-            maxOccupancy: property.maxOccupancy || 1,
+            totalRooms: property.totalRooms || property.maxOccupancy || 'N/A',
             images: property.images || [],
             ownerName: property.ownerName || 'Unknown Owner',
           };
@@ -233,7 +233,7 @@ const SeekerDashboard = () => {
             _distanceKm: 0,
             amenities: property.amenities ? Object.entries(property.amenities).filter(([key, value]) => value === true).map(([key]) => key) : [],
             propertyType: property.propertyType || 'PG',
-            maxOccupancy: property.maxOccupancy || 1,
+            totalRooms: property.totalRooms || property.maxOccupancy || 'N/A',
             images: property.images || [],
             ownerName: property.ownerName || 'Unknown Owner'
           };
@@ -426,7 +426,7 @@ const SeekerDashboard = () => {
           distance: `${(index + 1) * 2}.${index + 1} km`, // Mock distance for now
           matchScore: 95 - (index * 5), // Decreasing match score
           propertyType: property.propertyType || 'PG',
-          maxOccupancy: property.maxOccupancy || 1,
+          totalRooms: property.maxOccupancy || 'N/A', // Using maxOccupancy as fallback since rooms array is not available in this endpoint
           amenities: property.amenities || []
         }));
 
@@ -729,11 +729,19 @@ const SeekerDashboard = () => {
                       </span>
                     </div>
                     <p className="text-xs text-gray-600 mb-2">{pg.address}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-red-600">{pg.price}</span>
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-1">
                         <Star className="w-3 h-3 text-yellow-400 fill-current" />
                         <span className="text-xs text-gray-600">{pg.rating}</span>
+                      </div>
+                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                        {pg.propertyType}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-600">
+                      <div className="flex items-center justify-between">
+                        <span>Total Rooms:</span>
+                        <span className="font-medium">{pg.totalRooms || 'N/A'}</span>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -827,8 +835,22 @@ const SeekerDashboard = () => {
                         alt={pg.name}
                         className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      <div className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                        {pg.matchScore}% Match
+                      <div className="absolute top-2 right-2 flex flex-col gap-1">
+                        <div className="bg-red-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          {pg.matchScore}% Match
+                        </div>
+                        {pg.rooms && pg.rooms.length > 0 && (
+                          <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            pg.rooms.filter(room => room.room_status === 'available' && room.isAvailable).length > 0
+                              ? 'bg-green-600 text-white'
+                              : 'bg-orange-600 text-white'
+                          }`}>
+                            {pg.rooms.filter(room => room.room_status === 'available' && room.isAvailable).length > 0
+                              ? 'Rooms Available'
+                              : 'Fully Booked'
+                            }
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mt-3">
@@ -840,11 +862,28 @@ const SeekerDashboard = () => {
                         <span className="text-sm text-gray-600">{pg.location}</span>
                         <span className="text-xs text-gray-400">• {pg.distance}</span>
                       </div>
-                      <div className="flex items-center mt-2">
+                      <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
                           <span className="text-sm text-gray-600">{pg.rating}</span>
                         </div>
+                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                          {pg.propertyType}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs text-gray-600 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span>Total Rooms:</span>
+                          <span className="font-medium">{pg.totalRooms || 'N/A'}</span>
+                        </div>
+                        {pg.rooms && pg.rooms.length > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span>Available:</span>
+                            <span className="font-medium text-green-600">
+                              {pg.rooms.filter(room => room.room_status === 'available' && room.isAvailable).length}/{pg.rooms.length}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>

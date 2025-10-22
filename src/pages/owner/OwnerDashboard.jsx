@@ -350,36 +350,101 @@ const OwnerDashboard = () => {
     };
   });
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: "tenant",
-      message: "New tenant application received for Sunset Apartments",
-      time: "2 hours ago",
-      status: "pending"
-    },
-    {
-      id: 2,
-      type: "payment",
-      message: "Rent payment received from Green Valley Residences",
-      time: "4 hours ago",
-      status: "completed"
-    },
-    {
-      id: 3,
-      type: "maintenance",
-      message: "Maintenance request submitted for City Center Flats",
-      time: "1 day ago",
-      status: "in-progress"
-    },
-    {
-      id: 4,
-      type: "property",
-      message: "New property listing approved: Riverside Villas",
-      time: "2 days ago",
-      status: "completed"
-    }
-  ];
+  // Format time ago helper function
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown time';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 4) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+    const years = Math.floor(days / 365);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  };
+
+  // Generate real activities from actual data
+  const generateRecentActivities = () => {
+    const activities = [];
+    
+    // Add booking activities
+    bookings.slice(0, 3).forEach((booking) => {
+      const property = properties.find(p => String(p._id) === String(booking.propertyId));
+      const propertyName = property ? property.propertyName || property.property_name : 'Unknown Property';
+      const seekerName = booking.userSnapshot?.name || 'Unknown User';
+      
+      let message = '';
+      let status = '';
+      let type = '';
+      
+      switch (booking.status) {
+        case 'pending_approval':
+          message = `New booking request from ${seekerName} for ${propertyName}`;
+          status = 'pending';
+          type = 'tenant';
+          break;
+        case 'confirmed':
+          message = `Booking confirmed by ${seekerName} for ${propertyName}`;
+          status = 'completed';
+          type = 'payment';
+          break;
+        case 'rejected':
+          message = `Booking rejected for ${propertyName}`;
+          status = 'completed';
+          type = 'tenant';
+          break;
+        case 'cancelled':
+          message = `Booking cancelled for ${propertyName}`;
+          status = 'completed';
+          type = 'tenant';
+          break;
+        default:
+          message = `Booking ${booking.status} for ${propertyName}`;
+          status = 'in-progress';
+          type = 'tenant';
+      }
+      
+      activities.push({
+        id: `booking-${booking._id}`,
+        type,
+        message,
+        time: formatTimeAgo(booking.createdAt || booking.bookedAt),
+        status,
+        createdAt: booking.createdAt || booking.bookedAt
+      });
+    });
+    
+    // Add property activities
+    properties.slice(0, 2).forEach((property) => {
+      const propertyName = property.propertyName || property.property_name || 'Unnamed Property';
+      
+      activities.push({
+        id: `property-${property._id}`,
+        type: 'property',
+        message: `Property "${propertyName}" ${property.status === 'approved' ? 'approved' : 'pending approval'}`,
+        time: formatTimeAgo(property.createdAt),
+        status: property.status === 'approved' ? 'completed' : 'pending',
+        createdAt: property.createdAt
+      });
+    });
+    
+    // Sort by creation date (most recent first) and limit to 4
+    return activities
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 4);
+  };
+
+  const recentActivities = generateRecentActivities();
 
   const getActivityIcon = (type) => {
     switch (type) {
@@ -691,28 +756,33 @@ const OwnerDashboard = () => {
               <p className="text-xs sm:text-sm text-gray-600">Latest updates and notifications</p>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 mt-1">
-                    {getActivityIcon(activity.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-900">{activity.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                  </div>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)} flex-shrink-0`}>
-                    {activity.status}
-                  </span>
+              {dataLoading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 mb-4"></div>
+                  <p className="text-sm text-gray-500">Loading activities...</p>
                 </div>
-              ))}
-            </div>
-            <div className="p-4 sm:p-6 border-t border-gray-200">
-              <button
-                onClick={() => navigate('/owner-notifications')}
-                className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium"
-              >
-                View all activities →
-              </button>
+              ) : recentActivities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Calendar className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-sm font-medium text-gray-900 mb-1">No recent activities</p>
+                  <p className="text-xs text-gray-500">Activities will appear here as bookings and properties are created</p>
+                </div>
+              ) : (
+                recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 mt-1">
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-900">{activity.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)} flex-shrink-0`}>
+                      {activity.status}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </motion.div>
         </div>

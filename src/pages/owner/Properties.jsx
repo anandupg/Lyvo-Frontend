@@ -13,8 +13,9 @@ import {
   MapPin,
   Users,
   DollarSign,
-  Star,
-  Calendar
+  Calendar,
+  Power,
+  PowerOff
 } from 'lucide-react';
 
 const Properties = () => {
@@ -25,6 +26,7 @@ const Properties = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [imageLoading, setImageLoading] = useState({});
+  const [updatingStatus, setUpdatingStatus] = useState({});
 
   // Fetch properties from backend
   const fetchProperties = async () => {
@@ -50,6 +52,47 @@ const Properties = () => {
       }
     } catch (error) {
       console.error('Error fetching properties:', error);
+    }
+  };
+
+  // Update property status
+  const updatePropertyStatus = async (propertyId, newStatus) => {
+    try {
+      setUpdatingStatus(prev => ({ ...prev, [propertyId]: true }));
+      
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${propertyId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Update the property in the local state
+          setProperties(prev => prev.map(property => 
+            property._id === propertyId 
+              ? { ...property, status: newStatus, updated_at: new Date().toISOString() }
+              : property
+          ));
+          console.log('Property status updated successfully');
+        }
+      } else {
+        console.error('Failed to update property status');
+      }
+    } catch (error) {
+      console.error('Error updating property status:', error);
+    } finally {
+      setUpdatingStatus(prev => ({ ...prev, [propertyId]: false }));
     }
   };
 
@@ -141,11 +184,11 @@ const Properties = () => {
       location: `${property.address?.city || ''}, ${property.address?.state || ''}`,
       type: property.property_type,
       status: property.status === 'active' ? 'Active' : 'Inactive',
-      tenants: 0, // Default values since we don't have tenant data yet
-      maxTenants: 10,
-      monthlyRent: property.pricing?.monthly_rent || 0,
-      rating: 0, // Default rating
-      lastUpdated: property.created_at ? new Date(property.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      tenants: property.rooms ? property.rooms.filter(room => !room.is_available).length : 0, // Count of occupied rooms
+      maxTenants: property.rooms ? property.rooms.length : 0, // Total rooms available
+      monthlyRent: property.pricing?.monthly_rent || property.rooms?.reduce((sum, room) => sum + (room.rent || 0), 0) || 0, // Sum of all room rents or property rent
+      totalRooms: property.rooms ? property.rooms.length : 0, // Total number of rooms
+      lastUpdated: property.updated_at ? new Date(property.updated_at).toISOString().split('T')[0] : (property.created_at ? new Date(property.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
       images: allImages,
       hasUploadedImages: hasUploadedImages
     };
@@ -338,24 +381,21 @@ const Properties = () => {
                     <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
                     <span className="truncate">{property.location}</span>
                   </div>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPropertyTypeColor(property.type)}`}>
-                    {property.type}
-                  </span>
                 </div>
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4 text-center">
                   <div>
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{property.tenants}/{property.maxTenants}</div>
-                    <div className="text-xs text-gray-500">Tenants</div>
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{property.totalRooms}</div>
+                    <div className="text-xs text-gray-500">Rooms</div>
                   </div>
                   <div>
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">₹{property.monthlyRent.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Monthly</div>
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{property.type || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">Type</div>
                   </div>
                   <div>
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{property.rating > 0 ? property.rating : 'N/A'}</div>
-                    <div className="text-xs text-gray-500">Rating</div>
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{property.status}</div>
+                    <div className="text-xs text-gray-500">Status</div>
                   </div>
                 </div>
 
@@ -378,6 +418,23 @@ const Properties = () => {
                   >
                     <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Edit
+                  </button>
+                  <button
+                    onClick={() => updatePropertyStatus(property.id, property.status === 'Active' ? 'inactive' : 'active')}
+                    disabled={updatingStatus[property.id]}
+                    className={`flex items-center justify-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors duration-200 ${
+                      property.status === 'Active' 
+                        ? 'text-red-700 bg-red-100 hover:bg-red-200' 
+                        : 'text-green-700 bg-green-100 hover:bg-green-200'
+                    } ${updatingStatus[property.id] ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {updatingStatus[property.id] ? (
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : property.status === 'Active' ? (
+                      <PowerOff className="w-3 h-3 sm:w-4 sm:h-4" />
+                    ) : (
+                      <Power className="w-3 h-3 sm:w-4 sm:h-4" />
+                    )}
                   </button>
                 </div>
 

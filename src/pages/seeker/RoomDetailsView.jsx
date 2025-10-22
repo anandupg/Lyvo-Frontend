@@ -3,6 +3,17 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../../hooks/use-toast';
 import { ArrowLeft, Heart, Share2, User, Mail, Phone } from 'lucide-react';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default marker icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 const RoomDetailsView = () => {
   const { roomId } = useParams();
@@ -29,11 +40,8 @@ const RoomDetailsView = () => {
   const [tenants, setTenants] = useState([]);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [mapCenter, setMapCenter] = useState([0, 0]);
   
-  // Refs for Google Maps
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markerRef = useRef(null);
   const pollIntervalRef = useRef(null);
   
   // Get user ID from localStorage
@@ -241,42 +249,10 @@ const RoomDetailsView = () => {
     }
   };
 
-  // Initialize Google Maps
-  const initializeGoogleMaps = async (coordinates) => {
-    try {
-      // Load Google Maps API if not already loaded
-      if (!window.google || !window.google.maps) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCoPzRJLAmma54BBOyF4AhZ2ZIqGvak8CA&libraries=places,geometry`;
-        script.async = true;
-        script.defer = true;
-        
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      // Initialize map
-      if (mapRef.current && window.google && window.google.maps && coordinates) {
-        const center = { lat: coordinates.lat, lng: coordinates.lng };
-        
-        mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-          center: center,
-          zoom: 15,
-          mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-        });
-
-        // Add marker
-        markerRef.current = new window.google.maps.Marker({
-          position: center,
-          map: mapInstanceRef.current,
-          title: property?.property_name || 'Property Location',
-        });
-      }
-    } catch (error) {
-      console.error('Error initializing Google Maps:', error);
+  // Set map center for Leaflet
+  const setMapCenterFromCoordinates = (coordinates) => {
+    if (coordinates && coordinates.lat && coordinates.lng) {
+      setMapCenter([coordinates.lat, coordinates.lng]);
     }
   };
 
@@ -334,14 +310,12 @@ const RoomDetailsView = () => {
         setProperty(data.data.property);
         setOwner(data.data.owner);
         
-        // Initialize map if coordinates are available
+        // Set map center for Leaflet if coordinates are available
         if (data.data.property?.latitude && data.data.property?.longitude) {
-          setTimeout(() => {
-            initializeGoogleMaps({
-              lat: parseFloat(data.data.property.latitude),
-              lng: parseFloat(data.data.property.longitude)
-            });
-          }, 100);
+          setMapCenterFromCoordinates({
+            lat: parseFloat(data.data.property.latitude),
+            lng: parseFloat(data.data.property.longitude)
+          });
         }
       } else {
         throw new Error(data.message || 'Failed to fetch room details');
@@ -417,6 +391,70 @@ const RoomDetailsView = () => {
       return { isApproved: false, status: 'error' };
     } finally {
       setCheckingAadharStatus(false);
+    }
+  };
+
+  // Handle booking cancellation
+  const handleCancelBooking = async () => {
+    if (!bookingStatus?.bookingId) {
+      toast({
+        title: "Error",
+        description: "No booking found to cancel",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this booking? This action cannot be undone and will remove all booking and tenant records."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setBookingLoading(true);
+      const token = localStorage.getItem('authToken');
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3003';
+      
+      const response = await fetch(`${baseUrl}/api/bookings/${bookingStatus.bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Booking Cancelled",
+          description: "Your booking has been cancelled successfully",
+          variant: "default",
+        });
+        
+        // Reset booking status to show the room as available again
+        setBookingStatus(null);
+        
+        // Optionally refresh the page or navigate back
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Cancellation Failed",
+          description: error.message || "Failed to cancel booking",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while cancelling the booking",
+        variant: "destructive",
+      });
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -923,16 +961,36 @@ const RoomDetailsView = () => {
               </div>
             )}
 
-            {/* Google Map */}
-            {property?.latitude && property?.longitude && (
+            {/* Leaflet Map */}
+            {property?.latitude && property?.longitude && mapCenter[0] !== 0 && mapCenter[1] !== 0 && (
               <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Location</h2>
-                  <div 
-                    ref={mapRef}
-                    className="h-64 w-full rounded-lg overflow-hidden"
-                    style={{ minHeight: '256px' }}
-                  />
+                  <div className="h-64 w-full rounded-lg overflow-hidden relative" style={{ minHeight: '256px', zIndex: 1 }}>
+                    <MapContainer
+                      center={mapCenter}
+                      zoom={15}
+                      style={{ height: '100%', width: '100%', zIndex: 1 }}
+                      scrollWheelZoom={true}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <Marker position={mapCenter}>
+                        <Popup>
+                          <div className="text-center">
+                            <h3 className="font-semibold text-gray-900">{property?.property_name || 'Property Location'}</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {property?.address?.street && `${property.address.street}, `}
+                              {property?.address?.city && `${property.address.city}, `}
+                              {property?.address?.state && `${property.address.state}`}
+                            </p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
                   <p className="text-sm text-gray-600 mt-2">
                     Coordinates: {property.latitude.toFixed(6)}, {property.longitude.toFixed(6)}
                   </p>
@@ -1171,7 +1229,21 @@ const RoomDetailsView = () => {
                           </svg>
                           <span className="font-medium">Booking Confirmed</span>
                         </div>
-                        <p className="text-sm">Your booking has been approved</p>
+                        <p className="text-sm mb-3">Your booking has been approved</p>
+                        <button
+                          onClick={handleCancelBooking}
+                          disabled={bookingLoading}
+                          className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {bookingLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Cancelling...
+                            </div>
+                          ) : (
+                            'Cancel Booking'
+                          )}
+                        </button>
                       </div>
                     )}
                     {bookingStatus.status === 'payment_pending' && (

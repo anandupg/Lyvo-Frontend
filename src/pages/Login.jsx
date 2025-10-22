@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
-import axios from "axios";
+import apiClient from "../utils/apiClient";
 import { getUserFromStorage, getAuthToken, getUserRole, getRedirectUrl } from "../utils/authUtils";
 
 const API_URL = 'http://localhost:4002/api/user';
@@ -83,7 +83,7 @@ const Login = () => {
       setGoogleLoading(true);
       setError(null);
 
-      const result = await axios.post(`${API_URL}/google-signin`, {
+      const result = await apiClient.post(`/google-signin`, {
         credential: response.credential,
         // Don't pass role for login - let backend use existing user's role
       });
@@ -127,7 +127,7 @@ const Login = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post(`${API_URL}/login`, formData);
+      const response = await apiClient.post(`/login`, formData);
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       

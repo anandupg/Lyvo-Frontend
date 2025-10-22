@@ -8,6 +8,7 @@ import Chatbot from "./components/Chatbot";
 import { Toaster } from "./components/ui/toaster";
 import Home from "./pages/Home";
 import { getUserFromStorage, getAuthToken, getUserRole, isPathAllowedForUser, getRedirectUrl } from "./utils/authUtils";
+import { setupErrorSuppression } from "./utils/errorHandler";
 
 import Profile from "./pages/Profile";
 import About from "./pages/About";
@@ -61,6 +62,7 @@ import OwnerSettings from "./pages/owner/Settings";
 import OwnerBookings from "./pages/owner/Bookings";
 import BookingDetails from "./pages/owner/BookingDetails";
 import Tenants from "./pages/owner/Tenants";
+import EditProperty from "./pages/owner/EditProperty";
 import OwnerAnalytics from "./pages/owner/OwnerAnalytics";
 
 // Protected Route Component for Admin
@@ -483,6 +485,11 @@ function AppRoutesWithLoader() {
               <AddProperty />
             </ProtectedOwnerRoute>
           } />
+          <Route path="/owner-edit-property/:id" element={
+            <ProtectedOwnerRoute>
+              <EditProperty />
+            </ProtectedOwnerRoute>
+          } />
           <Route path="/owner-kyc-required" element={
             <ProtectedOwnerRoute>
               <KycRequired />
@@ -629,6 +636,11 @@ function AppContent() {
 }
 
 function App() {
+  // Setup error suppression for common harmless errors
+  useEffect(() => {
+    setupErrorSuppression();
+  }, []);
+
   return (
     <BrowserRouter>
       <RoleRepairProvider>

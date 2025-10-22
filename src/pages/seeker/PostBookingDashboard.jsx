@@ -58,7 +58,8 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  LogIn
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
@@ -81,9 +82,10 @@ const PostBookingDashboard = () => {
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState('');
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkInDate, setCheckInDate] = useState('');
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     fetchBookingDetails();
@@ -605,28 +607,68 @@ const PostBookingDashboard = () => {
     return ((currentStep + 1) / steps.length) * 100;
   };
 
-  const handleCancelBooking = async () => {
-    if (!cancelReason.trim()) {
+  const canCancelBooking = () => {
+    if (!booking) return false;
+    
+    console.log('🔍 Cancel Booking Debug:', {
+      status: booking.status,
+      checkInDate: booking.checkInDate,
+      canCancel: true
+    });
+    
+    // Allow cancellation for pending bookings (not yet approved)
+    if (['pending', 'pending_approval', 'payment_pending'].includes(booking.status)) {
+      console.log('✅ Can cancel: Pending booking');
+      return true;
+    }
+    
+    // For confirmed bookings, check if check-in is more than 24 hours away
+    if (booking.status === 'confirmed') {
+      const checkInDate = new Date(booking.checkInDate);
+      const today = new Date();
+      const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
+      console.log('🔍 Confirmed booking check:', {
+        checkInDate: checkInDate.toISOString(),
+        today: today.toISOString(),
+        daysUntilCheckIn,
+        canCancel: daysUntilCheckIn > 1
+      });
+      return daysUntilCheckIn > 1;
+    }
+    
+    // Cannot cancel rejected or already cancelled bookings
+    console.log('❌ Cannot cancel: Status not allowed');
+    return false;
+  };
+
+  // Cancel booking function
+  const cancelBooking = async () => {
+    if (!booking?._id) {
       toast({
-        title: "Reason Required",
-        description: "Please provide a reason for cancellation",
+        title: "Error",
+        description: "No booking found to cancel",
         variant: "destructive",
       });
       return;
     }
 
-    setIsCancelling(true);
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this booking? This action cannot be undone and will remove all booking and tenant records."
+    );
+
+    if (!confirmed) return;
+
     try {
+      setIsCancelling(true);
+      const token = localStorage.getItem('authToken');
       const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
-      const response = await fetch(`${baseUrl}/api/bookings/${bookingId}/cancel`, {
-        method: 'PUT',
+      
+      const response = await fetch(`${baseUrl}/api/bookings/${booking._id}`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reason: cancelReason,
-          cancelledBy: 'user'
-        }),
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
@@ -636,30 +678,23 @@ const PostBookingDashboard = () => {
           variant: "default",
         });
         
-        // Update booking status locally
-        setBooking(prev => ({
-          ...prev,
-          status: 'cancelled',
-          cancellationReason: cancelReason,
-          cancelledAt: new Date().toISOString()
-        }));
-        
-        setShowCancelModal(false);
-        setCancelReason('');
-        
-        // Redirect to main dashboard after a delay
+        // Navigate back to seeker dashboard
         setTimeout(() => {
           navigate('/seeker-dashboard');
-        }, 2000);
+        }, 1500);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to cancel booking');
+        const error = await response.json();
+        toast({
+          title: "Cancellation Failed",
+          description: error.message || "Failed to cancel booking",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error cancelling booking:', error);
       toast({
-        title: "Cancellation Failed",
-        description: error.message || "Failed to cancel booking. Please try again.",
+        title: "Error",
+        description: "An error occurred while cancelling the booking",
         variant: "destructive",
       });
     } finally {
@@ -667,22 +702,61 @@ const PostBookingDashboard = () => {
     }
   };
 
-  const canCancelBooking = () => {
-    if (!booking) return false;
-    
-    // Allow cancellation for pending bookings (not yet approved)
-    if (booking.status === 'pending') return true;
-    
-    // For confirmed bookings, check if check-in is more than 24 hours away
-    if (booking.status === 'confirmed') {
-      const checkInDate = new Date(booking.checkInDate);
-      const today = new Date();
-      const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
-      return daysUntilCheckIn > 1;
+  // Mark check-in date function
+  const markCheckIn = async () => {
+    if (!booking || !checkInDate) return;
+
+    try {
+      setIsCheckingIn(true);
+      const token = localStorage.getItem('authToken');
+      const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      
+      const response = await fetch(`${baseUrl}/api/bookings/${booking._id}/check-in`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          checkInDate: checkInDate
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Check-in date marked successfully",
+          variant: "default"
+        });
+        // Refresh booking details
+        fetchBookingDetails();
+        // Close modal
+        setShowCheckInModal(false);
+        setCheckInDate('');
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.message || "Failed to mark check-in date",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error marking check-in:', error);
+      toast({
+        title: "Error",
+        description: "Failed to mark check-in date. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCheckingIn(false);
     }
-    
-    // Cannot cancel rejected or already cancelled bookings
-    return false;
+  };
+
+  // Open check-in modal
+  const openCheckInModal = () => {
+    setCheckInDate(booking.checkInDate ? new Date(booking.checkInDate).toISOString().split('T')[0] : '');
+    setShowCheckInModal(true);
   };
 
   if (loading) {
@@ -836,62 +910,72 @@ const PostBookingDashboard = () => {
                   </div>
                 </div>
                 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
-                  <div className="bg-white/70 rounded-lg p-3">
+                {/* Check-in Card and Actions */}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mt-4">
+                  {/* Check-in Card */}
+                  <div className="bg-white/70 rounded-lg p-3 flex-shrink-0">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-blue-600" />
                       <span className="text-xs sm:text-sm font-medium text-gray-600">Check-in</span>
                     </div>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{formatDate(booking.checkInDate)}</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900">
+                      {booking.checkInDate ? formatDate(booking.checkInDate) : 'Not Set'}
+                    </p>
+                    {booking.checkInDate && (
+                      <p className="text-xs text-green-600 font-medium mt-1">
+                        ✓ Check-in Date Marked
+                      </p>
+                    )}
                   </div>
-                  <div className="bg-white/70 rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-orange-600" />
-                      <span className="text-xs sm:text-sm font-medium text-gray-600">Days Remaining</span>
-                    </div>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{getDaysRemaining()} days</p>
-                  </div>
-                  <div className="bg-white/70 rounded-lg p-3 sm:col-span-2 lg:col-span-1">
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4 text-green-600" />
-                      <span className="text-xs sm:text-sm font-medium text-gray-600">Total Paid</span>
-                    </div>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{formatCurrency(booking.totalAmount)}</p>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full lg:w-auto">
+                    {/* Check-in button for confirmed bookings */}
+                    {booking && booking.status === 'confirmed' && (
+                      <button
+                        onClick={openCheckInModal}
+                        className="bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-sm font-medium min-h-[40px]"
+                      >
+                        <LogIn className="w-4 h-4 mr-1" />
+                        Mark Check-in
+                      </button>
+                    )}
+                    
+                    {canCancelBooking() && (
+                      <button
+                        onClick={cancelBooking}
+                        disabled={isCancelling}
+                        className="bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-sm font-medium min-h-[40px] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isCancelling ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+                            <span>Cancelling...</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-4 h-4 mr-1" />
+                            <span>Cancel Booking</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={shareBooking}
+                      className="bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm font-medium min-h-[40px]"
+                    >
+                      <Share2 className="w-4 h-4 mr-1" />
+                      Share
+                    </button>
                   </div>
                 </div>
               </div>
               
-              <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end space-y-3 sm:space-y-0 sm:space-x-3 lg:space-x-0 lg:space-y-3">
+                <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end space-y-3 sm:space-y-0 sm:space-x-3 lg:space-x-0 lg:space-y-3">
                 <span className={`inline-flex items-center px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(booking.status)}`}>
                   {getStatusIcon(booking.status)}
                   <span className="ml-2 capitalize">{booking.status}</span>
                 </span>
-                
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                  {canCancelBooking() && (
-                    <button
-                      onClick={() => setShowCancelModal(true)}
-                      className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-sm"
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      Cancel Booking
-                    </button>
-                  )}
-                  <button
-                    onClick={shareBooking}
-                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
-                  >
-                    <Share2 className="w-4 h-4 mr-1" />
-                    Share
-                  </button>
-                  <button
-                    onClick={() => navigate('/seeker-dashboard')}
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                  >
-                    Back to Dashboard
-                  </button>
-                </div>
               </div>
             </div>
           </motion.div>
@@ -925,16 +1009,6 @@ const PostBookingDashboard = () => {
                       <p className="text-lg font-semibold text-gray-900">{formatDate(booking.checkInDate)}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Check-out Date</label>
-                      <p className="text-lg font-semibold text-gray-900">{formatDate(booking.checkOutDate)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Duration</label>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {Math.ceil((new Date(booking.checkOutDate) - new Date(booking.checkInDate)) / (1000 * 60 * 60 * 24))} days
-                      </p>
-                    </div>
-                    <div>
                       <label className="text-sm font-medium text-gray-500">Payment Status</label>
                       <p className="text-lg font-semibold text-gray-900">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -950,10 +1024,6 @@ const PostBookingDashboard = () => {
                           {booking.payment?.paymentStatus || 'Pending'}
                         </span>
                       </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Total Amount</label>
-                      <p className="text-lg font-semibold text-gray-900">{formatCurrency(booking.totalAmount)}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Booking Status</label>
@@ -1173,12 +1243,6 @@ const PostBookingDashboard = () => {
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Available From:</span>
                                 <span className="font-semibold">{formatDate(room.availableFrom)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Booking Duration:</span>
-                                <span className="font-semibold">
-                                  {Math.ceil((new Date(booking.checkOutDate) - new Date(booking.checkInDate)) / (1000 * 60 * 60 * 24))} days
-                                </span>
                               </div>
                             </div>
                           </div>
@@ -1408,13 +1472,24 @@ const PostBookingDashboard = () => {
                     <Share2 className="w-4 h-4 mr-2" />
                     Share Booking
                   </button>
+                  
                   {canCancelBooking() && (
                     <button 
-                      onClick={() => setShowCancelModal(true)}
-                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                      onClick={cancelBooking}
+                      disabled={isCancelling}
+                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Cancel Booking
+                      {isCancelling ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          <span>Cancelling...</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4 mr-2" />
+                          <span>Cancel Booking</span>
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
@@ -1554,56 +1629,97 @@ const PostBookingDashboard = () => {
         </div>
       </div>
 
-      {/* Cancel Booking Modal */}
-      {showCancelModal && (
+
+      {/* Check-in Modal */}
+      {showCheckInModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="p-6">
-              <div className="flex items-center mb-4">
-                <XCircle className="w-6 h-6 text-red-600 mr-3" />
-                <h3 className="text-lg font-semibold text-gray-900">Cancel Booking</h3>
-              </div>
-              
-              <p className="text-gray-600 mb-4">
-                Are you sure you want to cancel your booking? This action cannot be undone.
-              </p>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for cancellation (required)
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Please provide a reason for cancelling your booking..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex space-x-3">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <LogIn className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Mark Check-in Date</h3>
+                    <p className="text-sm text-gray-500">Select your check-in date</p>
+                  </div>
+                </div>
                 <button
-                  onClick={() => {
-                    setShowCancelModal(false);
-                    setCancelReason('');
-                  }}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
-                  disabled={isCancelling}
+                  onClick={() => setShowCheckInModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={isCheckingIn}
                 >
-                  Keep Booking
+                  <XCircle className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                {/* Booking Details */}
+                {booking && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Booking Details</h4>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <div className="flex justify-between">
+                        <span>Property:</span>
+                        <span className="font-medium">{property?.propertyName || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Room:</span>
+                        <span className="font-medium">Room {room?.roomNumber || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Current Check-in:</span>
+                        <span className="font-medium">{formatDate(booking.checkInDate)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Date Input */}
+                <div className="space-y-2">
+                  <label htmlFor="checkInDate" className="block text-sm font-medium text-gray-700">
+                    Check-in Date *
+                  </label>
+                  <input
+                    type="date"
+                    id="checkInDate"
+                    value={checkInDate}
+                    onChange={(e) => setCheckInDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    disabled={isCheckingIn}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Select the date when you plan to check into the room
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCheckInModal(false)}
+                  disabled={isCheckingIn}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
                 </button>
                 <button
-                  onClick={handleCancelBooking}
-                  disabled={isCancelling || !cancelReason.trim()}
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={markCheckIn}
+                  disabled={isCheckingIn || !checkInDate}
+                  className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isCancelling ? (
+                  {isCheckingIn ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Cancelling...
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Marking...</span>
                     </>
                   ) : (
-                    'Cancel Booking'
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      <span>Mark Check-in</span>
+                    </>
                   )}
                 </button>
               </div>

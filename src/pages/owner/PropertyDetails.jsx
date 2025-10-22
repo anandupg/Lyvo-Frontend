@@ -2,6 +2,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import OwnerLayout from '../../components/owner/OwnerLayout';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default marker icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 import { 
   ArrowLeft,
   MapPin,
@@ -31,7 +42,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
-  ExternalLink
+  ExternalLink,
+  Power,
+  PowerOff
 } from 'lucide-react';
 
 const PropertyDetails = () => {
@@ -55,6 +68,7 @@ const PropertyDetails = () => {
   const [propertyEditLoading, setPropertyEditLoading] = useState(false);
   const [editPropertyData, setEditPropertyData] = useState({});
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const openDocumentPreview = (docUrl, fileName) => {
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
@@ -232,6 +246,47 @@ const PropertyDetails = () => {
         [rule]: value
       }
     }));
+  };
+
+  // Update property status
+  const updatePropertyStatus = async (newStatus) => {
+    try {
+      setUpdatingStatus(true);
+      
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002'}/api/properties/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Update the property in the local state
+          setProperty(prev => ({
+            ...prev,
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          }));
+          console.log('Property status updated successfully');
+        }
+      } else {
+        console.error('Failed to update property status');
+      }
+    } catch (error) {
+      console.error('Error updating property status:', error);
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const handleRoomImageUpload = (event) => {
@@ -867,7 +922,7 @@ const PropertyDetails = () => {
                   <Share2 className="w-5 h-5 text-gray-600" />
                 </button>
                 <button 
-                  onClick={openEditProperty}
+                  onClick={() => navigate(`/owner-edit-property/${property._id || property.id}`)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <Edit className="w-5 h-5 text-gray-600" />
@@ -1274,9 +1329,34 @@ const PropertyDetails = () => {
                   }`}>
                     {property.status === 'active' ? 'Active' : 'Inactive'}
                   </span>
-                  <button className="text-sm text-red-600 hover:text-red-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => updatePropertyStatus(property.status === 'active' ? 'inactive' : 'active')}
+                      disabled={updatingStatus}
+                      className={`flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                        property.status === 'active' 
+                          ? 'text-red-700 bg-red-100 hover:bg-red-200' 
+                          : 'text-green-700 bg-green-100 hover:bg-green-200'
+                      } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {updatingStatus ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : property.status === 'active' ? (
+                        <>
+                          <PowerOff className="w-4 h-4 mr-1" />
+                          Deactivate
+                        </>
+                      ) : (
+                        <>
+                          <Power className="w-4 h-4 mr-1" />
+                          Activate
+                        </>
+                      )}
+                    </button>
+                    <button className="text-sm text-red-600 hover:text-red-700">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1354,16 +1434,31 @@ const PropertyDetails = () => {
                       <p className="text-sm text-gray-500 mb-1">Coordinates</p>
                       <p className="font-mono text-sm bg-gray-100 p-2 rounded">{property.latitude}, {property.longitude}</p>
                     </div>
-                    <button 
-                      onClick={() => {
-                        const googleMapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
-                        window.open(googleMapsUrl, '_blank');
-                      }}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>View on Google Maps</span>
-                    </button>
+                    <div className="h-64 w-full rounded-lg overflow-hidden relative" style={{ minHeight: '256px', zIndex: 1 }}>
+                      <MapContainer
+                        center={[parseFloat(property.latitude), parseFloat(property.longitude)]}
+                        zoom={15}
+                        style={{ height: '100%', width: '100%', zIndex: 1 }}
+                        scrollWheelZoom={true}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[parseFloat(property.latitude), parseFloat(property.longitude)]}>
+                          <Popup>
+                            <div className="text-center">
+                              <h3 className="font-semibold text-gray-900">{property?.property_name || 'Property Location'}</h3>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {property?.address?.street && `${property.address.street}, `}
+                                {property?.address?.city && `${property.address.city}, `}
+                                {property?.address?.state && `${property.address.state}`}
+                              </p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </div>
                   </div>
                 </div>
               )}

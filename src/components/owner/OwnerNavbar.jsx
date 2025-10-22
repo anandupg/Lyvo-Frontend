@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -33,6 +33,7 @@ const getTimeAgo = (dateString) => {
 
 const OwnerNavbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -58,6 +59,11 @@ const OwnerNavbar = ({ onMenuToggle }) => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
+    // Prevent multiple simultaneous requests
+    if (notificationsLoading) {
+      return;
+    }
+
     try {
       setNotificationsLoading(true);
       const authToken = localStorage.getItem('authToken');
@@ -68,6 +74,7 @@ const OwnerNavbar = ({ onMenuToggle }) => {
       }
 
       const baseUrl = import.meta.env.VITE_PROPERTY_SERVICE_API_URL || 'http://localhost:3002';
+      
       const response = await fetch(`${baseUrl}/api/notifications`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -77,7 +84,7 @@ const OwnerNavbar = ({ onMenuToggle }) => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
+        if (data.success && isMountedRef.current) {
           setNotifications(data.data || []);
           setUnreadCount(data.unread_count || 0);
         }
@@ -117,14 +124,27 @@ const OwnerNavbar = ({ onMenuToggle }) => {
     }
   };
 
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Fetch notifications on mount and set up polling
   useEffect(() => {
+    // Initial fetch
     fetchNotifications();
     
-    // Poll for new notifications every 30 seconds
-    const pollInterval = setInterval(fetchNotifications, 30000);
+    // Poll for new notifications every 2 minutes (reduced frequency)
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 120000); // 2 minutes instead of 30 seconds
     
-    return () => clearInterval(pollInterval);
+    // Cleanup function
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Listen for notification events

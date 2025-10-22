@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SeekerLayout from '../../components/seeker/SeekerLayout';
-import { ArrowLeft, MapPin, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Star, Phone, Mail, MessageCircle, Copy, Check } from 'lucide-react';
 
 const SeekerPropertyDetails = () => {
   const { id } = useParams();
@@ -9,6 +9,8 @@ const SeekerPropertyDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [property, setProperty] = useState(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -30,6 +32,17 @@ const SeekerPropertyDetails = () => {
     };
     if (id) load();
   }, [id]);
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -90,6 +103,10 @@ const SeekerPropertyDetails = () => {
               <div className="mt-1 flex items-center text-sm text-gray-600">
                 <MapPin className="w-4 h-4 mr-1" /> {property.address}
               </div>
+              <div className="mt-1 flex items-center text-sm text-gray-600">
+                <span className="font-medium">Owner:</span>
+                <span className="ml-1">{property.ownerName || 'Unknown Owner'}</span>
+              </div>
               <div className="text-xs text-gray-500 mt-1">Lat: {property.latitude} • Lng: {property.longitude}</div>
             </div>
             <div className="flex items-center space-x-2">
@@ -109,6 +126,68 @@ const SeekerPropertyDetails = () => {
           )}
         </div>
 
+        {/* Property Details */}
+        <div className="bg-white border rounded-xl p-5">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Property Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm text-gray-600">Property Type</span>
+                <p className="font-medium text-gray-900">{property.propertyType || 'PG'}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Total Rooms</span>
+                <p className="font-medium text-gray-900">{property.rooms ? property.rooms.length : 0}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Max Occupancy</span>
+                <p className="font-medium text-gray-900">{property.maxOccupancy || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Available Rooms</span>
+                <p className="font-medium text-gray-900">{property.rooms ? property.rooms.filter(room => room.isAvailable).length : 0}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm text-gray-600">Owner</span>
+                <div className="flex items-center space-x-2">
+                  {property.ownerDetails?.profilePicture && (
+                    <img 
+                      src={property.ownerDetails.profilePicture} 
+                      alt="Owner" 
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900">{property.ownerName || 'Unknown Owner'}</p>
+                    {property.ownerDetails?.location && (
+                      <p className="text-xs text-gray-500">{property.ownerDetails.location}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Security Deposit</span>
+                <p className="font-medium text-gray-900">{property.securityDeposit ? `₹${property.securityDeposit.toLocaleString()}` : 'Not specified'}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Starting Rent</span>
+                <p className="font-medium text-gray-900">
+                  {property.rooms && property.rooms.length > 0 
+                    ? `₹${Math.min(...property.rooms.map(room => room.rent || 0)).toLocaleString()}` 
+                    : 'Contact owner'
+                  }
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Listed On</span>
+                <p className="font-medium text-gray-900">{new Date(property.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Amenities */}
         {property.amenities && Object.keys(property.amenities).some(k => property.amenities[k]) && (
           <div className="bg-white border rounded-xl p-5">
@@ -117,6 +196,74 @@ const SeekerPropertyDetails = () => {
               {Object.entries(property.amenities).filter(([,v]) => v === true).map(([k]) => (
                 <span key={k} className="px-2 py-1 bg-gray-100 text-gray-700 rounded">{k}</span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Property Rules */}
+        {property.rules && Object.keys(property.rules).some(k => property.rules[k] !== undefined) && (
+          <div className="bg-white border rounded-xl p-5">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Property Rules</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(property.rules).map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                  <span className={`text-sm font-medium ${value ? 'text-green-600' : 'text-red-600'}`}>
+                    {value ? 'Allowed' : 'Not Allowed'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Owner Information */}
+        {property.ownerDetails && (
+          <div className="bg-white border rounded-xl p-5">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Owner Information</h2>
+            <div className="flex items-start space-x-4">
+              {property.ownerDetails.profilePicture && (
+                <img 
+                  src={property.ownerDetails.profilePicture} 
+                  alt="Owner" 
+                  className="w-16 h-16 rounded-full object-cover"
+                />
+              )}
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-900">{property.ownerDetails.name}</h3>
+                {property.ownerDetails.bio && (
+                  <p className="text-sm text-gray-600 mt-1">{property.ownerDetails.bio}</p>
+                )}
+                <div className="mt-3 space-y-2">
+                  {property.ownerDetails.email && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">Email:</span>
+                      <span className="text-sm text-gray-900">{property.ownerDetails.email}</span>
+                    </div>
+                  )}
+                  {property.ownerDetails.phone && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">Phone:</span>
+                      <span className="text-sm text-gray-900">{property.ownerDetails.phone}</span>
+                    </div>
+                  )}
+                  {property.ownerDetails.location && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">Location:</span>
+                      <span className="text-sm text-gray-900">{property.ownerDetails.location}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => setShowContactModal(true)}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Contact Owner</span>
+              </button>
             </div>
           </div>
         )}
@@ -172,6 +319,119 @@ const SeekerPropertyDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Contact Owner Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Contact Owner</h3>
+                <button
+                  onClick={() => setShowContactModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {property.ownerDetails && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    {property.ownerDetails.profilePicture && (
+                      <img 
+                        src={property.ownerDetails.profilePicture} 
+                        alt="Owner" 
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    )}
+                    <div>
+                      <h4 className="font-medium text-gray-900">{property.ownerDetails.name}</h4>
+                      <p className="text-sm text-gray-600">Property Owner</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {property.ownerDetails.email && (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Mail className="w-5 h-5 text-gray-500" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Email</p>
+                            <p className="text-sm text-gray-600">{property.ownerDetails.email}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(property.ownerDetails.email, 'email')}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          {copiedField === 'email' ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {property.ownerDetails.phone && (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Phone className="w-5 h-5 text-gray-500" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Phone</p>
+                            <p className="text-sm text-gray-600">{property.ownerDetails.phone}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(property.ownerDetails.phone, 'phone')}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          {copiedField === 'phone' ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {property.ownerDetails.location && (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="w-5 h-5 text-gray-500" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Location</p>
+                            <p className="text-sm text-gray-600">{property.ownerDetails.location}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(property.ownerDetails.location, 'location')}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          {copiedField === 'location' ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-gray-500 text-center">
+                      Click the copy button to copy contact information to your clipboard
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </SeekerLayout>
   );
 };
