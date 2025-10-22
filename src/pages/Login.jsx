@@ -22,6 +22,11 @@ const Login = () => {
       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
       if (!clientId || clientId === 'your-google-client-id') {
         console.warn('Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file');
+        // Hide Google sign-in button if no client ID
+        const googleButton = document.getElementById('google-signin-button');
+        if (googleButton) {
+          googleButton.style.display = 'none';
+        }
         return;
       }
 
@@ -53,12 +58,24 @@ const Login = () => {
             );
           } catch (error) {
             console.error('Error initializing Google Sign-In:', error);
+            // Hide Google sign-in button on error
+            const googleButton = document.getElementById('google-signin-button');
+            if (googleButton) {
+              googleButton.style.display = 'none';
+            }
+            toast.error('Google Sign-in is temporarily unavailable. Please use email/password login.');
           }
         }
       };
 
       script.onerror = () => {
         console.error('Failed to load Google Sign-In script');
+        // Hide Google sign-in button on script load error
+        const googleButton = document.getElementById('google-signin-button');
+        if (googleButton) {
+          googleButton.style.display = 'none';
+        }
+        toast.error('Google Sign-in is temporarily unavailable. Please use email/password login.');
       };
     };
 
@@ -83,7 +100,12 @@ const Login = () => {
       setGoogleLoading(true);
       setError(null);
 
-      const result = await apiClient.post(`/google-signin`, {
+      // Check if response has credential
+      if (!response || !response.credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      const result = await apiClient.post(`/user/google-signin`, {
         credential: response.credential,
         // Don't pass role for login - let backend use existing user's role
       });
@@ -100,8 +122,16 @@ const Login = () => {
       // Dispatch login event to update navbar
       window.dispatchEvent(new Event('lyvo-login'));
       
-      // After login, if seeker and required fields missing, open profile-completion modal
+      // After login, check if user needs behavioral questions first
       const u = result.data.user || {};
+      
+      // Check if user is new and hasn't completed behavioral questions
+      if (u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+        navigate('/onboarding');
+        return;
+      }
+      
+      // Then check if seeker needs profile completion
       const needsCompletion = u && u.role === 1 && (!u.phone || !u.location || u.age === undefined || u.age === null || u.age === '' || !u.occupation || !u.gender);
       if (needsCompletion) {
         navigate('/seeker-profile');
@@ -112,7 +142,24 @@ const Login = () => {
       navigate(redirectUrl);
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
+      console.error('Google Sign-in Error:', err);
+      
+      // Handle specific error cases
+      if (err.response?.status === 403) {
+        setError('Google Sign-in is not configured for this domain. Please use email/password login.');
+      } else if (err.response?.status === 400) {
+        setError('Invalid Google credentials. Please try again.');
+      } else if (err.message === 'No credential received from Google') {
+        setError('Google Sign-in failed. Please try again.');
+      } else {
+        setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
+      }
+      
+      // Hide Google sign-in button on persistent errors
+      const googleButton = document.getElementById('google-signin-button');
+      if (googleButton) {
+        googleButton.style.display = 'none';
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -127,7 +174,7 @@ const Login = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post(`/login`, formData);
+      const response = await apiClient.post(`/user/login`, formData);
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
@@ -140,6 +187,14 @@ const Login = () => {
       window.dispatchEvent(new Event('lyvo-login'));
       
       const u = response.data.user || {};
+      
+      // Check if user is new and hasn't completed behavioral questions
+      if (u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+        navigate('/onboarding');
+        return;
+      }
+      
+      // Then check if seeker needs profile completion
       const needsCompletion = u && u.role === 1 && (!u.phone || !u.location || u.age === undefined || u.age === null || u.age === '' || !u.occupation || !u.gender);
       if (needsCompletion) {
         navigate('/seeker-profile');

@@ -84,35 +84,201 @@ const SeekerProfile = () => {
         }
 
         setUser(parsedUser);
-        setProfileData(prev => ({
-          ...prev,
-          name: parsedUser.name || "",
-          email: parsedUser.email || "",
-          profilePicture: parsedUser.profilePicture || "",
-          phone: parsedUser.phone || "",
-          location: parsedUser.location || "",
-          age: parsedUser.age || "",
-          occupation: parsedUser.occupation || "",
-          gender: parsedUser.gender || "",
-          bio: parsedUser.bio || "",
-          isVerified: parsedUser.isVerified || false,
-          trustScore: 95,
-          joinDate: parsedUser.createdAt
-            ? new Date(parsedUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-            : "Recently"
-        }));
-
-        // Force completion modal and enable edit if mandatory fields missing
-        const needsCompletion = [
-          !parsedUser.phone,
-          (parsedUser.age === undefined || parsedUser.age === null || parsedUser.age === ""),
-          !parsedUser.occupation,
-          !parsedUser.gender,
-        ].some(Boolean);
-        if (needsCompletion) {
-          setIsEditing(true);
-          setShowCompletionModal(true);
+        
+        // Debug logging
+        console.log('SeekerProfile: Loading user data from localStorage:', {
+          id: parsedUser._id,
+          name: parsedUser.name,
+          age: parsedUser.age,
+          gender: parsedUser.gender,
+          phone: parsedUser.phone,
+          occupation: parsedUser.occupation
+        });
+        
+        // Check if we need to fetch fresh data from API
+        const shouldFetchFreshData = !parsedUser.age || !parsedUser.gender || !parsedUser.phone || !parsedUser.occupation;
+        console.log('SeekerProfile: Should fetch fresh data from API:', shouldFetchFreshData);
+        console.log('SeekerProfile: Missing fields:', {
+          age: !parsedUser.age,
+          gender: !parsedUser.gender,
+          phone: !parsedUser.phone,
+          occupation: !parsedUser.occupation
+        });
+        
+        // If localStorage data is incomplete, fetch fresh data from API
+        if (shouldFetchFreshData) {
+          try {
+            console.log('SeekerProfile: Fetching fresh user data from API...');
+            const freshResponse = await fetch(
+              `${import.meta.env.VITE_API_URL || "http://localhost:4002/api"}/user/profile/${parsedUser._id}`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`
+                }
+              }
+            );
+            
+            if (freshResponse.ok) {
+              const freshData = await freshResponse.json();
+              console.log('SeekerProfile: Fresh data from API:', freshData);
+              
+              // Update localStorage with fresh data
+              const updatedUser = { ...parsedUser, ...freshData };
+              localStorage.setItem("user", JSON.stringify(updatedUser));
+              setUser(updatedUser);
+              
+              // Use fresh data for profileData
+              setProfileData(prev => ({
+                ...prev,
+                name: freshData.name || "",
+                email: freshData.email || "",
+                profilePicture: freshData.profilePicture || "",
+                phone: freshData.phone || "",
+                location: freshData.location || "",
+                age: freshData.age || "",
+                occupation: freshData.occupation || "",
+                gender: freshData.gender || "",
+                bio: freshData.bio || "",
+                isVerified: freshData.isVerified || false,
+                trustScore: 95,
+                joinDate: freshData.createdAt
+                  ? new Date(freshData.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                  : "Recently"
+              }));
+              
+              // Check profile completion with fresh data
+              const needsCompletion = [
+                !freshData.phone,
+                (freshData.age === undefined || freshData.age === null || freshData.age === ""),
+                !freshData.occupation,
+                !freshData.gender,
+              ].some(Boolean);
+              
+              console.log('SeekerProfile: Profile completion check with fresh data:', {
+                phone: freshData.phone,
+                age: freshData.age,
+                occupation: freshData.occupation,
+                gender: freshData.gender,
+                needsCompletion
+              });
+              
+              if (needsCompletion) {
+                setIsEditing(true);
+                setShowCompletionModal(true);
+              }
+            } else {
+              console.error('SeekerProfile: Failed to fetch fresh data from API');
+              // Fall back to localStorage data
+              setProfileData(prev => ({
+                ...prev,
+                name: parsedUser.name || "",
+                email: parsedUser.email || "",
+                profilePicture: parsedUser.profilePicture || "",
+                phone: parsedUser.phone || "",
+                location: parsedUser.location || "",
+                age: parsedUser.age || "",
+                occupation: parsedUser.occupation || "",
+                gender: parsedUser.gender || "",
+                bio: parsedUser.bio || "",
+                isVerified: parsedUser.isVerified || false,
+                trustScore: 95,
+                joinDate: parsedUser.createdAt
+                  ? new Date(parsedUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                  : "Recently"
+              }));
+              
+              // Check profile completion with localStorage data
+              const needsCompletion = [
+                !parsedUser.phone,
+                (parsedUser.age === undefined || parsedUser.age === null || parsedUser.age === ""),
+                !parsedUser.occupation,
+                !parsedUser.gender,
+              ].some(Boolean);
+              
+              if (needsCompletion) {
+                setIsEditing(true);
+                setShowCompletionModal(true);
+              }
+            }
+          } catch (error) {
+            console.error('SeekerProfile: Error fetching fresh data:', error);
+            // Fall back to localStorage data
+            setProfileData(prev => ({
+              ...prev,
+              name: parsedUser.name || "",
+              email: parsedUser.email || "",
+              profilePicture: parsedUser.profilePicture || "",
+              phone: parsedUser.phone || "",
+              location: parsedUser.location || "",
+              age: parsedUser.age || "",
+              occupation: parsedUser.occupation || "",
+              gender: parsedUser.gender || "",
+              bio: parsedUser.bio || "",
+              isVerified: parsedUser.isVerified || false,
+              trustScore: 95,
+              joinDate: parsedUser.createdAt
+                ? new Date(parsedUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                : "Recently"
+            }));
+            
+            // Check profile completion with localStorage data
+            const needsCompletion = [
+              !parsedUser.phone,
+              (parsedUser.age === undefined || parsedUser.age === null || parsedUser.age === ""),
+              !parsedUser.occupation,
+              !parsedUser.gender,
+            ].some(Boolean);
+            
+            if (needsCompletion) {
+              setIsEditing(true);
+              setShowCompletionModal(true);
+            }
+          }
+        } else {
+          // Use localStorage data directly
+          setProfileData(prev => ({
+            ...prev,
+            name: parsedUser.name || "",
+            email: parsedUser.email || "",
+            profilePicture: parsedUser.profilePicture || "",
+            phone: parsedUser.phone || "",
+            location: parsedUser.location || "",
+            age: parsedUser.age || "",
+            occupation: parsedUser.occupation || "",
+            gender: parsedUser.gender || "",
+            bio: parsedUser.bio || "",
+            isVerified: parsedUser.isVerified || false,
+            trustScore: 95,
+            joinDate: parsedUser.createdAt
+              ? new Date(parsedUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+              : "Recently"
+          }));
+          
+          // Check profile completion with localStorage data
+          const needsCompletion = [
+            !parsedUser.phone,
+            (parsedUser.age === undefined || parsedUser.age === null || parsedUser.age === ""),
+            !parsedUser.occupation,
+            !parsedUser.gender,
+          ].some(Boolean);
+          
+          console.log('SeekerProfile: Profile completion check with localStorage data:', {
+            phone: parsedUser.phone,
+            age: parsedUser.age,
+            occupation: parsedUser.occupation,
+            gender: parsedUser.gender,
+            needsCompletion
+          });
+          
+          if (needsCompletion) {
+            setIsEditing(true);
+            setShowCompletionModal(true);
+          }
         }
+
+        // Note: Profile completion check will be done after fresh data fetch if needed
       } catch (error) {
         console.error('SeekerProfile: Error in fetchUserData:', error);
         setError(`An error occurred: ${error.message}`);
@@ -170,6 +336,20 @@ const SeekerProfile = () => {
         throw new Error("No authentication token found");
       }
 
+      const updatePayload = {
+        name: profileData.name,
+        phone: profileData.phone,
+        // location removed from mandatory updates
+        age: profileData.age ? Number(profileData.age) : null,
+        occupation: profileData.occupation,
+        gender: profileData.gender || null,
+        bio: profileData.bio
+      };
+      
+      console.log('SeekerProfile: Sending update payload:', updatePayload);
+      console.log('SeekerProfile: User ID being used:', user._id);
+      console.log('SeekerProfile: API URL:', `${import.meta.env.VITE_API_URL || "http://localhost:4002/api"}/user/profile/${user._id}`);
+      
       const response = await fetch(
         `${import.meta.env.VITE_API_URL || "http://localhost:4002/api"}/user/profile/${user._id}`,
         {
@@ -178,15 +358,7 @@ const SeekerProfile = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({
-            name: profileData.name,
-            phone: profileData.phone,
-            // location removed from mandatory updates
-            age: profileData.age ? Number(profileData.age) : null,
-            occupation: profileData.occupation,
-            gender: profileData.gender || null,
-            bio: profileData.bio
-          })
+          body: JSON.stringify(updatePayload)
         }
       );
 
@@ -196,10 +368,35 @@ const SeekerProfile = () => {
       }
 
       const result = await response.json();
+      console.log('SeekerProfile: API response:', result);
+      
       const currentUser = JSON.parse(localStorage.getItem("user"));
       const updatedUser = { ...currentUser, ...result.user };
       localStorage.setItem("user", JSON.stringify(updatedUser));
       setUser(updatedUser);
+      
+      // Update profileData state with the new values
+      setProfileData(prev => ({
+        ...prev,
+        name: result.user.name || "",
+        email: result.user.email || "",
+        profilePicture: result.user.profilePicture || "",
+        phone: result.user.phone || "",
+        location: result.user.location || "",
+        age: result.user.age || "",
+        occupation: result.user.occupation || "",
+        gender: result.user.gender || "",
+        bio: result.user.bio || "",
+        isVerified: result.user.isVerified || false
+      }));
+      
+      console.log('SeekerProfile: Updated profileData:', {
+        age: result.user.age,
+        gender: result.user.gender,
+        phone: result.user.phone,
+        occupation: result.user.occupation
+      });
+      
       setIsEditing(false);
       setSaveStatus({ type: "success", message: "Profile updated successfully!" });
       window.dispatchEvent(new Event("lyvo-profile-update"));

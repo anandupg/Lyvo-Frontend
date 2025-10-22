@@ -5,7 +5,6 @@ import {
   Menu, 
   Bell, 
   User, 
-  Settings,
   LogOut,
   X
 } from 'lucide-react';
@@ -180,7 +179,22 @@ const SeekerNavbar = ({ onMenuToggle }) => {
     // Poll for new notifications every 30 seconds
     const pollInterval = setInterval(fetchNotifications, 30000);
     
-    return () => clearInterval(pollInterval);
+    // Track intervals for cleanup
+    if (!window.lyvoIntervals) {
+      window.lyvoIntervals = [];
+    }
+    window.lyvoIntervals.push(pollInterval);
+    
+    return () => {
+      clearInterval(pollInterval);
+      // Remove from tracking array
+      if (window.lyvoIntervals) {
+        const index = window.lyvoIntervals.indexOf(pollInterval);
+        if (index > -1) {
+          window.lyvoIntervals.splice(index, 1);
+        }
+      }
+    };
   }, []);
 
   // Listen for notification events
@@ -196,6 +210,11 @@ const SeekerNavbar = ({ onMenuToggle }) => {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if clicking on logout button or profile button
+      if (event.target.closest('[data-logout-button]') || event.target.closest('[data-profile-button]')) {
+        return;
+      }
+      
       if (!event.target.closest('.dropdown-container')) {
         setShowProfileMenu(false);
         setShowNotifications(false);
@@ -207,10 +226,14 @@ const SeekerNavbar = ({ onMenuToggle }) => {
   }, []);
 
   const handleLogout = () => {
+    console.log('🔄 Navbar handleLogout called');
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    console.log('📡 Dispatching logout event...');
     window.dispatchEvent(new Event('lyvo-logout'));
+    console.log('🚀 Navigating to login...');
     navigate('/login');
+    console.log('✅ Navbar logout completed');
   };
 
   return (
@@ -407,23 +430,26 @@ const SeekerNavbar = ({ onMenuToggle }) => {
                     <div className="py-2">
                       <Link
                         to="/seeker-profile"
+                        data-profile-button
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowProfileMenu(false)}
+                        onClick={() => {
+                          console.log('🔄 Profile button clicked');
+                          setShowProfileMenu(false);
+                        }}
                       >
                         <User className="w-4 h-4 mr-3" />
                         Profile
                       </Link>
-                      <Link
-                        to="/seeker-settings"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowProfileMenu(false)}
-                      >
-                        <Settings className="w-4 h-4 mr-3" />
-                        Settings
-                      </Link>
                       <hr className="my-2" />
                       <button
-                        onClick={handleLogout}
+                        data-logout-button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('🔄 Navbar logout button clicked');
+                          setShowProfileMenu(false);
+                          handleLogout();
+                        }}
                         className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4 mr-3" />

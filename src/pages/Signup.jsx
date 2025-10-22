@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, CheckCircle, Shield, X, Check } from "lucide-react";
-import axios from "axios";
+import apiClient from "../utils/apiClient";
 
 const API_URL = 'http://localhost:4002/api/user';
 
@@ -89,7 +89,7 @@ const Signup = () => {
       setError(null);
       setSuccess(null);
 
-      const result = await axios.post(`${API_URL}/google-signin`, {
+      const result = await apiClient.post(`/user/google-signin`, {
         credential: response.credential,
         role: 1, // Set role as seeker for regular signup
       });
@@ -110,7 +110,11 @@ const Signup = () => {
       }
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
+      if (err.response?.data?.errorCode === 'ROLE_CONFLICT') {
+        setError(err.response.data.message);
+      } else {
+        setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -478,7 +482,7 @@ const Signup = () => {
     setSuccess(null);
     
     try {
-      const response = await axios.post(`${API_URL}/register`, formData);
+      const response = await apiClient.post(`/user/register`, formData);
       
       // Show success message instead of automatically logging in
       setSuccess(response.data.message);

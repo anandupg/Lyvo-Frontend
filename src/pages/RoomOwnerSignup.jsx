@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, CheckCircle, Shield, X, Check } from "lucide-react";
-import axios from "axios";
+import apiClient from "../utils/apiClient";
 
 const API_URL = 'http://localhost:4002/api/user';
 
@@ -33,8 +33,10 @@ const RoomOwnerSignup = () => {
     const loadGoogleScript = () => {
       // Check if Google Client ID is configured
       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      console.log('RoomOwnerSignup: Google Client ID:', clientId);
+      
       if (!clientId || clientId === 'your-google-client-id') {
-        console.warn('Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file');
+        console.warn('RoomOwnerSignup: Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file');
         return;
       }
 
@@ -45,8 +47,10 @@ const RoomOwnerSignup = () => {
       document.head.appendChild(script);
 
       script.onload = () => {
+        console.log('RoomOwnerSignup: Google script loaded successfully');
         if (window.google) {
           try {
+            console.log('RoomOwnerSignup: Initializing Google Sign-In with client ID:', clientId);
             window.google.accounts.id.initialize({
               client_id: clientId,
               callback: handleGoogleSignIn,
@@ -64,14 +68,17 @@ const RoomOwnerSignup = () => {
                 width: '100%',
               }
             );
+            console.log('RoomOwnerSignup: Google Sign-In button rendered successfully');
           } catch (error) {
-            console.error('Error initializing Google Sign-In:', error);
+            console.error('RoomOwnerSignup: Error initializing Google Sign-In:', error);
+            setError('Failed to initialize Google Sign-In. Please refresh the page and try again.');
           }
         }
       };
 
       script.onerror = () => {
-        console.error('Failed to load Google Sign-In script');
+        console.error('RoomOwnerSignup: Failed to load Google Sign-In script');
+        setError('Failed to load Google Sign-In. Please check your internet connection.');
       };
     };
 
@@ -84,11 +91,30 @@ const RoomOwnerSignup = () => {
       setError(null);
       setSuccess(null);
 
-      const result = await axios.post(`${API_URL}/google-signin`, {
+      console.log('RoomOwnerSignup: Google Sign-in attempt for owner...');
+      console.log('RoomOwnerSignup: Response received:', {
+        hasCredential: !!response?.credential,
+        credentialLength: response?.credential ? response.credential.length : 0,
+        responseKeys: Object.keys(response || {})
+      });
+      
+      if (!response || !response.credential) {
+        throw new Error('No credential received from Google');
+      }
+      
+      console.log('RoomOwnerSignup: Making API call to:', `/user/google-signin`);
+      console.log('RoomOwnerSignup: Request payload:', {
+        credential: response.credential.substring(0, 50) + '...',
+        role: 3
+      });
+      
+      const result = await apiClient.post(`/user/google-signin`, {
         credential: response.credential,
         role: 3, // Set role as property owner
       });
 
+      console.log('RoomOwnerSignup: Google Sign-in successful:', result.data);
+      
       // Store user data and token
       localStorage.setItem('authToken', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
@@ -100,7 +126,30 @@ const RoomOwnerSignup = () => {
       navigate('/owner-dashboard');
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
+      console.error('RoomOwnerSignup: Google Sign-in error:', err);
+      console.error('RoomOwnerSignup: Full error details:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        code: err.code
+      });
+      
+      if (err.response?.data?.errorCode === 'ROLE_CONFLICT') {
+        setError(err.response.data.message);
+      } else if (err.message === 'No credential received from Google') {
+        setError('Google Sign-in failed. Please try again.');
+      } else if (err.response?.status === 403) {
+        setError('Google Sign-in is not configured for this domain. Please use email/password signup.');
+      } else if (err.response?.status === 400) {
+        setError('Invalid Google credentials. Please try again.');
+      } else if (err.code === 'ERR_NETWORK') {
+        setError('Network error. Please check your connection and try again.');
+      } else if (err.response?.status === 500) {
+        setError(`Server error: ${err.response?.data?.message || 'Please try again or use email/password signup.'}`);
+      } else {
+        setError(err.response?.data?.message || 'Google sign-in failed. Please try email/password signup.');
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -324,7 +373,7 @@ const RoomOwnerSignup = () => {
     try {
       // Add role: 3 for property owners
       const signupData = { ...formData, role: 3 };
-      const response = await axios.post(`${API_URL}/register`, signupData);
+      const response = await apiClient.post(`/user/register`, signupData);
       
       // Show success message instead of automatically logging in
       setSuccess(response.data.message);
