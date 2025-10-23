@@ -125,8 +125,20 @@ const Login = () => {
       // After login, check if user needs behavioral questions first
       const u = result.data.user || {};
       
+      // DEBUG: Log user data for troubleshooting
+      console.log('Login: User data after Google sign-in:', {
+        role: u.role,
+        roleType: typeof u.role,
+        isNewUser: u.isNewUser,
+        hasCompletedBehaviorQuestions: u.hasCompletedBehaviorQuestions,
+        email: u.email,
+        name: u.name
+      });
+      
       // Check if user is new and hasn't completed behavioral questions
-      if (u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+      // ONLY for seekers (role 1) - admins and owners go directly to their dashboards
+      if (u.role === 1 && u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+        console.log('Login: Redirecting seeker to onboarding for behavioral questions');
         navigate('/onboarding');
         return;
       }
@@ -139,6 +151,11 @@ const Login = () => {
       }
 
       const redirectUrl = getRedirectUrl(u);
+      console.log('Login: Final redirect URL for Google sign-in user:', {
+        role: u.role,
+        redirectUrl: redirectUrl,
+        userData: u
+      });
       navigate(redirectUrl);
       
     } catch (err) {
@@ -188,8 +205,20 @@ const Login = () => {
       
       const u = response.data.user || {};
       
+      // DEBUG: Log user data for troubleshooting
+      console.log('Login: User data after regular login:', {
+        role: u.role,
+        roleType: typeof u.role,
+        isNewUser: u.isNewUser,
+        hasCompletedBehaviorQuestions: u.hasCompletedBehaviorQuestions,
+        email: u.email,
+        name: u.name
+      });
+      
       // Check if user is new and hasn't completed behavioral questions
-      if (u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+      // ONLY for seekers (role 1) - admins and owners go directly to their dashboards
+      if (u.role === 1 && u.isNewUser && !u.hasCompletedBehaviorQuestions) {
+        console.log('Login: Redirecting seeker to onboarding for behavioral questions');
         navigate('/onboarding');
         return;
       }
@@ -202,6 +231,11 @@ const Login = () => {
       }
 
       const redirectUrl = getRedirectUrl(u);
+      console.log('Login: Final redirect URL for regular login user:', {
+        role: u.role,
+        redirectUrl: redirectUrl,
+        userData: u
+      });
       navigate(redirectUrl);
     } catch (err) {
       setError(err.response?.data?.message || 'An unexpected error occurred.');

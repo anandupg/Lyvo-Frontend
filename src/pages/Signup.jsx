@@ -334,21 +334,29 @@ const Signup = () => {
       console.log('Email check response:', data);
       
       if (response.ok) {
-        setEmailExists(data.exists);
-        setEmailInfo(data);
-        
-        if (data.exists) {
-          // Only show error if user is verified
-          if (data.isVerified) {
-            setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
-            setCompletedFields(prev => ({ ...prev, email: false }));
-          } else {
-            // User exists but not verified - allow registration
-            setErrors(prev => ({ ...prev, email: '' }));
-            // Allow unverified users to proceed regardless of email format
-            setCompletedFields(prev => ({ ...prev, email: true }));
-          }
+        if (data.exists === true) {
+          // User exists and is verified - show error
+          setEmailExists(true);
+          setEmailInfo({ 
+            isVerified: true, 
+            note: 'This email is already registered. Please use a different email or try logging in.' 
+          });
+          setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
+          setCompletedFields(prev => ({ ...prev, email: false }));
+        } else if (data.isUnverified === true) {
+          // User exists but not verified - allow registration
+          setEmailExists(true);
+          setEmailInfo({ 
+            isUnverified: true, 
+            note: 'This email was previously registered but not verified. You can register again.' 
+          });
+          setErrors(prev => ({ ...prev, email: '' }));
+          // Allow unverified users to proceed regardless of email format
+          setCompletedFields(prev => ({ ...prev, email: true }));
         } else {
+          // Email is completely new and available
+          setEmailExists(false);
+          setEmailInfo(null);
           setErrors(prev => ({ ...prev, email: '' }));
           // Re-validate email format
           const emailError = validateEmail(email);

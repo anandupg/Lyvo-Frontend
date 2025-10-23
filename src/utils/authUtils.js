@@ -141,17 +141,31 @@ export const isAuthenticated = () => {
 export const getRedirectUrl = (user) => {
   const userRole = getUserRole(user);
   
+  console.log('getRedirectUrl: Processing user:', {
+    userRole: userRole,
+    userRoleType: typeof userRole,
+    isNewUser: user?.isNewUser,
+    hasCompletedBehaviorQuestions: user?.hasCompletedBehaviorQuestions,
+    userEmail: user?.email,
+    rawUser: user
+  });
+  
   switch (userRole) {
     case 2: // Admin
+      console.log('getRedirectUrl: Redirecting admin to /admin-dashboard');
       return '/admin-dashboard';
     case 3: // Owner
+      console.log('getRedirectUrl: Redirecting owner to /owner-dashboard');
       return '/owner-dashboard';
     case 1: // Seeker
       if (user.isNewUser && !user.hasCompletedBehaviorQuestions) {
+        console.log('getRedirectUrl: Redirecting new seeker to /seeker-onboarding');
         return '/seeker-onboarding';
       }
+      console.log('getRedirectUrl: Redirecting seeker to /seeker-dashboard');
       return '/seeker-dashboard';
     default:
+      console.log('getRedirectUrl: Unknown role, redirecting to /login');
       return '/login';
   }
 };
